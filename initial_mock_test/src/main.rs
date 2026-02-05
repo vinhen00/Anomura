@@ -18,7 +18,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
-use std::fs;
+use std::fs::File;
+use std::io::Read;
 
 use rustc_ast::mut_visit::MutVisitor;
 use rustc_ast_pretty::pprust::item_to_string;
@@ -50,31 +51,15 @@ impl MutVisitor for DubReplacer {
 
 impl rustc_span::source_map::FileLoader for MyFileLoader {
     fn file_exists(&self, path: &Path) -> bool {
-        path == Path::new("main.rs")
+        path == Path::new("mock_test.rs")
     }
 
     fn read_file(&self, path: &Path) -> io::Result<String> {
-        if path == Path::new("main.rs") {
-            Ok(r#"
-fn main() {
-    let trips = trip(5);
-    let message = dub(8);
-    println!("{message}");
-}
-
-fn trip(x: i32) -> i32{
-    return x*3;
-}
-
-fn dub(x: i32) -> i32{
-    return x*2;
-}
-
-fn mocked_dub(x: i32) -> i32 {
-    return x*4;
-}
-"#
-            .to_string())
+        if path == Path::new("mock_test.rs") {
+            let mut file = File::open("src/mock_test.rs")?;
+            let mut contents = String::new();
+            file.read_to_string(&mut contents)?;
+            Ok(contents)
         } else {
             Err(io::Error::other("oops"))
         }
@@ -162,7 +147,7 @@ fn main() {
     run_compiler(
         &[
             "ignored".to_string(),
-            "main.rs".to_string(),
+            "mock_test.rs".to_string(),
             "--crate-type".to_string(),
             "bin".to_string(),
             "-o".to_string(),
