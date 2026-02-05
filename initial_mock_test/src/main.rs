@@ -71,7 +71,7 @@ fn dub(x: i32) -> i32{
 }
 
 fn mocked_dub(x: i32) -> i32 {
-    return 15;
+    return x*4;
 }
 "#
             .to_string())
