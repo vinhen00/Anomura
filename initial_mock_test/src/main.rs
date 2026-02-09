@@ -32,16 +32,23 @@ use rustc_span::symbol::Ident;
 struct MyFileLoader;
 
 // MutVisitor to replace function calls from "dub" to "mocked_dub"
-struct DubReplacer;
+struct MockReplacer{
+    mocklist: Vec<String>,
+}
 
-impl MutVisitor for DubReplacer {
+impl MutVisitor for MockReplacer {
     fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
         if let rustc_ast::ExprKind::Call(func, _args) = &mut expr.kind {
             if let rustc_ast::ExprKind::Path(_, path) = &mut func.kind {
                 if let Some(seg) = path.segments.first_mut() {
-                    if seg.ident.name.as_str() == "dub" {
-                        seg.ident = Ident::new(rustc_span::Symbol::intern("mocked_dub"), seg.ident.span);
+                    let funcname = seg.ident.name.to_string();
+                    if self.mocklist.contains(&funcname) {
+                        let mockname = format!("mocked_{}", funcname);
+                        seg.ident = Ident::new(rustc_span::Symbol::intern(&mockname), seg.ident.span);
                     }
+                    // if seg.ident.name.as_str() == "dub" {
+                    //     seg.ident = Ident::new(rustc_span::Symbol::intern("mocked_dub"), seg.ident.span);
+                    // }
                 }
             }
         }
@@ -96,7 +103,12 @@ impl rustc_driver::Callbacks for MyCallbacks {
         }
 
         // Replace dub with mocked_dub in the AST
-        let mut replacer = DubReplacer;
+        let mut replacer = MockReplacer {
+            mocklist: vec![
+                "dub".to_string(),
+                "trip".to_string(),
+            ],
+        };
         replacer.visit_crate(krate);
 
         // Print modified AST to verify changes
