@@ -31,6 +31,35 @@ use rustc_span::symbol::Ident;
 
 struct MyFileLoader;
 
+impl rustc_span::source_map::FileLoader for MyFileLoader {
+    fn file_exists(&self, path: &std::path::Path) -> bool {
+        path == std::path::Path::new("mock_test.rs") || path == std::path::Path::new("mock_defs.rs")
+    }
+
+    fn read_file(&self, path: &std::path::Path) -> std::io::Result<String> {
+        if path == std::path::Path::new("mock_test.rs") {
+            let mut file = std::fs::File::open("src/mock_test.rs")?;
+            let mut contents = String::new();
+            file.read_to_string(&mut contents)?;
+            Ok(contents)
+        } else if path == std::path::Path::new("mock_defs.rs") {
+            let mut file = std::fs::File::open("src/mock_defs.rs")?;
+            let mut contents = String::new();
+            file.read_to_string(&mut contents)?;
+            Ok(contents)
+        } else {
+            Err(std::io::Error::other("oops"))
+        }
+    }
+
+    fn read_binary_file(&self, _path: &std::path::Path) -> std::io::Result<std::sync::Arc<[u8]>> {
+        Err(std::io::Error::other("oops"))
+    }
+
+    fn current_directory(&self) -> Result<std::path::PathBuf, std::io::Error> {
+        Ok(std::path::PathBuf::from("."))
+    }
+}
 // MutVisitor to replace function calls from "dub" to "mocked_dub"
 struct MockReplacer{
     mocklist: Vec<String>,
@@ -46,9 +75,6 @@ impl MutVisitor for MockReplacer {
                         let mockname = format!("mocked_{}", funcname);
                         seg.ident = Ident::new(rustc_span::Symbol::intern(&mockname), seg.ident.span);
                     }
-                    // if seg.ident.name.as_str() == "dub" {
-                    //     seg.ident = Ident::new(rustc_span::Symbol::intern("mocked_dub"), seg.ident.span);
-                    // }
                 }
             }
         }
@@ -56,34 +82,12 @@ impl MutVisitor for MockReplacer {
     }
 }
 
-impl rustc_span::source_map::FileLoader for MyFileLoader {
-    fn file_exists(&self, path: &Path) -> bool {
-        path == Path::new("mock_test.rs")
-    }
 
-    fn read_file(&self, path: &Path) -> io::Result<String> {
-        if path == Path::new("mock_test.rs") {
-            let mut file = File::open("src/mock_test.rs")?;
-            let mut contents = String::new();
-            file.read_to_string(&mut contents)?;
-            Ok(contents)
-        } else {
-            Err(io::Error::other("oops"))
-        }
-    }
-
-    fn read_binary_file(&self, _path: &Path) -> io::Result<Arc<[u8]>> {
-        Err(io::Error::other("oops"))
-    }
-
-    fn current_directory(&self) -> Result<PathBuf, std::io::Error> {
-        Ok(PathBuf::from("."))
-    }
+struct CompileMocks {
+    mocks: Vec<(rustc_span::symbol::Ident, std::boxed::Box<rustc_ast::Block>)>,
 }
 
-struct MyCallbacks;
-
-impl rustc_driver::Callbacks for MyCallbacks {
+impl rustc_driver::Callbacks for CompileMocks {
     fn config(&mut self, config: &mut Config) {
         config.file_loader = Some(Box::new(MyFileLoader));
         config.opts.crate_types = vec![CrateType::Executable];
@@ -96,66 +100,73 @@ impl rustc_driver::Callbacks for MyCallbacks {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
-        // Print original AST
-        println!("=== BEFORE MODIFICATIONS ===");
         for item in &krate.items {
-            println!("{}", item_to_string(&item));
+            if let rustc_ast::ItemKind::Fn(fn_data) = &item.kind {
+                if let Some(block) = &fn_data.body {
+                    let body = block;
+                    let id = fn_data.ident;
+                    if id.name.as_str() != "main" {
+                        println!("Found function {}", id.name);
+                        self.mocks.push((id.clone(), block.clone()));
+                        println!("{:#?}", fn_data.sig)
+
+                    }
+
+                }        
+            }
+
         }
+        Compilation::Stop
+    }
+}
 
-        // Replace dub with mocked_dub in the AST
-        let mut replacer = MockReplacer {
-            mocklist: vec![
-                "dub".to_string(),
-                "trip".to_string(),
-            ],
-        };
-        replacer.visit_crate(krate);
+struct FunctionIntercept{
+    mocks: Vec<(rustc_span::symbol::Ident, std::boxed::Box<rustc_ast::Block>)>,
+}
 
-        // Print modified AST to verify changes
-        println!("\n=== AFTER MODIFICATIONS ===");
-        for item in &krate.items {
-            println!("{}", item_to_string(&item));
-        }
-
-        Compilation::Continue
+impl rustc_driver::Callbacks for FunctionIntercept {
+    fn config(&mut self, config: &mut Config) {
+        config.file_loader = Some(Box::new(MyFileLoader));
+        config.opts.crate_types = vec![CrateType::Executable];
+        // Set output directory
+        config.opts.search_paths.clear();
     }
 
-    fn after_analysis(&mut self, _compiler: &Compiler, tcx: TyCtxt<'_>) -> Compilation {
-        // Iterate over the top-level items in the crate, looking for the main function.
-        for id in tcx.hir_free_items() {
-            let item = &tcx.hir_item(id);
-            // Use pattern-matching to find a specific node inside the main function.
-            if let rustc_hir::ItemKind::Fn { body, .. } = item.kind {
-                let expr = &tcx.hir_body(body).value;
-                if let rustc_hir::ExprKind::Block(block, _) = expr.kind {
-                    for stmt in block.stmts {   //loop through stmts in main
-                        if let rustc_hir::StmtKind::Let(let_stmt) = stmt.kind {
-                            if let Some(expr) = let_stmt.init { //find let stmts
-                                let hir_id = expr.hir_id;
-                                let def_id = item.hir_id().owner.def_id;
-                                let ty = tcx.typeck(def_id).node_type(hir_id);
-                                if let rustc_hir::ExprKind::Call(func,_args) = expr.kind { //only check call expr
-                                    if let rustc_hir::ExprKind::Path(rustc_hir::QPath::Resolved(_,path)) = func.kind {
-                                        let func_ident = path.segments[0].ident;
-                                        let func_name = func_ident.name.as_str();
-                                        if func_name == "mocked_dub" {
-                                            println!("{func_ident} has been mocked");
-                                        }
-                                        println!("{expr:#?}: {ty:?}");
-                                    }
-                                }
-                            }
-                        }
+    fn after_crate_root_parsing(
+        &mut self,
+        _compiler: &Compiler,
+        krate: &mut rustc_ast::Crate,
+    ) -> Compilation {
+        for item in &mut krate.items {
+            if let rustc_ast::ItemKind::Fn(fn_data) = &mut item.kind {
+                for (ident, block) in &self.mocks{
+                    println!("{:#?} compared to {:#?}", ident, fn_data.ident);
+                    if fn_data.ident.name.as_str() == ident.name.as_str() {
+                        println!("Mocking {:#?}", fn_data.ident);
+                        fn_data.body = Some(block.clone());
                     }
                 }
             }
-        }
 
+        }
         Compilation::Continue
     }
 }
 
 fn main() {
+    let mut mockedFuns = CompileMocks {mocks: Vec::new()};
+    run_compiler(
+        &[
+            "ignored".to_string(),
+            "mock_defs.rs".to_string(),
+            "--crate-type".to_string(),
+            "bin".to_string(),
+            "-o".to_string(),
+            "./target/mocked_main".to_string(),
+        ],
+        &mut mockedFuns,
+    );
+    let mut insertion = FunctionIntercept {mocks: mockedFuns.mocks};
     run_compiler(
         &[
             "ignored".to_string(),
@@ -165,9 +176,9 @@ fn main() {
             "-o".to_string(),
             "./target/mocked_main".to_string(),
         ],
-        &mut MyCallbacks,
+        &mut insertion,
     );
-    
+
     // Run the compiled executable
     println!("\n=== RUNNING COMPILED PROGRAM ===");
     let output = Command::new("./target/mocked_main")

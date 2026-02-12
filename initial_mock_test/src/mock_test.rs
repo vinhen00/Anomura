@@ -1,23 +1,11 @@
 
 
 fn main() {
-    let trips = trip(5);
-    let message = dub(8);
-    println!("{trips}");
+    let xy = foo(1);
+    println!("Real: {}", xy);
 }
 
-fn trip(x: i32) -> i32{
-    let y = dub(2);
-    return y*3;
-}
-fn dub(x: i32) -> i32{
-    return x*2;
-}
-
-fn mocked_dub(x: i32) -> i32 {
-    return 100;
-}
-
-fn mocked_trip(x: i32) -> i32 {
-    return 0;
+fn foo(x: i32) -> i32 {
+    let test = 9;
+    return x * 6;
 }
