@@ -70,7 +70,7 @@ impl MutVisitor for SymbolFinder {
         if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind {
             match &literal.kind {
                 rustc_ast::token::LitKind::Str => {
-                    println!("Found symbol: {}", literal.symbol.as_str().to_string());
+                    println!("Found symbol in literal: {}", literal.symbol.as_str().to_string());
                     self.symbols.push(literal.symbol.as_str().to_string());
                 }
                 _ => {} 
@@ -79,33 +79,58 @@ impl MutVisitor for SymbolFinder {
         }
         rustc_ast::mut_visit::walk_expr(self, expr);
     }
+
+    fn visit_mac_call(&mut self, node: &mut rustc_ast::MacCall) {
+        for tree in node.args.tokens.iter() {
+            if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree {
+                if let rustc_ast::token::TokenKind::Literal(lit) = &token.kind {
+                    if let rustc_ast::token::LitKind::Str = lit.kind {
+                        println!("Found symbol in MacCall: {}", lit.symbol.as_str().to_string());
+                        self.symbols.push(lit.symbol.as_str().to_string());
+                    }
+                }
+            }
+        }
+    }
 }
 
 struct SymbolFixer{
     symbols: Vec<String>,
 }
 
-//Will find all symbols fix their strings
+//Will find all symbols and fix their strings
 impl MutVisitor for SymbolFixer { 
     fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
         if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind {
             match &literal.kind {
                 rustc_ast::token::LitKind::Str => {
-                    let val = self.symbols.pop();
-                    match val {
-                        Some(string) => {
-                            println!("Have symbol: {}", string);
-                            literal.symbol = rustc_span::Symbol::intern(&string);
-                        }
-                        None => {}
+                    let string = self.symbols.remove(0);
+                    println!("Have symbol: {}", string);
+                    literal.symbol = rustc_span::Symbol::intern(&string);
                     }
                     
-                }
+                
                 _ => {} 
             }
             
         }
         rustc_ast::mut_visit::walk_expr(self, expr);
+    }
+    fn visit_mac_call(&mut self, node: &mut rustc_ast::MacCall) {
+        let mut trees: Vec<_> = node.args.tokens.iter().cloned().collect();
+        for tree in &mut trees {
+            if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree {
+                if let rustc_ast::token::TokenKind::Literal(lit) = &mut token.kind {
+                    if let rustc_ast::token::LitKind::Str = lit.kind {
+                        if let string = self.symbols.remove(0) {
+                            println!("Restoring symbol in MacCall: {}", string);
+                            lit.symbol = rustc_span::Symbol::intern(&string);
+                        }
+                    }
+                }
+            }
+        }
+        node.args.tokens = rustc_ast::tokenstream::TokenStream::new(trees);
     }
 }
 
@@ -136,11 +161,10 @@ impl rustc_driver::Callbacks for CompileMocks {
                     let id = fn_data.ident;
                     if id.name.as_str() != "main" {
                         visitor.visit_block(&mut *body.clone());
-                        for i in visitor.symbols.clone() {
-                            println!("{:#}", i);
-                        }
                         self.symbols = visitor.symbols.clone();
                         self.mocks.push((id.clone(), block.clone()));
+                        //println!("{:#?}", block);
+
                     }
 
                 }        
@@ -179,7 +203,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                         match &mut fn_data.body {
                             Some(body) => { 
                                 visitor.visit_block(body);
-                                println!("{:#?}", body);
+                                //println!("{:#?}", body);
 
                             }
                             None => {}
