@@ -95,6 +95,7 @@ impl MutVisitor for SymbolFixer {
                     match val {
                         Some(string) => {
                             println!("Have symbol: {}", string);
+                            literal.symbol = rustc_span::Symbol::intern(&string);
                         }
                         None => {}
                     }
@@ -140,7 +141,6 @@ impl rustc_driver::Callbacks for CompileMocks {
                         }
                         self.symbols = visitor.symbols.clone();
                         self.mocks.push((id.clone(), block.clone()));
-
                     }
 
                 }        
@@ -177,7 +177,11 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                     if fn_data.ident.name.as_str() == ident.name.as_str() {
                         fn_data.body = Some(block.clone());
                         match &mut fn_data.body {
-                            Some(body) => { visitor.visit_block(body);}
+                            Some(body) => { 
+                                visitor.visit_block(body);
+                                println!("{:#?}", body);
+
+                            }
                             None => {}
 
                         }
