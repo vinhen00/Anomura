@@ -60,23 +60,49 @@ impl rustc_span::source_map::FileLoader for MyFileLoader {
         Ok(std::path::PathBuf::from("."))
     }
 }
-// MutVisitor to replace function calls from "dub" to "mocked_dub"
-struct MockReplacer{
-    mocklist: Vec<String>,
+struct SymbolFinder{
+    symbols: Vec<String>,
 }
 
-impl MutVisitor for MockReplacer {
+//Will find all symbols and save as string
+impl MutVisitor for SymbolFinder { 
     fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
-        if let rustc_ast::ExprKind::Call(func, _args) = &mut expr.kind {
-            if let rustc_ast::ExprKind::Path(_, path) = &mut func.kind {
-                if let Some(seg) = path.segments.first_mut() {
-                    let funcname = seg.ident.name.to_string();
-                    if self.mocklist.contains(&funcname) {
-                        let mockname = format!("mocked_{}", funcname);
-                        seg.ident = Ident::new(rustc_span::Symbol::intern(&mockname), seg.ident.span);
-                    }
+        if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind {
+            match &literal.kind {
+                rustc_ast::token::LitKind::Str => {
+                    println!("Found symbol: {}", literal.symbol.as_str().to_string());
+                    self.symbols.push(literal.symbol.as_str().to_string());
                 }
+                _ => {} 
             }
+            
+        }
+        rustc_ast::mut_visit::walk_expr(self, expr);
+    }
+}
+
+struct SymbolFixer{
+    symbols: Vec<String>,
+}
+
+//Will find all symbols fix their strings
+impl MutVisitor for SymbolFixer { 
+    fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
+        if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind {
+            match &literal.kind {
+                rustc_ast::token::LitKind::Str => {
+                    let val = self.symbols.pop();
+                    match val {
+                        Some(string) => {
+                            println!("Have symbol: {}", string);
+                        }
+                        None => {}
+                    }
+                    
+                }
+                _ => {} 
+            }
+            
         }
         rustc_ast::mut_visit::walk_expr(self, expr);
     }
@@ -85,6 +111,7 @@ impl MutVisitor for MockReplacer {
 
 struct CompileMocks {
     mocks: Vec<(rustc_span::symbol::Ident, std::boxed::Box<rustc_ast::Block>)>,
+    symbols: Vec<String>,
 }
 
 impl rustc_driver::Callbacks for CompileMocks {
@@ -100,15 +127,19 @@ impl rustc_driver::Callbacks for CompileMocks {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
+        let mut visitor = SymbolFinder{ symbols: Vec::new() };
         for item in &krate.items {
             if let rustc_ast::ItemKind::Fn(fn_data) = &item.kind {
                 if let Some(block) = &fn_data.body {
                     let body = block;
                     let id = fn_data.ident;
                     if id.name.as_str() != "main" {
-                        println!("Found function {}", id.name);
+                        visitor.visit_block(&mut *body.clone());
+                        for i in visitor.symbols.clone() {
+                            println!("{:#}", i);
+                        }
+                        self.symbols = visitor.symbols.clone();
                         self.mocks.push((id.clone(), block.clone()));
-                        println!("{:#?}", fn_data.sig)
 
                     }
 
@@ -122,6 +153,8 @@ impl rustc_driver::Callbacks for CompileMocks {
 
 struct FunctionIntercept{
     mocks: Vec<(rustc_span::symbol::Ident, std::boxed::Box<rustc_ast::Block>)>,
+    symbols: Vec<String>,
+
 }
 
 impl rustc_driver::Callbacks for FunctionIntercept {
@@ -137,13 +170,18 @@ impl rustc_driver::Callbacks for FunctionIntercept {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
+        let mut visitor = SymbolFixer {symbols: self.symbols.clone()};
         for item in &mut krate.items {
             if let rustc_ast::ItemKind::Fn(fn_data) = &mut item.kind {
                 for (ident, block) in &self.mocks{
-                    println!("{:#?} compared to {:#?}", ident, fn_data.ident);
                     if fn_data.ident.name.as_str() == ident.name.as_str() {
-                        println!("Mocking {:#?}", fn_data.ident);
                         fn_data.body = Some(block.clone());
+                        match &mut fn_data.body {
+                            Some(body) => { visitor.visit_block(body);}
+                            None => {}
+
+                        }
+
                     }
                 }
             }
@@ -154,7 +192,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
 }
 
 fn main() {
-    let mut mockedFuns = CompileMocks {mocks: Vec::new()};
+    let mut mockedFuns = CompileMocks {mocks: Vec::new(), symbols: Vec::new()};
     run_compiler(
         &[
             "ignored".to_string(),
@@ -166,7 +204,8 @@ fn main() {
         ],
         &mut mockedFuns,
     );
-    let mut insertion = FunctionIntercept {mocks: mockedFuns.mocks};
+
+    let mut insertion = FunctionIntercept {mocks: mockedFuns.mocks.clone(), symbols: mockedFuns.symbols.clone()};
     run_compiler(
         &[
             "ignored".to_string(),
