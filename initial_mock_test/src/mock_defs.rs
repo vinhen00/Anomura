@@ -1,11 +1,13 @@
 
 
 fn main() {
-    let x = foo(1);
-    println!("Mocked: {}", x);
+    //let x = foo(1);
+    let y = 88;
+    println!("Mocked: {}", y);
 }
 
-fn foo(x: i32) -> i32 {
-    println!("hellowolrd");
-    return 2;
+fn foo(xy: i32) -> i32 {
+    let y = 66;
+    println!("Im pritning from the mock");
+    return xy * 5;
 }
