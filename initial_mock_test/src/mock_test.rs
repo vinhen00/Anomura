@@ -1,20 +1,18 @@
 
+struct Stroo {
+    x: i32,
+    name: String,
+}
+
+impl Stroo {
+    fn stroop(&mut self) {
+        println!("My name is {} and my x is {}", self.name, self.x)
+    }
+}
+
 
 fn main() {
-    let foo = foo(4);
-    let bar = bar(99);
-    println!("Foo returned {}, Bar returned {}", foo, bar);
+    let mut ss = Stroo { x: 67, name: "Jeffrey".to_string()};
+    ss.stroop();
 }
 
-fn foo(xy: i32) -> i32 {
-    println!("Original foo printed this");
-    return bar(xy);
-}
-
-fn bar(x: i32) -> i32 {
-    return x;
-}
-
-fn test() {
-    println!("This is printing in test")
-}

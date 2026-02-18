@@ -217,6 +217,15 @@ impl MockedFun {
 }
 
 
+fn extract_struct_name_from_impl (imp: rustc_ast::Impl) -> String {
+    if let rustc_ast::TyKind::Path(_, path) = imp.self_ty.kind {
+       match path.segments.last() {
+        Some(seg) => {return seg.ident.name.as_str().to_string();}
+        None => {return "".to_string();}
+       }
+    }
+    return "".to_string();
+}
 
 struct CompileMocks {
     mocks: Vec<MockedFun>,
@@ -244,6 +253,17 @@ impl rustc_driver::Callbacks for CompileMocks {
                     foo.collect_names();
                     self.mocks.push(foo);
                 }        
+            }
+            else if let rustc_ast::ItemKind::Impl(imp) = &item.kind {
+                let imp_name = extract_struct_name_from_impl(imp.clone());
+                for imp_item in &imp.items {
+                    if let rustc_ast::AssocItemKind::Fn(fn_data) = &imp_item.kind {
+                        let mut foo = MockedFun::new(fn_data.clone());
+                        foo.collect_names();
+                        foo.name = format!("{}.{}", imp_name, foo.name);
+                        self.mocks.push(foo);
+                    }
+                }
             }
         }
         Compilation::Stop
@@ -278,6 +298,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
+        println!("{:#?}", krate);
         //First create copies of all functions that will be mocked 
         let mut function_originals: Vec<Box<rustc_ast::Item>> = Vec::new();
         for item in &mut krate.items{
@@ -303,6 +324,22 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                         fn_data.body = Some(foo.body.clone());
                     }
                 }            
+            }
+            else if let rustc_ast::ItemKind::Impl(imp) = &mut item.kind {
+                let imp_name = extract_struct_name_from_impl(imp.clone());
+                for imp_item in &mut imp.items {
+                    if let rustc_ast::AssocItemKind::Fn(fn_data) = &mut imp_item.kind {
+                        for foo in &mut self.mocks{
+                            let method_name = format!("{}.{}", imp_name, fn_data.ident.name.as_str());
+                            if method_name == foo.name.as_str() {
+                                println!("Mocking {}", foo.name);
+                                foo.resolve_names();
+                                fn_data.sig.decl = foo.sig.decl.clone();
+                                fn_data.body = Some(foo.body.clone());
+                            }
+                        }  
+                    }
+                }
             }
         }
         for func in function_originals {
