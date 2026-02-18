@@ -254,6 +254,17 @@ struct FunctionIntercept{
     mocks: Vec<MockedFun>,
 }
 
+impl FunctionIntercept {
+    fn checkName(&mut self, name: String ) -> bool {
+        for i in &self.mocks {
+            if name == i.name {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
 //Function_intercept is a compiler setting that compiles the target file and replaces the function body of the functions that have a mocked variant
 impl rustc_driver::Callbacks for FunctionIntercept {
     fn config(&mut self, config: &mut Config) {
@@ -267,6 +278,21 @@ impl rustc_driver::Callbacks for FunctionIntercept {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
+        //First create copies of all functions that will be mocked 
+        let mut function_originals: Vec<Box<rustc_ast::Item>> = Vec::new();
+        for item in &mut krate.items{
+            if let rustc_ast::ItemKind::Fn(fn_data) = &item.kind {
+                if self.checkName(fn_data.ident.name.as_str().to_string()) {
+                    let mut original_function = item.clone();
+                    if let rustc_ast::ItemKind::Fn(fn_data) = &mut original_function.kind {
+                        let new_name = format!("{}_original", fn_data.ident.name.as_str());
+                        fn_data.ident.name = rustc_span::Symbol::intern(&new_name);
+                    }
+                    function_originals.push(original_function);
+                }
+            }
+        }
+        //Then replace the original with their mocked variants
         for item in &mut krate.items {
             if let rustc_ast::ItemKind::Fn(fn_data) = &mut item.kind {
                 for foo in &mut self.mocks{
@@ -275,10 +301,12 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                         foo.resolve_names();
                         fn_data.sig.decl = foo.sig.decl.clone();
                         fn_data.body = Some(foo.body.clone());
-                    
                     }
                 }            
             }
+        }
+        for func in function_originals {
+            krate.items.push(func);
         }
         Compilation::Continue
     }

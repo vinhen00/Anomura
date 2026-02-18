@@ -6,8 +6,14 @@ fn main() {
     println!("Mocked: {}", y);
 }
 
-fn foo(xy: i32) -> i32 {
+fn foo(romeo: i32) -> i32 {
     let y = 66;
     println!("Im pritning from the mock");
-    return xy * 5;
+    foo_original(y);
+    return romeo * 5;
+}
+
+fn bar(bebe: i32) -> i32 {
+    println!("This is printed in bar");
+    return bebe+9;
 }
