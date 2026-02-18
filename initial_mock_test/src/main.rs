@@ -32,31 +32,26 @@ use rustc_middle::ty::TyCtxt;
 use rustc_session::config::CrateType;
 use rustc_span::symbol::Ident;
 
-struct MyFileLoader;
+struct MyFileLoader{file: String}
 
 impl rustc_span::source_map::FileLoader for MyFileLoader {
     fn file_exists(&self, path: &std::path::Path) -> bool {
-        path == std::path::Path::new("mock_test.rs") || path == std::path::Path::new("mock_defs.rs")
+        path == std::path::Path::new(&self.file)
     }
 
     fn read_file(&self, path: &std::path::Path) -> std::io::Result<String> {
-        if path == std::path::Path::new("mock_test.rs") {
-            let mut file = std::fs::File::open("src/mock_test.rs")?;
-            let mut contents = String::new();
-            file.read_to_string(&mut contents)?;
-            Ok(contents)
-        } else if path == std::path::Path::new("mock_defs.rs") {
-            let mut file = std::fs::File::open("src/mock_defs.rs")?;
+        if path == std::path::Path::new(&self.file) {
+            let mut file = std::fs::File::open(format!("src/{}", self.file))?;
             let mut contents = String::new();
             file.read_to_string(&mut contents)?;
             Ok(contents)
         } else {
-            Err(std::io::Error::other("oops"))
+            Err(std::io::Error::other("Could not open file"))
         }
     }
 
     fn read_binary_file(&self, _path: &std::path::Path) -> std::io::Result<std::sync::Arc<[u8]>> {
-        Err(std::io::Error::other("oops"))
+        Err(std::io::Error::other("Could not open file"))
     }
 
     fn current_directory(&self) -> Result<std::path::PathBuf, std::io::Error> {
@@ -68,24 +63,25 @@ struct SymbolFinder{
     idents: Vec<String>,
 }
 
-//Will find all symbols and save as string
+//SymbolFinder finds symbols and Idents from an AST
 impl MutVisitor for SymbolFinder { 
+
+    //For expressions the only special case we need is literals. 
+    //Identifiers are covered by visit_path as all identifiers are paths
     fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
         if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind {
             self.symbols.push(literal.symbol.as_str().to_string());
-
-            
         }
         rustc_ast::mut_visit::walk_expr(self, expr);
     }
 
+    //Mac calls not stricly necessary, but nice for debug to be able to print in mock functions
     fn visit_mac_call(&mut self, node: &mut rustc_ast::MacCall) {
         self.visit_path(&mut node.path);
         for tree in node.args.tokens.iter() {
             if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree {
                 if let rustc_ast::token::TokenKind::Literal(lit) = &token.kind {
                     if let rustc_ast::token::LitKind::Str = lit.kind {
-                        //println!("Found symbol in MacCall: {}", lit.symbol.as_str().to_string());
                         self.symbols.push(lit.symbol.as_str().to_string());
                     }
                 }
@@ -93,18 +89,16 @@ impl MutVisitor for SymbolFinder {
         }
     }
 
+    // Will collect ALL identifiers(including keywords and types) but doing this doesn't seem to cause any problems
     fn visit_path(&mut self, path: &mut rustc_ast::Path) {
         for i in &path.segments {
-            println!("Found ident {:#?}", i.ident);
             self.idents.push(i.ident.name.as_str().to_string())
         }
-
         rustc_ast::mut_visit::walk_path(self, path);
     }
 
     fn visit_pat(&mut self, pat: &mut rustc_ast::Pat) {
         if let rustc_ast::PatKind::Ident(_, ident, _) = pat.kind {
-            println!("Found ident {:#?}", ident);
             self.idents.push(ident.name.as_str().to_string())  
         }
         rustc_ast::mut_visit::walk_pat(self, pat);
@@ -118,17 +112,18 @@ struct SymbolFixer{
     dict: HashMap<String, rustc_span::Symbol>,
 }
 
-//Will find all symbols and fix their strings
+//SymbolFixer will walk through an AST and fix all Identifiers and Symbols
 impl MutVisitor for SymbolFixer { 
     fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
         if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind {
             let string = self.symbols.remove(0);
-            //println!("Have symbol: {}", string);
-            literal.symbol = rustc_span::Symbol::intern(&string);
-            
+            literal.symbol = rustc_span::Symbol::intern(&string); //Create new symbol in registry
         }
         rustc_ast::mut_visit::walk_expr(self, expr);
     }
+
+    //Reconstructing MacCalls is a headache as the tokenstream only has private fields and non mutable methods
+    //What we do instead is to just to clone the immutables and create a new tokenstream where we fix them
     fn visit_mac_call(&mut self, node: &mut rustc_ast::MacCall) {
         self.visit_path(&mut node.path);
         let mut trees: Vec<_> = node.args.tokens.iter().cloned().collect();
@@ -137,7 +132,6 @@ impl MutVisitor for SymbolFixer {
                 if let rustc_ast::token::TokenKind::Literal(lit) = &mut token.kind {
                     if let rustc_ast::token::LitKind::Str = lit.kind {
                         if let string = self.symbols.remove(0) {
-                            //println!("Restoring symbol in MacCall: {}", string);
                             lit.symbol = rustc_span::Symbol::intern(&string);
                         }
                     }
@@ -146,10 +140,12 @@ impl MutVisitor for SymbolFixer {
         }
         node.args.tokens = rustc_ast::tokenstream::TokenStream::new(trees);
     }
+
+    //Both path and pat work by creating a new entry into the dictionary the first them we encounter an identifier
+    //Next time we encounter them we lookup the value from the dict
     fn visit_path(&mut self, path: &mut rustc_ast::Path) {
         for i in &mut path.segments {
             let mut name = self.idents.remove(0);
-            println!("Fixing ident {}", name);
             match self.dict.get(&name) {
                 Some(symb) => {i.ident.name = *symb;}
                 None => {
@@ -165,7 +161,6 @@ impl MutVisitor for SymbolFixer {
     fn visit_pat(&mut self, pat: &mut rustc_ast::Pat) {
         if let rustc_ast::PatKind::Ident(_, ident, _) = &mut pat.kind {
             let mut name = self.idents.remove(0);
-            println!("Fixing ident {}", name);
             match self.dict.get(&name) {
                 Some(symb) => {ident.name = *symb;}
                 None => {
@@ -179,18 +174,61 @@ impl MutVisitor for SymbolFixer {
     }
 }
 
-
-struct CompileMocks {
-    mocks: Vec<(String, std::boxed::Box<rustc_ast::Block>)>,
+// MockedFun is a struct representing a single mocked function and all the information needed to transfer it
+// Symbols is a list of all symbols encountered in order, Idents is a list of all identifiers
+//
+// We need them because literals and identifiers are stored in a compilation context
+// and when we switch compiler that data disappears
+struct MockedFun {
+    name: String,
+    sig: rustc_ast::FnSig,
+    body: Box<rustc_ast::Block>,
     symbols: Vec<String>,
     idents: Vec<String>,
 }
 
+impl MockedFun {
+
+    fn new(foo: Box<rustc_ast::Fn>) -> MockedFun{
+        let name = foo.ident.as_str().to_string();
+        match foo.body {
+            Some(body) => {
+                MockedFun { name, sig: foo.sig , body: body, symbols: Vec::new(), idents: Vec::new() }
+            }
+            None => {panic!()}   
+        }
+    }
+
+    // This fn creates a visitor that visits the mock function and collects all symbols and identifiers
+    fn collect_names(&mut self) {
+        let mut visitor = SymbolFinder{symbols: Vec::new(), idents: Vec::new()};
+        visitor.visit_fn_decl(&mut self.sig.decl);
+        visitor.visit_block(&mut self.body);
+        self.symbols = visitor.symbols;
+        self.idents = visitor.idents;
+    }
+    // This fn creates a visitor that visits the mocked function and resolves all the symbols and identifiers
+    // It is meant to be called when in the second compilation context
+    fn resolve_names(&mut self) {
+        let mut visitor = SymbolFixer{symbols: self.symbols.clone(), idents: self.idents.clone(), dict: HashMap::new()};
+        visitor.visit_fn_decl(&mut self.sig.decl);
+        visitor.visit_block(&mut self.body);
+    }
+}
+
+
+
+struct CompileMocks {
+    mocks: Vec<MockedFun>,
+}
+
+//Compile mocks is a compiler setting the compiles the file that the mocked functions reside in.
+//Will grab all functions defined therein, and store them as a field in the mocks.
+//Stops compilation when done
 impl rustc_driver::Callbacks for CompileMocks {
     fn config(&mut self, config: &mut Config) {
-        config.file_loader = Some(Box::new(MyFileLoader));
+        config.file_loader = Some(Box::new(MyFileLoader{file: "mock_defs.rs".to_string()}));
         config.opts.crate_types = vec![CrateType::Executable];
-        // Set output directory
         config.opts.search_paths.clear();
     }
 
@@ -199,42 +237,28 @@ impl rustc_driver::Callbacks for CompileMocks {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
-        let mut visitor = SymbolFinder{ symbols: Vec::new(), idents: Vec::new() };
         for item in &krate.items {
             if let rustc_ast::ItemKind::Fn(fn_data) = &item.kind {
-                if let Some(block) = &fn_data.body {
-                    let body = block;
-                    let id = fn_data.ident;
-                    if id.name.as_str() != "main" {
-                        println!("Compiling mock {}", fn_data.ident.name.as_str());
-                        visitor.visit_fn_decl(&mut fn_data.sig.decl.clone());
-                        visitor.visit_block(&mut *body.clone());
-                        self.symbols = visitor.symbols.clone();
-                        self.idents = visitor.idents.clone();
-                        self.mocks.push((id.name.as_str().to_string(), block.clone()));
-                        // println!("{:#?}", item);
-
-                    }
-
+                if fn_data.ident.name.as_str() != "main" {
+                    let mut foo = MockedFun::new(fn_data.clone());
+                    foo.collect_names();
+                    self.mocks.push(foo);
                 }        
             }
-
         }
         Compilation::Stop
     }
 }
 
 struct FunctionIntercept{
-    mocks: Vec<(String, std::boxed::Box<rustc_ast::Block>)>,
-    symbols: Vec<String>,
-    idents: Vec<String>,
+    mocks: Vec<MockedFun>,
 }
 
+//Function_intercept is a compiler setting that compiles the target file and replaces the function body of the functions that have a mocked variant
 impl rustc_driver::Callbacks for FunctionIntercept {
     fn config(&mut self, config: &mut Config) {
-        config.file_loader = Some(Box::new(MyFileLoader));
+        config.file_loader = Some(Box::new(MyFileLoader{file: "mock_test.rs".to_string()}));
         config.opts.crate_types = vec![CrateType::Executable];
-        // Set output directory
         config.opts.search_paths.clear();
     }
 
@@ -243,39 +267,25 @@ impl rustc_driver::Callbacks for FunctionIntercept {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
-        //println!("{:#?}", krate);
-
-        let mut visitor = SymbolFixer {symbols: self.symbols.clone(), idents: self.idents.clone(), dict: HashMap::new()};
         for item in &mut krate.items {
             if let rustc_ast::ItemKind::Fn(fn_data) = &mut item.kind {
-                for (ident, block) in &self.mocks{
-                    println!("Looked into {}, compared to {}", fn_data.ident.name.as_str(), ident);
-                    if fn_data.ident.name.as_str().to_string() == *ident {
-                        println!("Mocking {}", fn_data.ident.name.as_str());
-                        fn_data.body = Some(block.clone());
-                        match &mut fn_data.body {
-                            Some(body) => { //once told me
-                                visitor.visit_fn_decl(&mut fn_data.sig.decl.clone());
-                                visitor.visit_block(body);
-                                println!("{:#?}", fn_data);
-
-                            }
-                            None => {}
-
-                        }
-
+                for foo in &mut self.mocks{
+                    if fn_data.ident.name.as_str() == foo.name.as_str() {
+                        println!("Mocking {}", foo.name);
+                        foo.resolve_names();
+                        fn_data.sig.decl = foo.sig.decl.clone();
+                        fn_data.body = Some(foo.body.clone());
+                    
                     }
                 }            
             }
         }
-        //println!("{:#?}", krate);
-
         Compilation::Continue
     }
 }
 
 fn main() {
-    let mut mockedFuns = CompileMocks {mocks: Vec::new(), symbols: Vec::new(), idents: Vec::new()};
+    let mut mockedFuns = CompileMocks {mocks: Vec::new()};
     run_compiler(
         &[
             "ignored".to_string(),
@@ -288,7 +298,7 @@ fn main() {
         &mut mockedFuns,
     );
 
-    let mut insertion = FunctionIntercept {mocks: mockedFuns.mocks.clone(), symbols: mockedFuns.symbols.clone(), idents: mockedFuns.idents.clone()};
+    let mut insertion = FunctionIntercept {mocks: mockedFuns.mocks};
     run_compiler(
         &[
             "ignored".to_string(),
