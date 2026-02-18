@@ -1,11 +1,20 @@
 
 
 fn main() {
-    let xy = foo(1);
-    println!("Real: {}", xy);
+    let foo = foo(4);
+    let bar = bar(99);
+    println!("Foo returned {}, Bar returned {}", foo, bar);
 }
 
-fn foo(x: i32) -> i32 {
-    let test = 9;
-    return x * 6;
+fn foo(xy: i32) -> i32 {
+    println!("Original foo printed this");
+    return bar(xy);
+}
+
+fn bar(x: i32) -> i32 {
+    return x;
+}
+
+fn test() {
+    println!("This is printing in test")
 }
