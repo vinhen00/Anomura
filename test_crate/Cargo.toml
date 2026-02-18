@@ -1,0 +1,13 @@
+[package]
+name = "test_crate"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+itertools = "0.14.0"
+rustc_tools_util = "0.4.2"
+[build-dependencies]
+rustc_tools_util = "0.4.2"
+
+[package.metadata.rust-analyzer]
+rustc_private = true
