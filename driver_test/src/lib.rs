@@ -7,22 +7,21 @@ extern crate rustc_hir;
 extern crate rustc_interface;
 extern crate rustc_middle;
 extern crate rustc_session;
-use std::str::FromStr;
-use std::{borrow::Cow, env, process::Command};
-
 use clap::Parser;
 use rustc_hir::{
     Item,
     intravisit::{self, Visitor},
 };
 use rustc_middle::ty::TyCtxt;
+use rustc_plugin::RustcWrapperType;
 use rustc_plugin::{CrateFilter, RustcPlugin, RustcPluginArgs, Utf8Path};
 use serde::{Deserialize, Serialize};
-
+use std::str::FromStr;
+use std::{borrow::Cow, env, process::Command};
+pub const SELECTED_CRATES: &[&str] = &["memchr", "serde_json"];
 // This struct is the plugin provided to the rustc_plugin framework,
 // and it must be exported for use by the CLI/driver binaries.
 pub struct PrintAllItemsPlugin;
-
 // To parse CLI arguments, we use Clap for this example. But that
 // detail is up to you.
 #[derive(Parser, Serialize, Deserialize, Clone)]
@@ -53,8 +52,18 @@ impl RustcPlugin for PrintAllItemsPlugin {
         args.cargo_args
             .iter()
             .for_each(|a| println!("arg: {:?}", a));
-        let filter = CrateFilter::AllCrates;
-        RustcPluginArgs { args, filter }
+
+        let filter = CrateFilter::RunOnCrates(
+            SELECTED_CRATES
+                .into_iter()
+                .map(|s| String::from(*s))
+                .collect::<Vec<String>>(),
+        );
+        RustcPluginArgs {
+            args,
+            filter,
+            wrapper_type: RustcWrapperType::RustcWrapper,
+        }
     }
 
     // Pass Cargo arguments (like --feature) from the top-level CLI to Cargo.
@@ -73,7 +82,7 @@ impl RustcPlugin for PrintAllItemsPlugin {
         let mut callbacks = PrintAllItemsCallbacks {
             args: Some(plugin_args.clone()),
         };
-        println!("compiler_args: {:?}", plugin_args.cargo_args);
+        //println!("compiler_args: {:?}", plugin_args.cargo_args);
         rustc_driver::run_compiler(&compiler_args, &mut callbacks);
         Ok(())
     }

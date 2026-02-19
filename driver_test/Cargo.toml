@@ -7,12 +7,13 @@ edition = "2024"
 env_logger = { version = "0.10", default-features = false }
 clap = { version = "4.4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
-#rustc_plugin = { version = "0.14.3-nightly-2025-08-20", path = "../../rustc_plugin/crates/rustc_plugin" }
-rustc_plugin = { git = "https://github.com/EldritchEli/rustc_plugin.git", version = "0.14.3-nightly-2025-08-20" }
+rustc_plugin = { version = "0.14.3-nightly-2025-08-20", path = "../../rustc_plugin/crates/rustc_plugin" }
+itertools = "0.14.0"
+#rustc_plugin = { git = "https://github.com/EldritchEli/rustc_plugin.git", version = "0.14.3-nightly-2025-08-20" }
 
 [build-dependencies]
-rustc_plugin = { git = "https://github.com/EldritchEli/rustc_plugin.git", version = "0.14.3-nightly-2025-08-20" }
-#rustc_plugin = { version = "0.14.3-nightly-2025-08-20", path = "../../rustc_plugin/crates/rustc_plugin" }
+#rustc_plugin = { git = "https://github.com/EldritchEli/rustc_plugin.git", version = "0.14.3-nightly-2025-08-20" }
+rustc_plugin = { version = "0.14.3-nightly-2025-08-20", path = "../../rustc_plugin/crates/rustc_plugin" }
 
 [package.metadata.rust-analyzer]
 rustc_private = true
