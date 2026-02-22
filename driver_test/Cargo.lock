@@ -269,6 +269,7 @@ dependencies = [
 [[package]]
 name = "rustc_plugin"
 version = "0.14.3-nightly-2025-08-20"
+source = "git+https://github.com/EldritchEli/rustc_plugin.git#98b336d0b5801eea20fc4c40b257d5067903287f"
 dependencies = [
  "cargo_metadata",
  "colored-print",
