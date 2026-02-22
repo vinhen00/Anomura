@@ -1,102 +1,177 @@
 [/home/eli/Documents/rustc_plugin/crates/rustc_plugin/src/cli.rs:43:3] &path = "/home/eli/.cargo/bin/print-all-items-driver"
 error: failed to find cargo build command. defaulting to check
 [DEBUG rustc_plugin::cli] PLUGIN_ARGS={"allcaps":false,"cargo_args":[]}
-   Compiling serde_core v1.0.228
    Compiling proc-macro2 v1.0.106
+   Compiling serde_core v1.0.228
    Compiling unicode-ident v1.0.23
    Compiling quote v1.0.44
    Compiling serde v1.0.228
    Compiling zmij v1.0.21
-   Compiling equivalent v1.0.2
    Compiling serde_json v1.0.149
+   Compiling equivalent v1.0.2
    Compiling camino v1.2.2
    Compiling hashbrown v0.16.1
    Compiling winnow v0.5.40
-   Compiling itoa v1.0.17
    Compiling memchr v2.8.0
+   Compiling itoa v1.0.17
     Checking utf8parse v0.2.2
+   Compiling log v0.4.29
+    Checking anstyle-query v1.1.5
+[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate unicode_ident. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate hashbrown. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate itoa. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate winnow. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running plugin for crate memchr. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate equivalent. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate hashbrown. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate winnow. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate itoa. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate utf8parse. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running plugin for crate memchr. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate itoa. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running plugin for crate memchr. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-    Checking is_terminal_polyfill v1.70.2
-    Checking anstyle-parse v0.2.7
-   Compiling rustc_tools_util v0.1.1
-[DEBUG rustc_plugin::driver] Running normal Rust for crate is_terminal_polyfill. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate anstyle_parse. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate rustc_tools_util. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-   Compiling log v0.4.29
 [DEBUG rustc_plugin::driver] Running normal Rust for crate log. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-    Checking colorchoice v1.0.4
-    Checking anstyle-query v1.1.5
-[DEBUG rustc_plugin::driver] Running normal Rust for crate colorchoice. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate anstyle_query. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-    Checking anstyle v1.0.13
-   Compiling heck v0.5.0
-[DEBUG rustc_plugin::driver] Running normal Rust for crate anstyle. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate heck. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-    Checking strsim v0.11.1
-[DEBUG rustc_plugin::driver] Running normal Rust for crate strsim. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate log. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-    Checking clap_lex v1.0.0
-[DEBUG rustc_plugin::driver] Running normal Rust for crate clap_lex. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate utf8parse. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+    Checking anstyle-parse v0.2.7
+[DEBUG rustc_plugin::driver] Running normal Rust for crate itoa. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running plugin for crate memchr. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate anstyle_parse. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+   Compiling rustc_tools_util v0.1.1
 [DEBUG rustc_plugin::driver] Running normal Rust for crate rustc_tools_util. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+    Checking anstyle v1.0.13
+[DEBUG rustc_plugin::driver] Running normal Rust for crate anstyle. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+    Checking colorchoice v1.0.4
+    Checking is_terminal_polyfill v1.70.2
+[DEBUG rustc_plugin::driver] Running normal Rust for crate colorchoice. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate is_terminal_polyfill. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+   Compiling heck v0.5.0
+[DEBUG rustc_plugin::driver] Running normal Rust for crate log. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate heck. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+    Checking clap_lex v1.0.0
+    Checking strsim v0.11.1
+[DEBUG rustc_plugin::driver] Running normal Rust for crate clap_lex. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate strsim. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+   Compiling mockingbird_definitions v0.1.0 (/home/eli/Documents/project_mockingbird/mockingbird_definitions)
+[DEBUG rustc_plugin::driver] Running normal Rust for crate mockingbird_definitions. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate zmij. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate zmij. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-    Checking either v1.15.0
-[DEBUG rustc_plugin::driver] Running normal Rust for crate either. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate serde_core. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate serde_core. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate rustc_tools_util. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+warning: field `0` is never read
+ --> /home/eli/Documents/project_mockingbird/mockingbird_definitions/src/lib.rs:1:28
+  |
+1 | pub struct CrateIdentifier(String);
+  |            --------------- ^^^^^^
+  |            |
+  |            field in this struct
+  |
+  = help: consider removing this field
+  = note: `#[warn(dead_code)]` on by default
+
+warning: fields `krate` and `path` are never read
+ --> /home/eli/Documents/project_mockingbird/mockingbird_definitions/src/lib.rs:4:5
+  |
+3 | pub struct Identifier {
+  |            ---------- fields in this struct
+4 |     krate: CrateIdentifier,
+  |     ^^^^^
+5 |     path: Vec<String>,
+  |     ^^^^
+
+warning: fields `val` and `val_type` are never read
+  --> /home/eli/Documents/project_mockingbird/mockingbird_definitions/src/lib.rs:9:5
+   |
+ 8 | pub struct MockReturnVal {
+   |            ------------- fields in this struct
+ 9 |     val: String,
+   |     ^^^
+10 |     val_type: Option<String>,
+   |     ^^^^^^^^
+
+warning: fields `identifier` and `return_val` are never read
+  --> /home/eli/Documents/project_mockingbird/mockingbird_definitions/src/lib.rs:13:5
+   |
+12 | pub struct MockDefinition {
+   |            -------------- fields in this struct
+13 |     identifier: Identifier,
+   |     ^^^^^^^^^^
+14 |     return_val: MockReturnVal,
+   |     ^^^^^^^^^^
+
+warning: `mockingbird_definitions` (lib) generated 4 warnings
     Checking anstream v0.6.21
-    Checking env_logger v0.10.2
 [DEBUG rustc_plugin::driver] Running normal Rust for crate anstream. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+    Checking either v1.15.0
+[DEBUG rustc_plugin::driver] Running normal Rust for crate zmij. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+    Checking env_logger v0.10.2
+[DEBUG rustc_plugin::driver] Running normal Rust for crate serde_core. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate serde_core. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate either. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate env_logger. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate proc_macro2. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-    Checking itertools v0.14.0
-[DEBUG rustc_plugin::driver] Running normal Rust for crate itertools. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
     Checking clap_builder v4.5.58
 [DEBUG rustc_plugin::driver] Running normal Rust for crate clap_builder. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+    Checking itertools v0.14.0
+[DEBUG rustc_plugin::driver] Running normal Rust for crate itertools. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
    Compiling indexmap v2.13.0
 [DEBUG rustc_plugin::driver] Running normal Rust for crate indexmap. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate quote. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
    Compiling syn v2.0.115
 [DEBUG rustc_plugin::driver] Running normal Rust for crate syn. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
     Checking semver v1.0.27
-[DEBUG rustc_plugin::driver] Running normal Rust for crate camino. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate semver. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running plugin for crate serde_json. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate camino. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate semver. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running plugin for crate serde_json. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate camino. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate semver. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
    Compiling serde_derive v1.0.228
    Compiling colored-print v0.1.2
    Compiling clap_derive v4.5.55
+   Compiling api_macro v0.1.0 (/home/eli/Documents/project_mockingbird/api_macro)
 [DEBUG rustc_plugin::driver] Running normal Rust for crate colored_print. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate clap_derive. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate api_macro. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate serde_derive. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate clap_derive. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+warning: unused variable: `input`
+  --> /home/eli/Documents/project_mockingbird/api_macro/src/lib.rs:46:13
+   |
+46 | pub fn mock(input: TokenStream) -> TokenStream {
+   |             ^^^^^ help: if this is intentional, prefix it with an underscore: `_input`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: constant `MOCK_HASH_IDENTIFIER` is never used
+  --> /home/eli/Documents/project_mockingbird/api_macro/src/lib.rs:12:7
+   |
+12 | const MOCK_HASH_IDENTIFIER: &str =
+   |       ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: enum `Modifier` is never used
+  --> /home/eli/Documents/project_mockingbird/api_macro/src/lib.rs:15:6
+   |
+15 | enum Modifier {
+   |      ^^^^^^^^
+
+warning: struct `MockDefInput` is never constructed
+  --> /home/eli/Documents/project_mockingbird/api_macro/src/lib.rs:28:8
+   |
+28 | struct MockDefInput {
+   |        ^^^^^^^^^^^^
+
+warning: `api_macro` (lib) generated 4 warnings
     Checking clap v4.5.58
 [DEBUG rustc_plugin::driver] Running normal Rust for crate clap. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate serde. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate serde. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
     Checking cargo-platform v0.1.9
 [DEBUG rustc_plugin::driver] Running normal Rust for crate cargo_platform. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-   Compiling toml_datetime v0.6.11
    Compiling serde_spanned v0.6.9
-[DEBUG rustc_plugin::driver] Running normal Rust for crate toml_datetime. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+   Compiling toml_datetime v0.6.11
 [DEBUG rustc_plugin::driver] Running normal Rust for crate serde_spanned. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate cargo_platform. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate toml_datetime. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
     Checking cargo_metadata v0.14.2
 [DEBUG rustc_plugin::driver] Running normal Rust for crate cargo_metadata. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate cargo_metadata. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
@@ -108,6 +183,14 @@ error: failed to find cargo build command. defaulting to check
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate rustc_plugin. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate rustc_plugin. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+warning: unused variable: `plugin`
+   --> /home/eli/Documents/rustc_plugin/crates/rustc_plugin/src/driver.rs:104:36
+    |
+104 | pub fn driver_main<T: RustcPlugin>(plugin: T) {
+    |                                    ^^^^^^ help: if this is intentional, prefix it with an underscore: `_plugin`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
 warning: field `inner` is never read
   --> /home/eli/Documents/rustc_plugin/crates/rustc_plugin/src/build_commands.rs:38:3
    |
@@ -125,20 +208,32 @@ warning: constant `CARGO_VERBOSE` is never used
 15 | pub const CARGO_VERBOSE: &str = "CARGO_VERBOSE";
    |           ^^^^^^^^^^^^^
 
-warning: `rustc_plugin` (lib) generated 2 warnings
-warning: `rustc_plugin` (lib) generated 2 warnings (2 duplicates)
+warning: `rustc_plugin` (lib) generated 3 warnings
+warning: `rustc_plugin` (lib) generated 3 warnings (3 duplicates)
    Compiling driver_test v0.1.0 (/home/eli/Documents/project_mockingbird/driver_test)
 [DEBUG rustc_plugin::driver] Running plugin for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=true, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running plugin for crate driver_test. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=true, is_target_crate=false
-warning: unused import: `std::str::FromStr`
-  --> src/lib.rs:19:5
+warning: unused variable: `target_dir`
+  --> src/mock_discover_pass.rs:29:20
    |
-19 | use std::str::FromStr;
-   |     ^^^^^^^^^^^^^^^^^
+29 |     fn args(&self, target_dir: &Utf8Path) -> rustc_plugin::RustcPluginArgs<Self::Args> {
+   |                    ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_target_dir`
    |
-   = note: `#[warn(unused_imports)]` on by default
+   = note: `#[warn(unused_variables)]` on by default
 
-warning: `driver_test` (lib) generated 1 warning (run `cargo fix --lib -p driver_test` to apply 1 suggestion)
+warning: unused variable: `compiler_args`
+  --> src/mock_discover_pass.rs:44:9
+   |
+44 |         compiler_args: Vec<String>,
+   |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_compiler_args`
+
+warning: unused variable: `plugin_args`
+  --> src/mock_discover_pass.rs:45:9
+   |
+45 |         plugin_args: Self::Args,
+   |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_plugin_args`
+
+warning: `driver_test` (lib) generated 3 warnings
 [DEBUG rustc_plugin::driver] Running plugin for crate cargo_print_all_items. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=true, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running plugin for crate print_all_items_driver. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=true, is_target_crate=false
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.94s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.93s

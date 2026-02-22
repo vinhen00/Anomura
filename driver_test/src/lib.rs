@@ -16,8 +16,10 @@ use rustc_middle::ty::TyCtxt;
 use rustc_plugin::RustcWrapperType;
 use rustc_plugin::{CrateFilter, RustcPlugin, RustcPluginArgs, Utf8Path};
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use std::{borrow::Cow, env, process::Command};
+
+pub mod mock_discover_pass;
+pub mod substitution_pass;
 pub const SELECTED_CRATES: &[&str] = &["memchr", "serde_json"];
 // This struct is the plugin provided to the rustc_plugin framework,
 // and it must be exported for use by the CLI/driver binaries.
@@ -55,7 +57,7 @@ impl RustcPlugin for PrintAllItemsPlugin {
 
         let filter = CrateFilter::RunOnCrates(
             SELECTED_CRATES
-                .into_iter()
+                .iter()
                 .map(|s| String::from(*s))
                 .collect::<Vec<String>>(),
         );
@@ -75,7 +77,6 @@ impl RustcPlugin for PrintAllItemsPlugin {
     // In the driver, we use the Rustc API to start a compiler session
     // for the arguments given to us by rustc_plugin.
     fn run(
-        self,
         compiler_args: Vec<String>,
         plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {
@@ -122,16 +123,15 @@ fn print_all_items(tcx: TyCtxt, args: PrintAllItemsPluginArgs) {
         // Use pattern-matching to find a specific node inside the main function.
         if let rustc_hir::ItemKind::Fn { body, .. } = item.kind {
             let expr = &tcx.hir_body(body).value;
-            if let rustc_hir::ExprKind::Block(block, _) = expr.kind {
-                if let Some(rustc_hir::StmtKind::Let(let_stmt)) = block.stmts.get(0).map(|s| s.kind)
-                {
-                    if let Some(expr) = let_stmt.init {
-                        let hir_id = expr.hir_id; // hir_id identifies the string "Hello, world!"
-                        let def_id = item.hir_id().owner.def_id; // def_id identifies the main function
-                        let ty = tcx.typeck(def_id).node_type(hir_id);
-                        println!("{expr:#?}: {ty:?}");
-                    }
-                }
+            if let rustc_hir::ExprKind::Block(block, _) = expr.kind
+                && let Some(rustc_hir::StmtKind::Let(let_stmt)) =
+                    block.stmts.first().map(|s| s.kind)
+                && let Some(expr) = let_stmt.init
+            {
+                let hir_id = expr.hir_id; // hir_id identifies the string "Hello, world!"
+                let def_id = item.hir_id().owner.def_id; // def_id identifies the main function
+                let ty = tcx.typeck(def_id).node_type(hir_id);
+                println!("{expr:#?}: {ty:?}");
             }
         }
     }

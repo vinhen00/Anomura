@@ -14,20 +14,13 @@ extern crate rustc_middle;
 extern crate rustc_session;
 extern crate rustc_span;
 
-use std::fs::File;
-use std::io;
 use std::io::Read;
-use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Arc;
 
 use rustc_ast::mut_visit::MutVisitor;
-use rustc_ast_pretty::pprust::item_to_string;
 use rustc_driver::{Compilation, run_compiler};
 use rustc_interface::interface::{Compiler, Config};
-use rustc_middle::ty::TyCtxt;
 use rustc_session::config::CrateType;
-use rustc_span::symbol::Ident;
 
 struct MyFileLoader;
 
@@ -55,10 +48,6 @@ impl rustc_span::source_map::FileLoader for MyFileLoader {
     fn read_binary_file(&self, _path: &std::path::Path) -> std::io::Result<std::sync::Arc<[u8]>> {
         Err(std::io::Error::other("oops"))
     }
-
-    fn current_directory(&self) -> Result<std::path::PathBuf, std::io::Error> {
-        Ok(std::path::PathBuf::from("."))
-    }
 }
 struct SymbolFinder {
     symbols: Vec<String>,
@@ -67,33 +56,23 @@ struct SymbolFinder {
 //Will find all symbols and save as string
 impl MutVisitor for SymbolFinder {
     fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
-        if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind {
-            match &literal.kind {
-                rustc_ast::token::LitKind::Str => {
-                    println!(
-                        "Found symbol in literal: {}",
-                        literal.symbol.as_str().to_string()
-                    );
-                    self.symbols.push(literal.symbol.as_str().to_string());
-                }
-                _ => {}
-            }
+        if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind
+            && literal.kind == rustc_ast::token::LitKind::Str
+        {
+            println!("Found symbol in literal: {}", &literal.symbol);
+            self.symbols.push(literal.symbol.as_str().to_string());
         }
         rustc_ast::mut_visit::walk_expr(self, expr);
     }
 
     fn visit_mac_call(&mut self, node: &mut rustc_ast::MacCall) {
         for tree in node.args.tokens.iter() {
-            if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree {
-                if let rustc_ast::token::TokenKind::Literal(lit) = &token.kind {
-                    if let rustc_ast::token::LitKind::Str = lit.kind {
-                        println!(
-                            "Found symbol in MacCall: {}",
-                            lit.symbol.as_str().to_string()
-                        );
-                        self.symbols.push(lit.symbol.as_str().to_string());
-                    }
-                }
+            if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree
+                && let rustc_ast::token::TokenKind::Literal(lit) = &token.kind
+                && let rustc_ast::token::LitKind::Str = lit.kind
+            {
+                println!("Found symbol in MacCall: {}", &lit.symbol);
+                self.symbols.push(lit.symbol.as_str().to_string());
             }
         }
     }
@@ -106,31 +85,25 @@ struct SymbolFixer {
 //Will find all symbols and fix their strings
 impl MutVisitor for SymbolFixer {
     fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
-        if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind {
-            match &literal.kind {
-                rustc_ast::token::LitKind::Str => {
-                    let string = self.symbols.remove(0);
-                    println!("Have symbol: {}", string);
-                    literal.symbol = rustc_span::Symbol::intern(&string);
-                }
-
-                _ => {}
-            }
+        if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind
+            && let rustc_ast::token::LitKind::Str = &literal.kind
+        {
+            let string = self.symbols.remove(0);
+            println!("Have symbol: {}", string);
+            literal.symbol = rustc_span::Symbol::intern(&string);
         }
         rustc_ast::mut_visit::walk_expr(self, expr);
     }
     fn visit_mac_call(&mut self, node: &mut rustc_ast::MacCall) {
         let mut trees: Vec<_> = node.args.tokens.iter().cloned().collect();
         for tree in &mut trees {
-            if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree {
-                if let rustc_ast::token::TokenKind::Literal(lit) = &mut token.kind {
-                    if let rustc_ast::token::LitKind::Str = lit.kind {
-                        if let string = self.symbols.remove(0) {
-                            println!("Restoring symbol in MacCall: {}", string);
-                            lit.symbol = rustc_span::Symbol::intern(&string);
-                        }
-                    }
-                }
+            if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree
+                && let rustc_ast::token::TokenKind::Literal(lit) = &mut token.kind
+                && let rustc_ast::token::LitKind::Str = lit.kind
+            {
+                let string = self.symbols.remove(0);
+                println!("Restoring symbol in MacCall: {}", string);
+                lit.symbol = rustc_span::Symbol::intern(&string);
             }
         }
         node.args.tokens = rustc_ast::tokenstream::TokenStream::new(trees);
@@ -159,16 +132,16 @@ impl rustc_driver::Callbacks for CompileMocks {
             symbols: Vec::new(),
         };
         for item in &krate.items {
-            if let rustc_ast::ItemKind::Fn(fn_data) = &item.kind {
-                if let Some(block) = &fn_data.body {
-                    let body = block;
-                    let id = fn_data.ident;
-                    if id.name.as_str() != "main" {
-                        visitor.visit_block(&mut *body.clone());
-                        self.symbols = visitor.symbols.clone();
-                        self.mocks.push((id.clone(), block.clone()));
-                        //println!("{:#?}", block);
-                    }
+            if let rustc_ast::ItemKind::Fn(fn_data) = &item.kind
+                && let Some(block) = &fn_data.body
+            {
+                let body = block;
+                let id = fn_data.ident;
+                if id.name.as_str() != "main" {
+                    visitor.visit_block(&mut body.clone());
+                    self.symbols = visitor.symbols.clone();
+                    self.mocks.push((id, block.clone()));
+                    //println!("{:#?}", block);
                 }
             }
         }
@@ -202,12 +175,9 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                 for (ident, block) in &self.mocks {
                     if fn_data.ident.name.as_str() == ident.name.as_str() {
                         fn_data.body = Some(block.clone());
-                        match &mut fn_data.body {
-                            Some(body) => {
-                                visitor.visit_block(body);
-                                //println!("{:#?}", body);
-                            }
-                            None => {}
+                        if let Some(body) = &mut fn_data.body {
+                            visitor.visit_block(body);
+                            //println!("{:#?}", body);
                         }
                     }
                 }
@@ -219,8 +189,8 @@ impl rustc_driver::Callbacks for FunctionIntercept {
 
 fn main() {
     let mut mocked_fns = CompileMocks {
-        mocks: Vec::new(),
-        symbols: Vec::new(),
+        mocks: vec![],
+        symbols: vec![],
     };
     run_compiler(
         &[
