@@ -6,7 +6,7 @@ struct Stroo {
 
 impl Stroo {
     fn stroop(&mut self) {
-        println!("My name is {} and my x is {}", self.name, self.x)
+        println!("My name is {}" , self.name)
     }
 }
 
@@ -14,5 +14,5 @@ impl Stroo {
 fn main() {
     let mut ss = Stroo { x: 67, name: "Jeffrey".to_string()};
     ss.stroop();
+    println!("{}",ss.name);
 }
-

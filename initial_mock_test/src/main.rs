@@ -90,11 +90,16 @@ impl MutVisitor for SymbolFinder {
     }
 
     // Will collect ALL identifiers(including keywords and types) but doing this doesn't seem to cause any problems
-    fn visit_path(&mut self, path: &mut rustc_ast::Path) {
-        for i in &path.segments {
-            self.idents.push(i.ident.name.as_str().to_string())
-        }
-        rustc_ast::mut_visit::walk_path(self, path);
+    // fn visit_path(&mut self, path: &mut rustc_ast::Path) {
+    //     for i in &path.segments {
+    //         self.idents.push(i.ident.name.as_str().to_string())
+    //     }
+    //     rustc_ast::mut_visit::walk_path(self, path);
+    // }
+
+    fn visit_path_segment(&mut self, path: &mut rustc_ast::PathSegment) {
+        self.idents.push(path.ident.name.as_str().to_string());
+        rustc_ast::mut_visit::walk_path_segment(self, path);
     }
 
     fn visit_pat(&mut self, pat: &mut rustc_ast::Pat) {
@@ -143,19 +148,31 @@ impl MutVisitor for SymbolFixer {
 
     //Both path and pat work by creating a new entry into the dictionary the first them we encounter an identifier
     //Next time we encounter them we lookup the value from the dict
-    fn visit_path(&mut self, path: &mut rustc_ast::Path) {
-        for i in &mut path.segments {
-            let mut name = self.idents.remove(0);
-            match self.dict.get(&name) {
-                Some(symb) => {i.ident.name = *symb;}
-                None => {
-                    let symb = rustc_span::Symbol::intern(name.as_str());
-                    self.dict.insert(name, symb);
-                    i.ident.name = symb;
-                }
+    // fn visit_path(&mut self, path: &mut rustc_ast::Path) {
+    //     for i in &mut path.segments {
+    //         let mut name = self.idents.remove(0);
+    //         match self.dict.get(&name) {
+    //             Some(symb) => {i.ident.name = *symb;}
+    //             None => {
+    //                 let symb = rustc_span::Symbol::intern(name.as_str());
+    //                 self.dict.insert(name, symb);
+    //                 i.ident.name = symb;
+    //             }
+    //         }
+    //     }
+    //     rustc_ast::mut_visit::walk_path(self, path);
+    // }
+    fn visit_path_segment(&mut self, path: &mut rustc_ast::PathSegment){
+        let mut name = self.idents.remove(0);
+        match self.dict.get(&name) {
+            Some(symb) => {path.ident.name = *symb;}
+            None => {
+                let symb = rustc_span::Symbol::intern(name.as_str());
+                self.dict.insert(name, symb);
+                path.ident.name = symb;
             }
         }
-        rustc_ast::mut_visit::walk_path(self, path);
+        rustc_ast::mut_visit::walk_path_segment(self, path);
     }
 
     fn visit_pat(&mut self, pat: &mut rustc_ast::Pat) {
@@ -217,6 +234,7 @@ impl MockedFun {
 }
 
 
+//Takes an impl object and returns the name. Used for namechecking methods
 fn extract_struct_name_from_impl (imp: rustc_ast::Impl) -> String {
     if let rustc_ast::TyKind::Path(_, path) = imp.self_ty.kind {
        match path.segments.last() {
@@ -298,9 +316,10 @@ impl rustc_driver::Callbacks for FunctionIntercept {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
-        println!("{:#?}", krate);
         //First create copies of all functions that will be mocked 
         let mut function_originals: Vec<Box<rustc_ast::Item>> = Vec::new();
+        let mut method_originals = Vec::new();
+
         for item in &mut krate.items{
             if let rustc_ast::ItemKind::Fn(fn_data) = &item.kind {
                 if self.checkName(fn_data.ident.name.as_str().to_string()) {
@@ -315,36 +334,65 @@ impl rustc_driver::Callbacks for FunctionIntercept {
         }
         //Then replace the original with their mocked variants
         for item in &mut krate.items {
-            if let rustc_ast::ItemKind::Fn(fn_data) = &mut item.kind {
-                for foo in &mut self.mocks{
-                    if fn_data.ident.name.as_str() == foo.name.as_str() {
-                        println!("Mocking {}", foo.name);
-                        foo.resolve_names();
-                        fn_data.sig.decl = foo.sig.decl.clone();
-                        fn_data.body = Some(foo.body.clone());
-                    }
-                }            
-            }
-            else if let rustc_ast::ItemKind::Impl(imp) = &mut item.kind {
-                let imp_name = extract_struct_name_from_impl(imp.clone());
-                for imp_item in &mut imp.items {
-                    if let rustc_ast::AssocItemKind::Fn(fn_data) = &mut imp_item.kind {
-                        for foo in &mut self.mocks{
-                            let method_name = format!("{}.{}", imp_name, fn_data.ident.name.as_str());
-                            if method_name == foo.name.as_str() {
-                                println!("Mocking {}", foo.name);
-                                foo.resolve_names();
-                                fn_data.sig.decl = foo.sig.decl.clone();
-                                fn_data.body = Some(foo.body.clone());
-                            }
-                        }  
+            match &mut item.kind {
+                rustc_ast::ItemKind::Fn(fn_data) => {
+                    for foo in &mut self.mocks{
+                        if fn_data.ident.name.as_str() == foo.name.as_str() {
+                            println!("Mocking {}", foo.name);
+                            foo.resolve_names();
+                            fn_data.sig.decl = foo.sig.decl.clone();
+                            fn_data.body = Some(foo.body.clone());
+                        }
                     }
                 }
+                rustc_ast::ItemKind::Impl(imp) => {
+                    let imp_name = extract_struct_name_from_impl(imp.clone());
+                    
+                    //Save original method
+                    for item in &mut imp.items{
+                        if let rustc_ast::AssocItemKind::Fn(fn_data) = &item.kind {
+                            let method_name = format!("{}.{}", imp_name, fn_data.ident.name.as_str());
+                            if self.checkName(method_name) {
+                                let mut original_function = item.clone();
+                                if let rustc_ast::AssocItemKind::Fn(fn_data) = &mut original_function.kind {
+                                    let new_name = format!("{}_original", fn_data.ident.name.as_str());
+                                    fn_data.ident.name = rustc_span::Symbol::intern(&new_name);
+                                }
+                                method_originals.push(original_function);
+                            }
+                        }
+                    }
+
+                    //Replace method
+                    for imp_item in &mut imp.items {
+                        if let rustc_ast::AssocItemKind::Fn(fn_data) = &mut imp_item.kind {
+                            for foo in &mut self.mocks{
+                                let method_name = format!("{}.{}", imp_name, fn_data.ident.name.as_str());
+                                if method_name == foo.name.as_str() {
+                                    println!("Mocking method {}", foo.name);
+                                    foo.resolve_names();
+                                    fn_data.sig.decl = foo.sig.decl.clone();
+                                    fn_data.body = Some(foo.body.clone());
+                                }
+                            }  
+                        }
+                    }
+                }
+                _ => {}
+            } 
+            for i in method_originals {
+                if let rustc_ast::ItemKind::Impl(imp) = &mut item.kind {
+                    println!("Pushing method {:#?}", i);
+                    imp.items.push(i)
+                }
             }
+            method_originals = Vec::new();
+
         }
         for func in function_originals {
             krate.items.push(func);
         }
+        //println!("{:#?}", krate);
         Compilation::Continue
     }
 }

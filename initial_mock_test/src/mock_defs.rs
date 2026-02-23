@@ -4,9 +4,12 @@ struct Stroo {
     name: String,
 }
 
+
 impl Stroo {
     fn stroop(&mut self) {
-        println!("My name is {} and my x is {} and Im mocked", self.name, self.x)
+        self.name = "Jeremy".to_string();
+        println!(" and my x is {}", self.x);
+        self.stroop_original();
     }
 }
 
