@@ -1,1 +1,0 @@
-for<'a> fn(&'a syn::parse::ParseBuffer<'a>) -> std::result::Result<Modifier, syn::Error> {<Modifier as syn::parse::Parse>::parse}

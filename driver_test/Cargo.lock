@@ -160,6 +160,7 @@ dependencies = [
  "log",
  "rustc_plugin",
  "serde",
+ "syn",
 ]
 
 [[package]]
@@ -269,7 +270,6 @@ dependencies = [
 [[package]]
 name = "rustc_plugin"
 version = "0.14.3-nightly-2025-08-20"
-source = "git+https://github.com/EldritchEli/rustc_plugin.git#98b336d0b5801eea20fc4c40b257d5067903287f"
 dependencies = [
  "cargo_metadata",
  "colored-print",
@@ -356,9 +356,9 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "syn"
-version = "2.0.115"
+version = "2.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e614ed320ac28113fa64972c4262d5dbc89deacdfd00c34a3e4cea073243c12"
+checksum = "e665b8803e7b1d2a727f4023456bbbbe74da67099c585258af0ad9c5013b9b99"
 dependencies = [
  "proc-macro2",
  "quote",
