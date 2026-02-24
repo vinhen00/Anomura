@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "initial_mock_test"
+name = "mockingbird"
 version = "0.1.0"

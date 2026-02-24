@@ -1,9 +1,11 @@
 [package]
-name = "initial_mock_test"
+name = "mockingbird"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+mock-macro = { path = "../mock-macro" }
+
 
 
 [package.metadata.rust-analyzer]
