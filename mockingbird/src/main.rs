@@ -21,6 +21,7 @@ use std::sync::Arc;
 use std::fs::File;
 use std::io::Read;
 
+
 use std::collections::HashMap;
 
 
@@ -32,6 +33,55 @@ use rustc_middle::ty::TyCtxt;
 use rustc_session::config::CrateType;
 use rustc_span::symbol::Ident;
 
+
+
+
+use mock_macro::mock_def;
+mod mock_defs;
+
+
+fn run_cargo_expand() -> Result<String, std::io::Error> {
+    let x = std::env::current_dir();
+    println!("{:#?}", x);
+    let output = Command::new("cargo")
+        .arg("expand")
+        .arg("mock_defs")
+        .current_dir("C:/Users/VincentHendriksen/Desktop/rust/project_mockingbird/mockingbird")        
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        panic!("cargo expand failed: {stderr}");
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Ok(stdout.into())
+}
+
+struct MockDefsLoader {
+    mockdefs: String,
+}
+
+impl rustc_span::source_map::FileLoader for MockDefsLoader {
+    fn file_exists(&self, path: &Path) -> bool {
+        path == Path::new("main.rs")
+    }
+
+    fn read_file(&self, path: &Path) -> io::Result<String> {
+        Ok(self.mockdefs.clone())
+  
+    }
+
+    fn read_binary_file(&self, _path: &Path) -> io::Result<Arc<[u8]>> {
+        Err(io::Error::other("oops"))
+    }
+
+    fn current_directory(&self) -> Result<std::path::PathBuf, std::io::Error> {
+        Ok(std::path::PathBuf::from("."))
+    }
+}
+
+
 struct MyFileLoader{file: String}
 
 impl rustc_span::source_map::FileLoader for MyFileLoader {
@@ -41,7 +91,7 @@ impl rustc_span::source_map::FileLoader for MyFileLoader {
 
     fn read_file(&self, path: &std::path::Path) -> std::io::Result<String> {
         if path == std::path::Path::new(&self.file) {
-            let mut file = std::fs::File::open(format!("src/{}", self.file))?;
+            let mut file = std::fs::File::open(format!("mockingbird/src/{}", self.file))?;
             let mut contents = String::new();
             file.read_to_string(&mut contents)?;
             Ok(contents)
@@ -246,7 +296,49 @@ fn extract_struct_name_from_impl (imp: rustc_ast::Impl) -> String {
 }
 
 struct CompileMocks {
+    mockdefs: String,
     mocks: Vec<MockedFun>,
+}
+
+impl CompileMocks {
+    fn handleFn(&mut self, fn_data: &Box<rustc_ast::Fn>) {
+        if fn_data.ident.name.as_str() != "main" {
+            let mut foo = MockedFun::new(fn_data.clone());
+            foo.collect_names();
+            self.mocks.push(foo);
+        }  
+    }
+
+    fn handleImpl(&mut self, impl_data: &rustc_ast::Impl) {
+        let imp_name = extract_struct_name_from_impl(impl_data.clone());
+        for imp_item in &impl_data.items {
+            if let rustc_ast::AssocItemKind::Fn(fn_data) = &imp_item.kind {
+                let mut foo = MockedFun::new(fn_data.clone());
+                foo.collect_names();
+                foo.name = format!("{}.{}", imp_name, foo.name);
+                self.mocks.push(foo);
+            }
+        }
+    }
+
+    fn handleMod(&mut self, mod_items: &rustc_ast::ModKind) {
+        if let rustc_ast::ModKind::Loaded(items, _, _) = mod_items {
+            for i in items {
+                match &i.kind {
+                    rustc_ast::ItemKind::Fn(fn_data) => {
+                        self.handleFn(fn_data);
+                    }
+                    rustc_ast::ItemKind::Impl(impl_data) => {
+                        self.handleImpl(impl_data);
+                    }
+                    rustc_ast::ItemKind::Mod(_,_,modData) => {
+                        self.handleMod(modData);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
 }
 
 //Compile mocks is a compiler setting the compiles the file that the mocked functions reside in.
@@ -254,7 +346,7 @@ struct CompileMocks {
 //Stops compilation when done
 impl rustc_driver::Callbacks for CompileMocks {
     fn config(&mut self, config: &mut Config) {
-        config.file_loader = Some(Box::new(MyFileLoader{file: "mock_defs.rs".to_string()}));
+        config.file_loader = Some(Box::new(MockDefsLoader{mockdefs: self.mockdefs.clone()}));
         config.opts.crate_types = vec![CrateType::Executable];
         config.opts.search_paths.clear();
     }
@@ -264,28 +356,25 @@ impl rustc_driver::Callbacks for CompileMocks {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
+        println!("{:#?}", krate);
         for item in &krate.items {
-            if let rustc_ast::ItemKind::Fn(fn_data) = &item.kind {
-                if fn_data.ident.name.as_str() != "main" {
-                    let mut foo = MockedFun::new(fn_data.clone());
-                    foo.collect_names();
-                    self.mocks.push(foo);
-                }        
-            }
-            else if let rustc_ast::ItemKind::Impl(imp) = &item.kind {
-                let imp_name = extract_struct_name_from_impl(imp.clone());
-                for imp_item in &imp.items {
-                    if let rustc_ast::AssocItemKind::Fn(fn_data) = &imp_item.kind {
-                        let mut foo = MockedFun::new(fn_data.clone());
-                        foo.collect_names();
-                        foo.name = format!("{}.{}", imp_name, foo.name);
-                        self.mocks.push(foo);
-                    }
+            match &item.kind {
+                rustc_ast::ItemKind::Fn(fn_data) => {
+                    self.handleFn(fn_data);
                 }
+                rustc_ast::ItemKind::Impl(impl_data) => {
+                    self.handleImpl(impl_data);
+                }
+                rustc_ast::ItemKind::Mod(_,_,modData) => {
+                    self.handleMod(modData);
+                }
+                _ => {}
             }
+
         }
         Compilation::Stop
     }
+
 }
 
 struct FunctionIntercept{
@@ -398,7 +487,9 @@ impl rustc_driver::Callbacks for FunctionIntercept {
 }
 
 fn main() {
-    let mut mockedFuns = CompileMocks {mocks: Vec::new()};
+    let program = run_cargo_expand().unwrap();
+    println!("{}",program);
+    let mut mockedFuns = CompileMocks {mockdefs: program ,mocks: Vec::new()};
     run_compiler(
         &[
             "ignored".to_string(),
@@ -441,3 +532,7 @@ fn main() {
         }
     }
 }
+
+
+
+

@@ -1,20 +1,15 @@
+use mock_macro::mock_def;
+use mock_macro::mocked;
 
-struct Stroo {
-    x: i32,
-    name: String,
+mock_def! {
+    name: foo,
+    input_types: [i32, i32],
+    input_ident: [a, b],
+    ret_type: i32,
+    ret_val: a * b + 10
 }
 
 
-impl Stroo {
-    fn stroop(&mut self) {
-        self.name = "Jeremy".to_string();
-        println!(" and my x is {}", self.x);
-        self.stroop_original();
-    }
-}
-
-fn main() {
-    //let x = foo(1);
-    let y = 88;
-    println!("Mocked: {}", y);
-}
+// fn full() {
+//     println!("hello");
+// }

@@ -1,14 +1,109 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+use proc_macro::TokenStream;
+use quote::quote;
+use syn::{
+    braced, bracketed,
+    parse::{Parse, ParseStream},
+    parse_macro_input,
+    punctuated::Punctuated,
+    Expr, Ident, Result, Token, Type,
+};
+
+struct MockDef {
+    name: Ident,
+    input_types: Vec<Type>,
+    input_ident: Vec<Ident>,
+    ret_type: Type,
+    ret_val: Expr,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl Parse for MockDef {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let mut name = None;
+        let mut input_types = None;
+        let mut input_ident = None;
+        let mut ret_type = None;
+        let mut ret_val = None;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+        while !input.is_empty() {
+            let field: Ident = input.parse()?;
+            input.parse::<Token![:]>()?;
+
+            match field.to_string().as_str() {
+                "name" => {
+                    name = Some(input.parse()?);
+                }
+                "input_types" => {
+                    let inner;
+                    bracketed!(inner in input);
+                    input_types = Some(
+                        Punctuated::<Type, Token![,]>::parse_terminated(&inner)?
+                            .into_iter()
+                            .collect(),
+                    );
+                }
+                "input_ident" => {
+                    let inner;
+                    bracketed!(inner in input);
+                    input_ident = Some(
+                        Punctuated::<Ident, Token![,]>::parse_terminated(&inner)?
+                            .into_iter()
+                            .collect(),
+                    );
+                }
+                "ret_type" => {
+                    ret_type = Some(input.parse()?);
+                }
+                "ret_val" => {
+                    ret_val = Some(input.parse()?);
+                }
+                _ => {
+                    return Err(syn::Error::new(
+                        field.span(),
+                        "Unknown field",
+                    ));
+                }
+            }
+
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
+        }
+
+        Ok(MockDef {
+            name: name.unwrap(),
+            input_types: input_types.unwrap(),
+            input_ident: input_ident.unwrap(),
+            ret_type: ret_type.unwrap(),
+            ret_val: ret_val.unwrap(),
+        })
     }
+}
+
+#[proc_macro]
+pub fn mock_def(input: TokenStream) -> TokenStream {
+    let mock = parse_macro_input!(input as MockDef);
+
+    let name = mock.name;
+    let ret_type = mock.ret_type;
+    let ret_val = mock.ret_val;
+
+    let params = mock
+        .input_ident
+        .iter()
+        .zip(mock.input_types.iter())
+        .map(|(ident, ty)| quote! { #ident: #ty });
+
+    let expanded = quote! {
+        #[mocked]
+        fn #name(#(#params),*) -> #ret_type {
+            #ret_val
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_attribute]
+pub fn mocked(_: TokenStream, item: TokenStream) -> TokenStream {
+    item
 }

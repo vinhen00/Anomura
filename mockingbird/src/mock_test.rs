@@ -1,18 +1,9 @@
-
-struct Stroo {
-    x: i32,
-    name: String,
-}
-
-impl Stroo {
-    fn stroop(&mut self) {
-        println!("My name is {}" , self.name)
-    }
+fn foo(x:i32, y:i32) -> i32 {
+    x*y
 }
 
 
 fn main() {
-    let mut ss = Stroo { x: 67, name: "Jeffrey".to_string()};
-    ss.stroop();
-    println!("{}",ss.name);
+    let result = foo(4,5);
+    println!("{}",result);
 }
