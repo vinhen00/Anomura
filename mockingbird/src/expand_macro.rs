@@ -1,12 +1,27 @@
-use proc_macro::TokenStream;
 use quote::quote;
+use proc_macro2::TokenStream;
+use std::str::FromStr;
+use rustc_ast_pretty::pprust;
 use syn::{
-    braced, bracketed,
+    bracketed,
+    parse2,
     parse::{Parse, ParseStream},
-    parse_macro_input,
     punctuated::Punctuated,
-    Expr, Ident, Result, Token, Type,
+    Expr, Ident, Token, Type,
 };
+use std::path::{Path, PathBuf};
+use std::io;
+use std::sync::Arc;
+use std::fs::File;
+use crate::CompileMocks;
+use rustc_driver::{Compilation, run_compiler};
+
+
+
+
+
+
+
 
 struct MockDef {
     name: Ident,
@@ -17,7 +32,7 @@ struct MockDef {
 }
 
 impl Parse for MockDef {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut name = None;
         let mut input_types = None;
         let mut input_ident = None;
@@ -79,10 +94,14 @@ impl Parse for MockDef {
     }
 }
 
-#[proc_macro]
-pub fn mock_def(input: TokenStream) -> TokenStream {
-    let mock = parse_macro_input!(input as MockDef);
 
+
+pub fn expand_mock(input: TokenStream) -> TokenStream {
+    let mock = match parse2::<MockDef>(input) {
+        Ok(m) => m,
+        Err(e) => return e.to_compile_error(),
+    };
+    
     let name = mock.name;
     let ret_type = mock.ret_type;
     let ret_val = mock.ret_val;
@@ -105,7 +124,56 @@ pub fn mock_def(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-#[proc_macro_attribute]
-pub fn mocked(_: TokenStream, item: TokenStream) -> TokenStream {
-    item
+
+
+pub struct MockDefsLoader {
+    pub mockdefs: String,
+}
+
+impl rustc_span::source_map::FileLoader for MockDefsLoader {
+    fn file_exists(&self, path: &Path) -> bool {
+        path == Path::new("main.rs")
+    }
+
+    fn read_file(&self, path: &Path) -> io::Result<String> {
+        Ok(self.mockdefs.clone())
+  
+    }
+
+    fn read_binary_file(&self, _path: &Path) -> io::Result<Arc<[u8]>> {
+        Err(io::Error::other("oops"))
+    }
+
+    fn current_directory(&self) -> Result<PathBuf, std::io::Error> {
+        Ok(PathBuf::from("."))
+    }
+}
+
+
+
+impl CompileMocks {
+    pub fn handleMacCall(&mut self, tokens: rustc_ast::tokenstream::TokenStream) {
+        let syn_ts = TokenStream::from_str(&pprust::tts_to_string(&tokens))
+        .expect("failed to parse token stream");
+        let result = expand_mock(syn_ts);
+        self.compileMacCall(result.to_string());
+    }
+
+    fn compileMacCall(&mut self, program: String) {
+        let mut mockedFuns = CompileMocks {mocks: Vec::new(), inline: Some(program)};
+        run_compiler(
+            &[
+                "ignored".to_string(),
+                "mock_defs.rs".to_string(),
+                "--crate-type".to_string(),
+                "bin".to_string(),
+                "-o".to_string(),
+                "./target/mocked_main".to_string(),
+            ],
+            &mut mockedFuns,
+        );
+        for foo in mockedFuns.mocks{
+            self.mocks.push(foo);
+        }
+    }
 }

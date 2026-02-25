@@ -1,3 +1,4 @@
+extern crate mock_macro;
 use mock_macro::mock_def;
 use mock_macro::mocked;
 
@@ -6,10 +7,7 @@ mock_def! {
     input_types: [i32, i32],
     input_ident: [a, b],
     ret_type: i32,
-    ret_val: a * b + 10
+    ret_val: a + b
 }
 
 
-// fn full() {
-//     println!("hello");
-// }

@@ -26,60 +26,19 @@ use std::collections::HashMap;
 
 
 use rustc_ast::mut_visit::MutVisitor;
-use rustc_ast_pretty::pprust::item_to_string;
 use rustc_driver::{Compilation, run_compiler};
 use rustc_interface::interface::{Compiler, Config};
-use rustc_middle::ty::TyCtxt;
 use rustc_session::config::CrateType;
 use rustc_span::symbol::Ident;
 
+use crate::expand_macro::MockDefsLoader;
 
 
 
 use mock_macro::mock_def;
-mod mock_defs;
+//mod mock_defs;
+mod expand_macro;
 
-
-fn run_cargo_expand() -> Result<String, std::io::Error> {
-    let x = std::env::current_dir();
-    println!("{:#?}", x);
-    let output = Command::new("cargo")
-        .arg("expand")
-        .arg("mock_defs")
-        .current_dir("C:/Users/VincentHendriksen/Desktop/rust/project_mockingbird/mockingbird")        
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        panic!("cargo expand failed: {stderr}");
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    Ok(stdout.into())
-}
-
-struct MockDefsLoader {
-    mockdefs: String,
-}
-
-impl rustc_span::source_map::FileLoader for MockDefsLoader {
-    fn file_exists(&self, path: &Path) -> bool {
-        path == Path::new("main.rs")
-    }
-
-    fn read_file(&self, path: &Path) -> io::Result<String> {
-        Ok(self.mockdefs.clone())
-  
-    }
-
-    fn read_binary_file(&self, _path: &Path) -> io::Result<Arc<[u8]>> {
-        Err(io::Error::other("oops"))
-    }
-
-    fn current_directory(&self) -> Result<std::path::PathBuf, std::io::Error> {
-        Ok(std::path::PathBuf::from("."))
-    }
-}
 
 
 struct MyFileLoader{file: String}
@@ -296,8 +255,8 @@ fn extract_struct_name_from_impl (imp: rustc_ast::Impl) -> String {
 }
 
 struct CompileMocks {
-    mockdefs: String,
     mocks: Vec<MockedFun>,
+    inline: Option<String>,
 }
 
 impl CompileMocks {
@@ -346,7 +305,11 @@ impl CompileMocks {
 //Stops compilation when done
 impl rustc_driver::Callbacks for CompileMocks {
     fn config(&mut self, config: &mut Config) {
-        config.file_loader = Some(Box::new(MockDefsLoader{mockdefs: self.mockdefs.clone()}));
+        match &self.inline {
+            Some(program) => { config.file_loader = Some(Box::new(MockDefsLoader{mockdefs: program.clone()}) );
+}
+            None => { config.file_loader = Some(Box::new(MyFileLoader{file: "mock_defs.rs".to_string()})); }
+        }
         config.opts.crate_types = vec![CrateType::Executable];
         config.opts.search_paths.clear();
     }
@@ -356,7 +319,7 @@ impl rustc_driver::Callbacks for CompileMocks {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
-        println!("{:#?}", krate);
+        //println!("{:#?}", krate);
         for item in &krate.items {
             match &item.kind {
                 rustc_ast::ItemKind::Fn(fn_data) => {
@@ -368,12 +331,22 @@ impl rustc_driver::Callbacks for CompileMocks {
                 rustc_ast::ItemKind::Mod(_,_,modData) => {
                     self.handleMod(modData);
                 }
+                rustc_ast::ItemKind::MacCall(macData) => {
+                    let args = macData.args.clone();
+                    let tokens = args.tokens;
+
+                    self.handleMacCall(tokens);
+                    
+                    
+
+                }
                 _ => {}
             }
 
         }
         Compilation::Stop
     }
+
 
 }
 
@@ -487,9 +460,9 @@ impl rustc_driver::Callbacks for FunctionIntercept {
 }
 
 fn main() {
-    let program = run_cargo_expand().unwrap();
-    println!("{}",program);
-    let mut mockedFuns = CompileMocks {mockdefs: program ,mocks: Vec::new()};
+    // let program = run_cargo_expand().unwrap();
+    // println!("{}",program);
+    let mut mockedFuns = CompileMocks {mocks: Vec::new(), inline: None};
     run_compiler(
         &[
             "ignored".to_string(),
@@ -498,6 +471,10 @@ fn main() {
             "bin".to_string(),
             "-o".to_string(),
             "./target/mocked_main".to_string(),
+            "--extern".to_string(),
+            "mock_macro=./target/debug/mock_macro.dll".to_string(),
+            "-L".to_string(),
+            "dependency=./target/debug".to_string(),
         ],
         &mut mockedFuns,
     );
