@@ -13,9 +13,16 @@ impl MutVisitor for SymbolFinder {
     //For expressions the only special case we need is literals. 
     //Identifiers are covered by visit_path as all identifiers are paths
     fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
-        if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind {
-            self.symbols.push(literal.symbol.as_str().to_string());
+        match &mut expr.kind {
+            rustc_ast::ExprKind::Lit(literal) => {
+                self.symbols.push(literal.symbol.as_str().to_string());
+            }
+            rustc_ast::ExprKind::Field(_, ident) => {
+                self.idents.push(ident.name.as_str().to_string());
+            }
+            _ => {}
         }
+
         rustc_ast::mut_visit::walk_expr(self, expr);
     }
 
@@ -66,9 +73,26 @@ struct SymbolFixer{
 //SymbolFixer will walk through an AST and fix all Identifiers and Symbols
 impl MutVisitor for SymbolFixer { 
     fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
-        if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind {
-            let string = self.symbols.remove(0);
-            literal.symbol = rustc_span::Symbol::intern(&string); //Create new symbol in registry
+
+        match &mut expr.kind {
+            rustc_ast::ExprKind::Lit(literal) => {
+                let string = self.symbols.remove(0);
+                literal.symbol = rustc_span::Symbol::intern(&string); //Create new symbol in registry
+            }
+            rustc_ast::ExprKind::Field(_, id) => { 
+                let mut ident = self.idents.remove(0);
+                match self.dict.get(&mut ident) {
+                    Some(symb) => {
+                        id.name = *symb;
+                    }
+                    None => {
+                        let symb = rustc_span::Symbol::intern(ident.as_str());
+                        self.dict.insert(ident, symb);
+                        id.name = symb;
+                    }
+                }
+            }
+            _ => {}
         }
         rustc_ast::mut_visit::walk_expr(self, expr);
     }

@@ -12,7 +12,7 @@ use rustc_interface::interface::{Compiler, Config};
 use rustc_session::config::CrateType;
 
 use crate::visitors::MockedFun;
-use crate::expand_macro::expand_mock;
+use crate::expand_macro::{expand_mock_fn, expand_mock_method};
 
 
 pub struct MockFileLoader{
@@ -84,6 +84,7 @@ pub fn extract_struct_name_from_impl (imp: rustc_ast::Impl) -> String {
 pub struct CompileMocks {
     mocks: Vec<MockedFun>,
     inline: Option<String>,
+
 }
 
 
@@ -95,6 +96,10 @@ impl CompileMocks {
 
     pub fn get_mocks(&self) -> Vec<MockedFun> {
         self.mocks.clone()
+    }
+
+    pub fn get_inline(&self) -> Option<String> {
+        self.inline.clone()
     }
 
     fn handle_fn(&mut self, fn_data: &Box<rustc_ast::Fn>) {
@@ -136,20 +141,11 @@ impl CompileMocks {
             }
         }
     }
-    fn handle_maccall(&mut self, tokens: rustc_ast::tokenstream::TokenStream) {
-        let syn_ts = TokenStream::from_str(&pprust::tts_to_string(&tokens))
-        .expect("failed to parse token stream");
-        //println!("{}", syn_ts);
-
-        let result = expand_mock(syn_ts);
-        //println!("{}", result);
-        self.compile_maccall(result.to_string());
-    }
 
     //This runs a new compilation process inside the callback function for the original compilation process
     //This new compilation compiles the expanded macros and saves 
-    fn compile_maccall(&mut self, program: String) {
-        let mut mocked_funs = CompileMocks::new(Vec::new(), Some(program));
+    fn compile_maccalls(&mut self, program: &String) {
+        let mut mocked_funs = CompileMocks::new(Vec::new(), Some(program.clone()));
         run_compiler(
             &[
                 "ignored".to_string(),
@@ -166,7 +162,32 @@ impl CompileMocks {
         }
     }
 
+    fn handle_maccall(&mut self, mac_call: Box<rustc_ast::MacCall>) {
+        let args = mac_call.args.clone();
+        let tokens = args.tokens;
+        let result;
 
+        let syn_ts = TokenStream::from_str(&pprust::tts_to_string(&tokens))
+        .expect("failed to parse token stream");
+
+        if let Some(path) = mac_call.path.segments.first(){
+            match path.ident.name.as_str() {
+                "mock_fn" => { result = expand_mock_fn(syn_ts).to_string()}
+                "mock_method" => {result = expand_mock_method(syn_ts).to_string()}
+                _ => { return }
+
+            }
+        }
+        else { return }
+
+        match &self.inline {
+            Some(program) => { self.inline = Some(format!("{program}\n {result}")) }
+
+            None => { self.inline = Some(result) }
+        }
+
+        
+    }
 
 }
 
@@ -190,7 +211,9 @@ impl rustc_driver::Callbacks for CompileMocks {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
-        // println!("{:#?}", krate);
+        let mut run_once = false;
+        if let None = self.inline {run_once = true}
+        //println!("{:#?}", krate);
         for item in &krate.items {
             match &item.kind {
                 rustc_ast::ItemKind::Fn(fn_data) => {
@@ -203,10 +226,7 @@ impl rustc_driver::Callbacks for CompileMocks {
                     self.handle_mod(mod_data);
                 }
                 rustc_ast::ItemKind::MacCall(mac_data) => {
-                    let args = mac_data.args.clone();
-                    let tokens = args.tokens;
-
-                    self.handle_maccall(tokens);
+                    self.handle_maccall(mac_data.clone());
                     
                     
 
@@ -215,6 +235,9 @@ impl rustc_driver::Callbacks for CompileMocks {
             }
 
         }
+        if let Some(program) = &self.get_inline() {
+            if run_once { self.compile_maccalls(program) }
+        } 
         Compilation::Stop
     }
 

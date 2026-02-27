@@ -97,6 +97,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                                 if method_name == foo.get_name().as_str() {
                                     println!("Mocking method {}", foo.get_name());
                                     foo.resolve_names();
+                                    //println!("{:#?}", foo.get_body());
                                     fn_data.sig.decl = foo.get_sig().decl;
                                     fn_data.body = Some(foo.get_body());
                                 }
@@ -108,7 +109,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
             } 
             for i in method_originals {
                 if let rustc_ast::ItemKind::Impl(imp) = &mut item.kind {
-                    println!("Pushing method {:#?}", i);
+                    //println!("Pushing method {:#?}", i);
                     imp.items.push(i)
                 }
             }
