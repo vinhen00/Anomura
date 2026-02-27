@@ -142,7 +142,7 @@ impl CompileMocks {
         //println!("{}", syn_ts);
 
         let result = expand_mock(syn_ts);
-        println!("{}", result);
+        //println!("{}", result);
         self.compile_maccall(result.to_string());
     }
 
