@@ -24,10 +24,18 @@ impl MutVisitor for SymbolFinder {
         self.visit_path(&mut node.path);
         for tree in node.args.tokens.iter() {
             if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree {
-                if let rustc_ast::token::TokenKind::Literal(lit) = &token.kind {
-                    if let rustc_ast::token::LitKind::Str = lit.kind {
+
+
+                match &token.kind {
+                    rustc_ast::token::TokenKind::Literal(lit) => {
                         self.symbols.push(lit.symbol.as_str().to_string());
                     }
+
+                    rustc_ast::token::TokenKind::Ident(name, _) => {
+                        self.idents.push(name.as_str().to_string());
+                    }
+
+                    _ => {}
                 }
             }
         }
@@ -72,12 +80,29 @@ impl MutVisitor for SymbolFixer {
         let mut trees: Vec<_> = node.args.tokens.iter().cloned().collect();
         for tree in &mut trees {
             if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree {
-                if let rustc_ast::token::TokenKind::Literal(lit) = &mut token.kind {
-                    if let rustc_ast::token::LitKind::Str = lit.kind {
-                        if let string = self.symbols.remove(0) {
-                            lit.symbol = rustc_span::Symbol::intern(&string);
+                match &mut token.kind {
+                    rustc_ast::token::TokenKind::Literal(lit) => {
+                        let string = self.symbols.remove(0);
+                        lit.symbol = rustc_span::Symbol::intern(&string);   
+                    }
+
+                    rustc_ast::token::TokenKind::Ident(name, _) => {
+
+                        let mut ident = self.idents.remove(0);
+
+                        match self.dict.get(&mut ident) {
+                            Some(symb) => {
+                                *name = *symb;
+                            }
+                            None => {
+                                let symb = rustc_span::Symbol::intern(ident.as_str());
+                                self.dict.insert(ident, symb);
+                                *name = symb;
+                            }
                         }
                     }
+
+                    _ => {}
                 }
             }
         }
@@ -87,7 +112,7 @@ impl MutVisitor for SymbolFixer {
     //Both path and pat work by creating a new entry into the dictionary the first them we encounter an identifier
     //Next time we encounter them we lookup the value from the dict
     fn visit_path_segment(&mut self, path: &mut rustc_ast::PathSegment){
-        let mut name = self.idents.remove(0);
+        let name = self.idents.remove(0);
         match self.dict.get(&name) {
             Some(symb) => {
                 path.ident.name = *symb;}
@@ -98,14 +123,14 @@ impl MutVisitor for SymbolFixer {
             }
 
         }
-        println!("Fixed path named: {}", path.ident.name);
+        //println!("Fixed path named: {}", path.ident.name);
 
         rustc_ast::mut_visit::walk_path_segment(self, path);
     }
 
     fn visit_pat(&mut self, pat: &mut rustc_ast::Pat) {
         if let rustc_ast::PatKind::Ident(_, ident, _) = &mut pat.kind {
-            let mut name = self.idents.remove(0);
+            let name = self.idents.remove(0);
             match self.dict.get(&name) {
                 Some(symb) => {ident.name = *symb;}
                 None => {

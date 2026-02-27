@@ -9,12 +9,6 @@ use syn::{
 };
 
 
-
-
-
-
-
-
 struct MockDef {
     name: Ident,
     input_types: Vec<Type>,
@@ -89,7 +83,7 @@ impl Parse for MockDef {
 
 
 pub fn expand_mock(input: TokenStream) -> TokenStream {
-    println!("Inside syn {}", input);
+    //println!("Inside syn {}", input);
     let mock = match parse2::<MockDef>(input) {
         Ok(m) => m,
         Err(e) => return e.to_compile_error(),

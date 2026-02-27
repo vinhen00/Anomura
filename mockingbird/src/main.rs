@@ -33,9 +33,7 @@ use crate::function_intercept::FunctionIntercept;
 
 
 fn main() {
-    // let program = run_cargo_expand().unwrap();
-    // println!("{}",program);
-    let mut mockedFuns = CompileMocks::new(Vec::new(), None);
+    let mut mocked_funs = CompileMocks::new(Vec::new(), None);
     run_compiler(
         &[
             "ignored".to_string(),
@@ -49,10 +47,10 @@ fn main() {
             "-L".to_string(),
             "dependency=./target/debug".to_string(),
         ],
-        &mut mockedFuns,
+        &mut mocked_funs,
     );
 
-    let mut insertion = FunctionIntercept::new(mockedFuns.get_mocks());
+    let mut insertion = FunctionIntercept::new(mocked_funs.get_mocks());
     run_compiler(
         &[
             "ignored".to_string(),

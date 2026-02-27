@@ -26,7 +26,7 @@ impl rustc_span::source_map::FileLoader for MockFileLoader {
 
     fn read_file(&self, path: &std::path::Path) -> std::io::Result<String> {
         if path == std::path::Path::new(&self.file) {
-            let mut file = std::fs::File::open(format!("mockingbird/src/{}", self.file))?;
+            let mut file = std::fs::File::open(format!("mockingbird/test_files/{}", self.file))?;
             let mut contents = String::new();
             file.read_to_string(&mut contents)?;
             Ok(contents)
@@ -54,7 +54,7 @@ impl rustc_span::source_map::FileLoader for MockDefsLoader {
         path == Path::new("main.rs")
     }
 
-    fn read_file(&self, path: &Path) -> io::Result<String> {
+    fn read_file(&self, _path: &Path) -> io::Result<String> {
         Ok(self.mockdefs.clone())
   
     }
@@ -97,7 +97,7 @@ impl CompileMocks {
         self.mocks.clone()
     }
 
-    fn handleFn(&mut self, fn_data: &Box<rustc_ast::Fn>) {
+    fn handle_fn(&mut self, fn_data: &Box<rustc_ast::Fn>) {
         if fn_data.ident.name.as_str() != "main" {
             let mut foo = MockedFun::new(fn_data.clone());
             foo.collect_names();
@@ -106,7 +106,7 @@ impl CompileMocks {
         }  
     }
 
-    fn handleImpl(&mut self, impl_data: &rustc_ast::Impl) {
+    fn handle_impl(&mut self, impl_data: &rustc_ast::Impl) {
         let imp_name = extract_struct_name_from_impl(impl_data.clone());
         for imp_item in &impl_data.items {
             if let rustc_ast::AssocItemKind::Fn(fn_data) = &imp_item.kind {
@@ -118,36 +118,38 @@ impl CompileMocks {
         }
     }
 
-    fn handleMod(&mut self, mod_items: &rustc_ast::ModKind) {
+    fn handle_mod(&mut self, mod_items: &rustc_ast::ModKind) {
         if let rustc_ast::ModKind::Loaded(items, _, _) = mod_items {
             for i in items {
                 match &i.kind {
                     rustc_ast::ItemKind::Fn(fn_data) => {
-                        self.handleFn(fn_data);
+                        self.handle_fn(fn_data);
                     }
                     rustc_ast::ItemKind::Impl(impl_data) => {
-                        self.handleImpl(impl_data);
+                        self.handle_impl(impl_data);
                     }
-                    rustc_ast::ItemKind::Mod(_,_,modData) => {
-                        self.handleMod(modData);
+                    rustc_ast::ItemKind::Mod(_,_,mod_data) => {
+                        self.handle_mod(mod_data);
                     }
                     _ => {}
                 }
             }
         }
     }
-    fn handleMacCall(&mut self, tokens: rustc_ast::tokenstream::TokenStream) {
+    fn handle_maccall(&mut self, tokens: rustc_ast::tokenstream::TokenStream) {
         let syn_ts = TokenStream::from_str(&pprust::tts_to_string(&tokens))
         .expect("failed to parse token stream");
         //println!("{}", syn_ts);
 
         let result = expand_mock(syn_ts);
         println!("{}", result);
-        self.compileMacCall(result.to_string());
+        self.compile_maccall(result.to_string());
     }
 
-    fn compileMacCall(&mut self, program: String) {
-        let mut mockedFuns = CompileMocks::new(Vec::new(), Some(program));
+    //This runs a new compilation process inside the callback function for the original compilation process
+    //This new compilation compiles the expanded macros and saves 
+    fn compile_maccall(&mut self, program: String) {
+        let mut mocked_funs = CompileMocks::new(Vec::new(), Some(program));
         run_compiler(
             &[
                 "ignored".to_string(),
@@ -157,9 +159,9 @@ impl CompileMocks {
                 "-o".to_string(),
                 "./target/mocked_main".to_string(),
             ],
-            &mut mockedFuns,
+            &mut mocked_funs,
         );
-        for foo in mockedFuns.mocks{
+        for foo in mocked_funs.mocks{
             self.mocks.push(foo);
         }
     }
@@ -192,19 +194,19 @@ impl rustc_driver::Callbacks for CompileMocks {
         for item in &krate.items {
             match &item.kind {
                 rustc_ast::ItemKind::Fn(fn_data) => {
-                    self.handleFn(fn_data);
+                    self.handle_fn(fn_data);
                 }
                 rustc_ast::ItemKind::Impl(impl_data) => {
-                    self.handleImpl(impl_data);
+                    self.handle_impl(impl_data);
                 }
-                rustc_ast::ItemKind::Mod(_,_,modData) => {
-                    self.handleMod(modData);
+                rustc_ast::ItemKind::Mod(_,_,mod_data) => {
+                    self.handle_mod(mod_data);
                 }
-                rustc_ast::ItemKind::MacCall(macData) => {
-                    let args = macData.args.clone();
+                rustc_ast::ItemKind::MacCall(mac_data) => {
+                    let args = mac_data.args.clone();
                     let tokens = args.tokens;
 
-                    self.handleMacCall(tokens);
+                    self.handle_maccall(tokens);
                     
                     
 

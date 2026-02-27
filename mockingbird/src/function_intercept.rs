@@ -17,7 +17,7 @@ impl FunctionIntercept {
         FunctionIntercept { mocks }
     }
 
-    fn checkName(&mut self, name: String ) -> bool {
+    fn check_name(&mut self, name: String ) -> bool {
         for i in &self.mocks {
             if name == i.get_name() {
                 return true;
@@ -46,7 +46,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
 
         for item in &mut krate.items{
             if let rustc_ast::ItemKind::Fn(fn_data) = &item.kind {
-                if self.checkName(fn_data.ident.name.as_str().to_string()) {
+                if self.check_name(fn_data.ident.name.as_str().to_string()) {
                     let mut original_function = item.clone();
                     if let rustc_ast::ItemKind::Fn(fn_data) = &mut original_function.kind {
                         let new_name = format!("{}_original", fn_data.ident.name.as_str());
@@ -78,7 +78,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                     for item in &mut imp.items{
                         if let rustc_ast::AssocItemKind::Fn(fn_data) = &item.kind {
                             let method_name = format!("{}.{}", imp_name, fn_data.ident.name.as_str());
-                            if self.checkName(method_name) {
+                            if self.check_name(method_name) {
                                 let mut original_function = item.clone();
                                 if let rustc_ast::AssocItemKind::Fn(fn_data) = &mut original_function.kind {
                                     let new_name = format!("{}_original", fn_data.ident.name.as_str());
