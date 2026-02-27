@@ -1,7 +1,5 @@
 use quote::quote;
 use proc_macro2::TokenStream;
-use std::str::FromStr;
-use rustc_ast_pretty::pprust;
 use syn::{
     bracketed,
     parse2,
@@ -9,12 +7,6 @@ use syn::{
     punctuated::Punctuated,
     Expr, Ident, Token, Type,
 };
-use std::path::{Path, PathBuf};
-use std::io;
-use std::sync::Arc;
-use std::fs::File;
-use crate::CompileMocks;
-use rustc_driver::{Compilation, run_compiler};
 
 
 
@@ -97,11 +89,13 @@ impl Parse for MockDef {
 
 
 pub fn expand_mock(input: TokenStream) -> TokenStream {
+    println!("Inside syn {}", input);
     let mock = match parse2::<MockDef>(input) {
         Ok(m) => m,
         Err(e) => return e.to_compile_error(),
     };
     
+
     let name = mock.name;
     let ret_type = mock.ret_type;
     let ret_val = mock.ret_val;
@@ -117,6 +111,7 @@ pub fn expand_mock(input: TokenStream) -> TokenStream {
         #[mocked]
         
         fn #name(#(#params),*) -> #ret_type {
+
             #ret_val
         }
     };
@@ -126,54 +121,11 @@ pub fn expand_mock(input: TokenStream) -> TokenStream {
 
 
 
-pub struct MockDefsLoader {
-    pub mockdefs: String,
-}
-
-impl rustc_span::source_map::FileLoader for MockDefsLoader {
-    fn file_exists(&self, path: &Path) -> bool {
-        path == Path::new("main.rs")
-    }
-
-    fn read_file(&self, path: &Path) -> io::Result<String> {
-        Ok(self.mockdefs.clone())
-  
-    }
-
-    fn read_binary_file(&self, _path: &Path) -> io::Result<Arc<[u8]>> {
-        Err(io::Error::other("oops"))
-    }
-
-    fn current_directory(&self) -> Result<PathBuf, std::io::Error> {
-        Ok(PathBuf::from("."))
-    }
-}
 
 
 
-impl CompileMocks {
-    pub fn handleMacCall(&mut self, tokens: rustc_ast::tokenstream::TokenStream) {
-        let syn_ts = TokenStream::from_str(&pprust::tts_to_string(&tokens))
-        .expect("failed to parse token stream");
-        let result = expand_mock(syn_ts);
-        self.compileMacCall(result.to_string());
-    }
 
-    fn compileMacCall(&mut self, program: String) {
-        let mut mockedFuns = CompileMocks {mocks: Vec::new(), inline: Some(program)};
-        run_compiler(
-            &[
-                "ignored".to_string(),
-                "mock_defs.rs".to_string(),
-                "--crate-type".to_string(),
-                "bin".to_string(),
-                "-o".to_string(),
-                "./target/mocked_main".to_string(),
-            ],
-            &mut mockedFuns,
-        );
-        for foo in mockedFuns.mocks{
-            self.mocks.push(foo);
-        }
-    }
-}
+
+    
+
+

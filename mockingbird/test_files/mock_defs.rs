@@ -6,8 +6,11 @@ mock_def! {
     name: foo,
     input_types: [i32, i32],
     input_ident: [a, b],
-    ret_type: i32,
-    ret_val: a + b
+    ret_type: (),
+    ret_val: {
+        println!("Hello World");
+        println!("I'm printing from inside a mocked macro {} {}", a, b);
+    }
 }
 
 
