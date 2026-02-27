@@ -1,6 +1,9 @@
 #![feature(rustc_private)]
 
+use driver_test::mock_discover_pass::DiscoverPlugin;
+use rustc_plugin::RustcPlugin;
+
 fn main() {
     env_logger::init();
-    rustc_plugin::driver_main(driver_test::mock_discover_pass::MockDiscover);
+    DiscoverPlugin::driver_main();
 }

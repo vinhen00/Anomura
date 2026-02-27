@@ -22,6 +22,7 @@ use std::{borrow::Cow, env, process::Command};
 
 pub mod mock_discover_pass;
 pub mod substitution_pass;
+pub const DISCOVER_TMP: &str = "DISCOVER_BOOTSTRAP";
 pub const SELECTED_CRATES: &[&str] = &["memchr", "serde_json"];
 // This struct is the plugin provided to the rustc_plugin framework,
 // and it must be exported for use by the CLI/driver binaries.
@@ -67,6 +68,8 @@ impl RustcPlugin for PrintAllItemsPlugin {
             args,
             filter,
             wrapper_type: RustcWrapperType::RustcWrapper,
+            rustc_enabled_for_non_filtered: true,
+            default_build_command: None,
         }
     }
 
@@ -87,6 +90,10 @@ impl RustcPlugin for PrintAllItemsPlugin {
         };
         //println!("compiler_args: {:?}", plugin_args.cargo_args);
         rustc_driver::run_compiler(&compiler_args, &mut callbacks);
+        Ok(())
+    }
+
+    fn after_execution(&self) -> rustc_plugin::PluginResult<()> {
         Ok(())
     }
 }
