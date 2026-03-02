@@ -144,11 +144,6 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
                 RustcPluginError::ClientReturnError("failed to set nonblockng state".to_string())
             })?;
         while let Ok(mut conn) = self.listener.accept().map(BufReader::new) {
-            // Since our client example sends first, the server should receive a
-            // line and only then send a response. Otherwise, because receiving
-            // from and sending to a connection cannot be simultaneous without
-            // threads or async, we can deadlock the two processes by having both
-            // sides wait for the send buffer to be emptied by the other.
             conn.read_line(&mut buffer)?;
             let deserialized = &mut serde_json::from_str(&buffer).map_err(|e| {
                 RustcPluginError::ClientReturnError(format!(
@@ -179,13 +174,12 @@ impl DiscoverPluginCallback {
         let name_str = std::env::var(DISCOVER_TMP)
             .expect("there should be a discover tmp env var created in the main cargo command");
         let name = if GenericNamespaced::is_supported() {
-            name_str.clone().to_ns_name::<GenericNamespaced>().unwrap()
+            name_str.clone().to_ns_name::<GenericNamespaced>()?
         } else {
-            name_str.clone().to_fs_name::<GenericFilePath>().unwrap()
+            name_str.clone().to_fs_name::<GenericFilePath>()?
         };
 
-        let mut conn: BufWriter<local_socket::Stream> =
-            BufWriter::new(Stream::connect(name).unwrap());
+        let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
         let serialized = serde_json::to_vec(&self.mock_fns)?;
         conn.get_mut().write_all(&serialized)?;
         Ok(())

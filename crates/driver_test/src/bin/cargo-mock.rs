@@ -3,6 +3,7 @@
 use std::process::exit;
 
 fn main() {
+    println!("hello mock!");
     env_logger::init();
     let res = rustc_plugin::cli_main(driver_test::mock_discover_pass::DiscoverPlugin::new())
         .unwrap_or_else(|e| {
