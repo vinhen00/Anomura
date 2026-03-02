@@ -2,6 +2,10 @@
 resolver = "2"
 
 members = [
-	"mockingbird",
-	"mock-macro"
+	"crates/mockingbird",
+	"crates/mock-macro",
+	"crates/driver_test",
+	"test_project/foo",
+	#"test_project/bar"
 ]
+

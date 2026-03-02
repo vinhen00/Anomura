@@ -1,1 +1,0 @@
-/Users/eli/Documents/project_mockingbird/initial_mock_test/target/debug/libinitial_mock_test.rlib: /Users/eli/Documents/project_mockingbird/initial_mock_test/build.rs /Users/eli/Documents/project_mockingbird/initial_mock_test/src/foo.rs /Users/eli/Documents/project_mockingbird/initial_mock_test/src/lib.rs
