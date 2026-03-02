@@ -133,6 +133,9 @@ impl CompileMocks {
                     rustc_ast::ItemKind::Impl(impl_data) => {
                         self.handle_impl(impl_data);
                     }
+                    rustc_ast::ItemKind::MacCall(mac_data) => {
+                        self.handle_maccall(mac_data.clone());
+                    }
                     rustc_ast::ItemKind::Mod(_,_,mod_data) => {
                         self.handle_mod(mod_data);
                     }

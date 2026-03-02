@@ -91,6 +91,7 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     
 
     let name = mock.name;
+    let name_str = name.to_string();
     let ret_type = mock.ret_type;
     let ret_val = mock.ret_val;
 
@@ -104,6 +105,7 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[mocked]
         fn #name(#(#params),*) -> #ret_type {
+            println!("Mocked version of function {} was used", #name_str);
             #ret_val
         }
     };
@@ -190,7 +192,7 @@ impl Parse for MockMethod {
 }
 
 
-
+//Can only mock
 pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     //println!("Inside syn {}", input);
     let mock = match parse2::<MockMethod>(input) {
@@ -200,6 +202,7 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     
     let struct_name = mock.struct_name;
     let name = mock.name;
+    let name_str = name.to_string();
     let ret_type = mock.ret_type;
     let ret_val = mock.ret_val;
 
@@ -209,11 +212,13 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
         .zip(mock.input_types.iter())
         .map(|(ident, ty)| quote! { #ident: #ty });
 
+    
 
     let expanded = quote! {
         impl #struct_name {
             #[mocked]
             fn #name(&mut self, #(#params),*) -> #ret_type {
+                println!("Mocked version of method {} was used", #name_str);
                 #ret_val
             }
         }
