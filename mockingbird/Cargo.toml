@@ -1,0 +1,15 @@
+[package]
+name = "mockingbird"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mock-macro = { path = "../mock-macro" }
+quote = "1"
+syn = { version = "2", features = ["full"] }
+proc-macro2 = "1"
+
+
+
+[package.metadata.rust-analyzer]
+rustc_private = true
