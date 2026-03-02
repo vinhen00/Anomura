@@ -5,6 +5,7 @@ mod expand_macro;
 mod visitors;
 mod compile_mocks;
 mod function_intercept;
+mod global_context;
 
 extern crate rustc_ast;
 extern crate rustc_ast_pretty;
@@ -26,13 +27,48 @@ use rustc_driver::run_compiler;
 
 use crate::compile_mocks::CompileMocks;
 use crate::function_intercept::FunctionIntercept;
+use crate::global_context::{GlobalContext, MockFunction};
+
+
+fn foo(cntxt: &mut GlobalContext, a: i32, b: String, c: i32){
+    if let Some(boxed) = cntxt.get_mock("foo".to_string()) {
+        if let Some(stats) = boxed.downcast_mut::<MockFunction<(i32, String, i32)>>(){
+            stats.incr_count();
+            stats.add_call((a,b,c));
+        }
+        
+    }
+    
+}
+
+fn main(){
+    let mut cntxt = GlobalContext::new();
+
+    let mut mock:MockFunction<(i32, String, i32)> = MockFunction::new(); 
+    //mock.add_call((5, "Hello".to_string(), 8));
+    let boxed = Box::new(mock);
+    cntxt.insert_mock("foo".to_string(), boxed);
+
+
+    foo(&mut cntxt, 1, "Soo".to_string(), 3);
+
+    for i in 1..=10 {
+        foo(&mut cntxt, i, "For".to_string(), i*2);
+    }
+
+    if let Some(boxed) = cntxt.get_mock("foo".to_string()) {
+        if let Some(stats) = boxed.downcast_mut::<MockFunction<(i32, String, i32)>>(){
+            let result = stats.get_call_list();
+            for (i, j) in result {
+                println!("Call {} had input {:#?}", i, j);
+            }
+        }
+    }
+}
 
 
 
-
-
-
-fn main() {
+fn main2() {
     let mut mocked_funs = CompileMocks::new(Vec::new(), None);
     run_compiler(
         &[
