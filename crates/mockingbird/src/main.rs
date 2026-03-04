@@ -5,6 +5,7 @@ mod compile_mocks;
 mod expand_macro;
 mod function_intercept;
 mod visitors;
+mod parse_mocks;
 
 extern crate rustc_ast;
 extern crate rustc_ast_pretty;
@@ -24,10 +25,23 @@ use rustc_driver::run_compiler;
 
 use crate::compile_mocks::CompileMocks;
 use crate::function_intercept::FunctionIntercept;
+use crate::parse_mocks::collect_from_file;
 
 fn main() {
-    println!("hello");
-    let mut mocked_funs = CompileMocks::new(Vec::new(), None);
+    let collector = collect_from_file("crates/mockingbird/test_files/mock_defs.rs").unwrap();
+    //create empty program that we add parsed macros to
+    let mut program: String = "".into();
+    for mock_fn in &collector.mock_fns {
+        let expanded = expand_macro::expand_mock_fn(mock_fn.clone());
+        program = format!("{}\n{}", program, expanded);
+    }
+    for mock_method in &collector.mock_methods {
+        let expanded = expand_macro::expand_mock_method(mock_method.clone());
+        program = format!("{}\n{}", program, expanded);
+    }
+
+    let mut mocked_funs = CompileMocks::new(Vec::new(), program);
+    // let mut mocked_funs = CompileMocks::new(Vec::new(), None);
     run_compiler(
         &[
             "ignored".to_string(),

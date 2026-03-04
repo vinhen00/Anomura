@@ -5,6 +5,8 @@ use syn::{
     parse::{Parse, ParseStream},
     parse2,
     punctuated::Punctuated,
+    File, Macro,
+    visit::Visit,
 };
 
 struct MockFun {
