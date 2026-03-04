@@ -6,7 +6,7 @@ members = [
 	"crates/mock-macro",
 	"crates/api_macro",
 	"crates/driver_test",
-	"test_project/foo",
+	"test_project/foo", "test_project/foobar",
 	#"test_project/bar"
 ]
 

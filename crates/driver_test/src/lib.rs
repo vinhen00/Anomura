@@ -86,6 +86,7 @@ impl RustcPlugin for PrintAllItemsPlugin {
     // In the driver, we use the Rustc API to start a compiler session
     // for the arguments given to us by rustc_plugin.
     fn run(
+        crate_name: String,
         compiler_args: Vec<String>,
         plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {

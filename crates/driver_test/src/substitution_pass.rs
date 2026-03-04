@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, env};
 
+use crate::Utf8Path;
 use crate::mock_discover_pass::MockFnCall;
-use crate::{SUBSTITUTION_MOCK_PATHS, Utf8Path};
 use clap::Parser;
 use itertools::Itertools;
 use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
@@ -44,8 +44,9 @@ impl RustcPlugin for SubstitutePlugin {
             .for_each(|a| log::debug!("discover arg: {:?}", a));
 
         //Hashset to skip duplicates
-
+        //only execute driver on crates containing mocks
         let filter = CrateFilter::RunOnCrates(self.crate_mock_map.keys().cloned().collect_vec());
+        //let filter = CrateFilter::OnlyWorkspace;
         RustcPluginArgs {
             args,
             filter,
@@ -56,10 +57,12 @@ impl RustcPlugin for SubstitutePlugin {
     }
 
     fn run(
+        crate_name: String,
         compiler_args: Vec<String>,
         plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {
         let mut callbacks = SubstitutePluginCallback::default();
+        println!("runnin sugstitution plugin for crate {crate_name}");
         println!("compiler_args: {:?}", plugin_args.cargo_args);
 
         rustc_driver::run_compiler(&compiler_args, &mut callbacks);
@@ -69,9 +72,6 @@ impl RustcPlugin for SubstitutePlugin {
     fn modify_cargo(&self, cargo: &mut std::process::Command, args: &Self::Args) {
         println!("cargo args: {:?}", &args.cargo_args);
         cargo.args(&args.cargo_args);
-        let serialized = serde_json::to_string(&self.crate_mock_map)
-            .expect("serialization of crate_mock_map failed");
-        cargo.env(SUBSTITUTION_MOCK_PATHS, serialized);
     }
 
     fn before_execution(&mut self) {}
@@ -91,30 +91,6 @@ impl rustc_driver::Callbacks for SubstitutePluginCallback {
         compiler: &rustc_interface::interface::Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> rustc_driver::Compilation {
-        let source_name = compiler
-            .sess
-            .io
-            .input
-            .source_name()
-            .into_local_path()
-            .expect("should be able to cast");
-        println!(
-            "In crate root parse for substitute plugin with source name: {:?}",
-            source_name
-        );
-
-        let mocks = if let Ok(mock_map_serialized) = std::env::var(SUBSTITUTION_MOCK_PATHS)
-            && let Ok(mut mock_map) =
-                serde_json::from_str::<HashMap<String, Vec<MockFnCall>>>(&mock_map_serialized)
-            && let Some(mocks) = mock_map.remove(&source_name.to_str().unwrap().to_string())
-        {
-            mocks
-        } else {
-            panic!(
-                "environment variable {:?} not found, when it should be set",
-                SUBSTITUTION_MOCK_PATHS
-            )
-        };
         //send messages to main cargo process with mocks found.
         rustc_driver::Compilation::Stop
     }

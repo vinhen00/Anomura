@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use proc_macro2::TokenStream;
 use rustc_ast_pretty::pprust;
-use rustc_session::{CompilerIO, Session};
 use std::str::FromStr;
 
 use rustc_driver::{Compilation, run_compiler};

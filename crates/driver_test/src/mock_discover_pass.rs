@@ -106,12 +106,13 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
             args,
             filter,
             wrapper_type: RustcWrapperType::RustcWrapper,
-            rustc_enabled_for_non_filtered: false,
+            rustc_enabled_for_non_filtered: true,
             default_build_command: None,
         }
     }
 
     fn run(
+        crate_name: String,
         compiler_args: Vec<String>,
         plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {

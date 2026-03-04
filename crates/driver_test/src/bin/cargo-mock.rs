@@ -18,12 +18,12 @@ fn main() {
     println!("got res: {:?}", res);
 
     let mut crates_containing_mocks: HashMap<String, Vec<MockFnCall>> = HashMap::new();
-    for mock_fn in &res.fn_calls {
+    /*   for mock_fn in &res.fn_calls {
         crates_containing_mocks
             .entry(mock_fn.path_segments[0].path.clone())
             .and_modify(|v| v.push(mock_fn.clone()))
             .or_default();
-    }
+    }*/
 
     if let Err(e) = rustc_plugin::cli_main(driver_test::substitution_pass::SubstitutePlugin::new(
         crates_containing_mocks,
