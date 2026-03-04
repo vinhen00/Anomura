@@ -1,16 +1,14 @@
 use rustc_ast::mut_visit::MutVisitor;
 use std::collections::HashMap;
 
-
-struct SymbolFinder{
+struct SymbolFinder {
     symbols: Vec<String>,
     idents: Vec<String>,
 }
 
 //SymbolFinder finds symbols and Idents from an AST
-impl MutVisitor for SymbolFinder { 
-
-    //For expressions the only special case we need is literals. 
+impl MutVisitor for SymbolFinder {
+    //For expressions the only special case we need is literals.
     //Identifiers are covered by visit_path as all identifiers are paths
     fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
         match &mut expr.kind {
@@ -31,8 +29,6 @@ impl MutVisitor for SymbolFinder {
         self.visit_path(&mut node.path);
         for tree in node.args.tokens.iter() {
             if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree {
-
-
                 match &token.kind {
                     rustc_ast::token::TokenKind::Literal(lit) => {
                         self.symbols.push(lit.symbol.as_str().to_string());
@@ -57,31 +53,30 @@ impl MutVisitor for SymbolFinder {
 
     fn visit_pat(&mut self, pat: &mut rustc_ast::Pat) {
         if let rustc_ast::PatKind::Ident(_, ident, _) = pat.kind {
-            self.idents.push(ident.name.as_str().to_string())  
+            self.idents.push(ident.name.as_str().to_string())
         }
         rustc_ast::mut_visit::walk_pat(self, pat);
     }
 }
 
-
-struct SymbolFixer{
+struct SymbolFixer {
     symbols: Vec<String>,
     idents: Vec<String>,
     dict: HashMap<String, rustc_span::Symbol>,
 }
 
 //SymbolFixer will walk through an AST and fix all Identifiers and Symbols
-impl MutVisitor for SymbolFixer { 
+// what does it mean to *fix* an identifier?
+impl MutVisitor for SymbolFixer {
     fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
-
         match &mut expr.kind {
             rustc_ast::ExprKind::Lit(literal) => {
                 let string = self.symbols.remove(0);
                 literal.symbol = rustc_span::Symbol::intern(&string); //Create new symbol in registry
             }
-            rustc_ast::ExprKind::Field(_, id) => { 
-                let mut ident = self.idents.remove(0);
-                match self.dict.get(&mut ident) {
+            rustc_ast::ExprKind::Field(_, id) => {
+                let ident = self.idents.remove(0);
+                match self.dict.get(&ident) {
                     Some(symb) => {
                         id.name = *symb;
                     }
@@ -107,14 +102,13 @@ impl MutVisitor for SymbolFixer {
                 match &mut token.kind {
                     rustc_ast::token::TokenKind::Literal(lit) => {
                         let string = self.symbols.remove(0);
-                        lit.symbol = rustc_span::Symbol::intern(&string);   
+                        lit.symbol = rustc_span::Symbol::intern(&string);
                     }
 
                     rustc_ast::token::TokenKind::Ident(name, _) => {
+                        let ident = self.idents.remove(0);
 
-                        let mut ident = self.idents.remove(0);
-
-                        match self.dict.get(&mut ident) {
+                        match self.dict.get(&ident) {
                             Some(symb) => {
                                 *name = *symb;
                             }
@@ -135,17 +129,17 @@ impl MutVisitor for SymbolFixer {
 
     //Both path and pat work by creating a new entry into the dictionary the first them we encounter an identifier
     //Next time we encounter them we lookup the value from the dict
-    fn visit_path_segment(&mut self, path: &mut rustc_ast::PathSegment){
+    fn visit_path_segment(&mut self, path: &mut rustc_ast::PathSegment) {
         let name = self.idents.remove(0);
         match self.dict.get(&name) {
             Some(symb) => {
-                path.ident.name = *symb;}
+                path.ident.name = *symb;
+            }
             None => {
                 let symb = rustc_span::Symbol::intern(name.as_str());
                 self.dict.insert(name, symb);
                 path.ident.name = symb;
             }
-
         }
         //println!("Fixed path named: {}", path.ident.name);
 
@@ -156,13 +150,15 @@ impl MutVisitor for SymbolFixer {
         if let rustc_ast::PatKind::Ident(_, ident, _) = &mut pat.kind {
             let name = self.idents.remove(0);
             match self.dict.get(&name) {
-                Some(symb) => {ident.name = *symb;}
+                Some(symb) => {
+                    ident.name = *symb;
+                }
                 None => {
                     let symb = rustc_span::Symbol::intern(name.as_str());
                     self.dict.insert(name, symb);
                     ident.name = symb;
                 }
-            } 
+            }
         }
         rustc_ast::mut_visit::walk_pat(self, pat);
     }
@@ -173,7 +169,7 @@ impl MutVisitor for SymbolFixer {
 //
 // We need them because literals and identifiers are stored in a compilation context
 // and when we switch compiler that data disappears
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MockedFun {
     name: String,
     sig: rustc_ast::FnSig,
@@ -183,14 +179,19 @@ pub struct MockedFun {
 }
 
 impl MockedFun {
-
-    pub fn new(foo: Box<rustc_ast::Fn>) -> MockedFun{
-        let name = foo.ident.as_str().to_string();
-        match foo.body {
-            Some(body) => {
-                MockedFun { name, sig: foo.sig , body: body, symbols: Vec::new(), idents: Vec::new() }
+    pub fn new(fun: rustc_ast::Fn) -> MockedFun {
+        let name = fun.ident.as_str().to_string();
+        match fun.body {
+            Some(body) => MockedFun {
+                name,
+                sig: fun.sig,
+                body,
+                symbols: Vec::new(),
+                idents: Vec::new(),
+            },
+            None => {
+                panic!()
             }
-            None => {panic!()}   
         }
     }
 
@@ -212,7 +213,10 @@ impl MockedFun {
 
     // This fn creates a visitor that visits the mock function and collects all symbols and identifiers
     pub fn collect_names(&mut self) {
-        let mut visitor = SymbolFinder{symbols: Vec::new(), idents: Vec::new()};
+        let mut visitor = SymbolFinder {
+            symbols: Vec::new(),
+            idents: Vec::new(),
+        };
         visitor.visit_fn_decl(&mut self.sig.decl);
         visitor.visit_block(&mut self.body);
         self.symbols = visitor.symbols;
@@ -221,8 +225,14 @@ impl MockedFun {
 
     // This fn creates a visitor that visits the mocked function and resolves all the symbols and identifiers
     // It is meant to be called when in the second compilation context
+
+    //???? how does this work? you don't
     pub fn resolve_names(&mut self) {
-        let mut visitor = SymbolFixer{symbols: self.symbols.clone(), idents: self.idents.clone(), dict: HashMap::new()};
+        let mut visitor = SymbolFixer {
+            symbols: self.symbols.clone(),
+            idents: self.idents.clone(),
+            dict: HashMap::new(),
+        };
         visitor.visit_fn_decl(&mut self.sig.decl);
         visitor.visit_block(&mut self.body);
     }

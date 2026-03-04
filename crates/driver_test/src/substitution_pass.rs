@@ -1,205 +1,121 @@
-// Tested with nightly-2025-03-28
-/*
-#![feature(rustc_private)]
+use std::{borrow::Cow, collections::HashMap, env};
 
-extern crate rustc_ast;
-extern crate rustc_ast_pretty;
-extern crate rustc_data_structures;
-extern crate rustc_driver;
-extern crate rustc_error_codes;
-extern crate rustc_errors;
-extern crate rustc_hir;
-extern crate rustc_interface;
-extern crate rustc_middle;
-extern crate rustc_session;
-extern crate rustc_span;
+use crate::mock_discover_pass::MockFnCall;
+use crate::{SUBSTITUTION_MOCK_PATHS, Utf8Path};
+use clap::Parser;
+use itertools::Itertools;
+use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
+use serde::{Deserialize, Serialize};
 
-use std::process::Command;
+#[derive(clap::Parser, Serialize, Deserialize)]
+pub struct SubstitutePluginArgs {
+    #[arg(short, long)]
+    allcaps: bool,
 
-use rustc_ast::mut_visit::MutVisitor;
-use rustc_interface::interface::{Compiler, Config};
-use rustc_session::config::CrateType;
+    #[clap(last = true)]
+    cargo_args: Vec<String>,
+}
 
+#[non_exhaustive]
+pub struct SubstitutePlugin {
+    crate_mock_map: HashMap<String, Vec<MockFnCall>>,
+}
+impl SubstitutePlugin {
+    pub fn new(crate_mock_map: HashMap<String, Vec<MockFnCall>>) -> Self {
+        Self { crate_mock_map }
+    }
+}
+
+impl RustcPlugin for SubstitutePlugin {
+    type Args = SubstitutePluginArgs;
+
+    fn version(&self) -> Cow<'static, str> {
+        env!("CARGO_PKG_VERSION").into()
+    }
+
+    fn driver_name(&self) -> Cow<'static, str> {
+        "mock_substitute_driver_exec".into()
+    }
+
+    fn args(&self, _target_dir: &Utf8Path) -> rustc_plugin::RustcPluginArgs<Self::Args> {
+        let args = SubstitutePluginArgs::parse_from(env::args().skip(1));
+        args.cargo_args
+            .iter()
+            .for_each(|a| log::debug!("discover arg: {:?}", a));
+
+        //Hashset to skip duplicates
+
+        let filter = CrateFilter::RunOnCrates(self.crate_mock_map.keys().cloned().collect_vec());
+        RustcPluginArgs {
+            args,
+            filter,
+            wrapper_type: RustcWrapperType::RustcWrapper,
+            rustc_enabled_for_non_filtered: true,
+            default_build_command: None,
+        }
+    }
+
+    fn run(
+        compiler_args: Vec<String>,
+        plugin_args: Self::Args,
+    ) -> rustc_interface::interface::Result<()> {
+        let mut callbacks = SubstitutePluginCallback::default();
+        println!("compiler_args: {:?}", plugin_args.cargo_args);
+
+        rustc_driver::run_compiler(&compiler_args, &mut callbacks);
+        Ok(())
+    }
+
+    fn modify_cargo(&self, cargo: &mut std::process::Command, args: &Self::Args) {
+        println!("cargo args: {:?}", &args.cargo_args);
+        cargo.args(&args.cargo_args);
+        let serialized = serde_json::to_string(&self.crate_mock_map)
+            .expect("serialization of crate_mock_map failed");
+        cargo.env(SUBSTITUTION_MOCK_PATHS, serialized);
+    }
+
+    fn before_execution(&mut self) {}
+
+    fn after_execution(&self) -> PluginResult<()> {
+        Ok(())
+    }
+}
 #[derive(Default)]
-struct SymbolFinder {
-    symbols: Vec<String>,
+pub struct SubstitutePluginCallback {
+    mock_fns: Vec<MockFnCall>,
 }
 
-//Will find all symbols and save as string
-impl MutVisitor for SymbolFinder {
-    fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
-        if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind
-            && literal.kind == rustc_ast::token::LitKind::Str
-        {
-            println!("Found symbol in literal: {}", &literal.symbol);
-            self.symbols.push(literal.symbol.as_str().to_string());
-        }
-        rustc_ast::mut_visit::walk_expr(self, expr);
-    }
-
-    fn visit_mac_call(&mut self, node: &mut rustc_ast::MacCall) {
-        for tree in node.args.tokens.iter() {
-            if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree
-                && let rustc_ast::token::TokenKind::Literal(lit) = &token.kind
-                && let rustc_ast::token::LitKind::Str = lit.kind
-            {
-                println!("Found symbol in MacCall: {}", &lit.symbol);
-                self.symbols.push(lit.symbol.as_str().to_string());
-            }
-        }
-    }
-}
-
-struct SymbolFixer {
-    symbols: Vec<String>,
-}
-
-//Will find all symbols and fix their strings
-impl MutVisitor for SymbolFixer {
-    fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
-        if let rustc_ast::ExprKind::Lit(literal) = &mut expr.kind
-            && literal.kind == rustc_ast::token::LitKind::Str
-        {
-            let string = self.symbols.remove(0);
-            println!("Have symbol: {}", string);
-            literal.symbol = rustc_span::Symbol::intern(&string);
-        }
-        rustc_ast::mut_visit::walk_expr(self, expr);
-    }
-    fn visit_mac_call(&mut self, node: &mut rustc_ast::MacCall) {
-        let mut trees: Vec<_> = node.args.tokens.iter().cloned().collect();
-        for tree in &mut trees {
-            if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree
-                && let rustc_ast::token::TokenKind::Literal(lit) = &mut token.kind
-                && let rustc_ast::token::LitKind::Str = lit.kind
-            {
-                let string = self.symbols.remove(0);
-                println!("Restoring symbol in MacCall: {}", string);
-                lit.symbol = rustc_span::Symbol::intern(&string);
-            }
-        }
-        node.args.tokens = rustc_ast::tokenstream::TokenStream::new(trees);
-    }
-}
-#[derive(Default)]
-struct CompileMocks {
-    mocks: Vec<(rustc_span::symbol::Ident, std::boxed::Box<rustc_ast::Block>)>,
-    symbols: Vec<String>,
-}
-
-impl rustc_driver::Callbacks for CompileMocks {
-    fn config(&mut self, config: &mut Config) {
-        config.file_loader = Some(Box::new(MyFileLoader));
-        config.opts.crate_types = vec![CrateType::Executable];
-        // Set output directory
-        config.opts.search_paths.clear();
-    }
-
+impl rustc_driver::Callbacks for SubstitutePluginCallback {
     fn after_crate_root_parsing(
         &mut self,
-        _compiler: &Compiler,
+        compiler: &rustc_interface::interface::Compiler,
         krate: &mut rustc_ast::Crate,
-    ) -> Compilation {
-        let mut symbol_finder = SymbolFinder::default();
-        for item in &krate.items {
-            if let rustc_ast::ItemKind::Fn(fn_data) = &item.kind
-                && let Some(block) = &fn_data.body
-            {
-                let id = fn_data.ident;
-                if id.name.as_str() != "main" {
-                    symbol_finder.visit_block(&mut block.clone());
-                    self.symbols = symbol_finder.symbols.clone();
-                    self.mocks.push((id, block.clone()));
-                    //println!("{:#?}", block);
-                }
-            }
-        }
+    ) -> rustc_driver::Compilation {
+        let source_name = compiler
+            .sess
+            .io
+            .input
+            .source_name()
+            .into_local_path()
+            .expect("should be able to cast");
+        println!(
+            "In crate root parse for substitute plugin with source name: {:?}",
+            source_name
+        );
 
-        Compilation::Stop
-    }
-}
-
-struct FunctionIntercept {
-    mocks: Vec<(rustc_span::symbol::Ident, std::boxed::Box<rustc_ast::Block>)>,
-    symbols: Vec<String>,
-}
-
-impl rustc_driver::Callbacks for FunctionIntercept {
-    fn config(&mut self, config: &mut Config) {
-        config.file_loader = Some(Box::new(MyFileLoader));
-        config.opts.crate_types = vec![CrateType::Executable];
-        // Set output directory
-        config.opts.search_paths.clear();
-    }
-
-    fn after_crate_root_parsing(
-        &mut self,
-        _compiler: &Compiler,
-        krate: &mut rustc_ast::Crate,
-    ) -> Compilation {
-        let mut visitor = SymbolFixer {
-            symbols: self.symbols.clone(),
+        let mocks = if let Ok(mock_map_serialized) = std::env::var(SUBSTITUTION_MOCK_PATHS)
+            && let Ok(mut mock_map) =
+                serde_json::from_str::<HashMap<String, Vec<MockFnCall>>>(&mock_map_serialized)
+            && let Some(mocks) = mock_map.remove(&source_name.to_str().unwrap().to_string())
+        {
+            mocks
+        } else {
+            panic!(
+                "environment variable {:?} not found, when it should be set",
+                SUBSTITUTION_MOCK_PATHS
+            )
         };
-        for item in &mut krate.items {
-            if let rustc_ast::ItemKind::Fn(fn_data) = &mut item.kind {
-                for (ident, block) in &self.mocks {
-                    if fn_data.ident.name.as_str() == ident.name.as_str() {
-                        fn_data.body = Some(block.clone());
-                        if let Some(body) = &mut fn_data.body {
-                            visitor.visit_block(body);
-                        }
-                    }
-                }
-            }
-        }
-        Compilation::Continue
+        //send messages to main cargo process with mocks found.
+        rustc_driver::Compilation::Stop
     }
 }
-
-fn main() {
-    let mut mocked_fns = CompileMocks::default();
-    run_compiler(
-        &[
-            "ignored".to_string(),
-            "mock_defs.rs".to_string(),
-            "--crate-type".to_string(),
-            "bin".to_string(),
-            "-o".to_string(),
-            "./target/mocked_main".to_string(),
-        ],
-        &mut mocked_fns,
-    );
-
-    let mut insertion = FunctionIntercept {
-        mocks: mocked_fns.mocks.clone(),
-        symbols: mocked_fns.symbols.clone(),
-    };
-    run_compiler(
-        &[
-            "ignored".to_string(),
-            "mock_test.rs".to_string(),
-            "--crate-type".to_string(),
-            "bin".to_string(),
-            "-o".to_string(),
-            "./target/mocked_main".to_string(),
-        ],
-        &mut insertion,
-    );
-
-    // Run the compiled executable
-    println!("\n=== RUNNING COMPILED PROGRAM ===");
-    let output = Command::new("./target/mocked_main").output();
-
-    match output {
-        Ok(output) => {
-            println!("{}", String::from_utf8_lossy(&output.stdout));
-            if !output.stderr.is_empty() {
-                eprintln!("{}", String::from_utf8_lossy(&output.stderr));
-            }
-        }
-        Err(e) => {
-            println!("Failed to run executable: {}", e);
-        }
-    }
-}
-*/

@@ -1,7 +1,6 @@
-extern crate mock_macro;
+use mock_macro::mock_def;
 use mock_macro::mock_def;
 use mock_macro::mocked;
-
 mock_fn! {
     name: foo,
     input_types: [i32, i32],
@@ -22,5 +21,3 @@ mock_method! {
         println!("Changing name from {} to {}", self.waf, n);
         self.waf = n;}
 }
-
-

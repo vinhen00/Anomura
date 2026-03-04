@@ -1,10 +1,10 @@
 // Tested with nightly-2025-03-28
 
 #![feature(rustc_private)]
-mod expand_macro;
-mod visitors;
 mod compile_mocks;
+mod expand_macro;
 mod function_intercept;
+mod visitors;
 
 extern crate rustc_ast;
 extern crate rustc_ast_pretty;
@@ -22,17 +22,11 @@ use std::process::Command;
 
 use rustc_driver::run_compiler;
 
-
-
 use crate::compile_mocks::CompileMocks;
 use crate::function_intercept::FunctionIntercept;
 
-
-
-
-
-
 fn main() {
+    println!("hello");
     let mut mocked_funs = CompileMocks::new(Vec::new(), None);
     run_compiler(
         &[
@@ -51,6 +45,7 @@ fn main() {
     );
 
     let mut insertion = FunctionIntercept::new(mocked_funs.get_mocks());
+    //dbg!(&insertion);
     run_compiler(
         &[
             "ignored".to_string(),
@@ -65,9 +60,8 @@ fn main() {
 
     // Run the compiled executable
     println!("\n=== RUNNING COMPILED PROGRAM ===");
-    let output = Command::new("./target/mocked_main")
-        .output();
-    
+    let output = Command::new("./target/mocked_main").output();
+
     match output {
         Ok(output) => {
             println!("{}", String::from_utf8_lossy(&output.stdout));
@@ -80,7 +74,3 @@ fn main() {
         }
     }
 }
-
-
-
-

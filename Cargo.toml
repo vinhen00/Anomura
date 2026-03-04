@@ -4,6 +4,7 @@ resolver = "2"
 members = [
 	"crates/mockingbird",
 	"crates/mock-macro",
+	"crates/api_macro",
 	"crates/driver_test",
 	"test_project/foo",
 	#"test_project/bar"

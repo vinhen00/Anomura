@@ -1,6 +1,6 @@
 use crate::{DISCOVER_TMP, Utf8Path};
 use clap::Parser;
-use interprocess::local_socket::traits::{Listener as _, ListenerExt, Stream};
+use interprocess::local_socket::traits::{Listener as _, Stream};
 use interprocess::local_socket::{
     self, GenericFilePath, GenericNamespaced, Listener, ListenerOptions, NameType, ToFsName,
     ToNsName,
@@ -81,7 +81,7 @@ impl Default for DiscoverPlugin {
 
 #[derive(Debug)]
 pub struct DiscoverClientReturn {
-    fn_calls: Vec<MockFnCall>,
+    pub fn_calls: Vec<MockFnCall>,
 }
 
 impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
@@ -201,9 +201,9 @@ impl rustc_driver::Callbacks for DiscoverPluginCallback {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MockPathSegment {
-    path: String,
+    pub path: String,
 }
 impl MockPathSegment {
     pub fn new(path: PathSegment) -> Self {
@@ -213,9 +213,9 @@ impl MockPathSegment {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MockFnCall {
-    path_segments: Vec<MockPathSegment>,
+    pub path_segments: Vec<MockPathSegment>,
 }
 pub struct MockMethodCalls {}
 

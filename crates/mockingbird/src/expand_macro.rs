@@ -1,13 +1,11 @@
-use quote::quote;
 use proc_macro2::TokenStream;
+use quote::quote;
 use syn::{
-    bracketed,
-    parse2,
+    Expr, Ident, Token, Type, bracketed,
     parse::{Parse, ParseStream},
+    parse2,
     punctuated::Punctuated,
-    Expr, Ident, Token, Type,
 };
-
 
 struct MockFun {
     name: Ident,
@@ -58,10 +56,7 @@ impl Parse for MockFun {
                     ret_val = Some(input.parse()?);
                 }
                 _ => {
-                    return Err(syn::Error::new(
-                        field.span(),
-                        "Unknown field",
-                    ));
+                    return Err(syn::Error::new(field.span(), "Unknown field"));
                 }
             }
 
@@ -80,15 +75,12 @@ impl Parse for MockFun {
     }
 }
 
-
-
 pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     //println!("Inside syn {}", input);
     let mock = match parse2::<MockFun>(input) {
         Ok(m) => m,
         Err(e) => panic!("invalid mock_def! input: {}", e),
     };
-    
 
     let name = mock.name;
     let name_str = name.to_string();
@@ -101,7 +93,6 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
         .zip(mock.input_types.iter())
         .map(|(ident, ty)| quote! { #ident: #ty });
 
-
     let expanded = quote! {
         #[mocked]
         fn #name(#(#params),*) -> #ret_type {
@@ -110,9 +101,8 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
         }
     };
 
-    TokenStream::from(expanded)
+    expanded
 }
-
 
 struct MockMethod {
     struct_name: Ident,
@@ -133,13 +123,12 @@ impl Parse for MockMethod {
         let mut ret_val = None;
 
         while !input.is_empty() {
+            // parse
             let field: Ident = input.parse()?;
             input.parse::<Token![:]>()?;
 
             match field.to_string().as_str() {
-                "struct_name" => {
-                    struct_name = Some(input.parse()?)
-                }
+                "struct_name" => struct_name = Some(input.parse()?),
                 "name" => {
                     name = Some(input.parse()?);
                 }
@@ -168,10 +157,7 @@ impl Parse for MockMethod {
                     ret_val = Some(input.parse()?);
                 }
                 _ => {
-                    return Err(syn::Error::new(
-                        field.span(),
-                        "Unknown field",
-                    ));
+                    return Err(syn::Error::new(field.span(), "Unknown field"));
                 }
             }
 
@@ -191,7 +177,6 @@ impl Parse for MockMethod {
     }
 }
 
-
 //Can only mock
 pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     //println!("Inside syn {}", input);
@@ -199,7 +184,7 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
         Ok(m) => m,
         Err(e) => panic!("invalid mock_def! input: {}", e),
     };
-    
+
     let struct_name = mock.struct_name;
     let name = mock.name;
     let name_str = name.to_string();
@@ -212,8 +197,6 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
         .zip(mock.input_types.iter())
         .map(|(ident, ty)| quote! { #ident: #ty });
 
-    
-
     let expanded = quote! {
         impl #struct_name {
             #[mocked]
@@ -224,16 +207,5 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
         }
     };
 
-    TokenStream::from(expanded)
+    expanded
 }
-
-
-
-
-
-
-
-
-    
-
-

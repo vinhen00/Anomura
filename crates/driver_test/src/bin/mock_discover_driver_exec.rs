@@ -5,5 +5,7 @@ use rustc_plugin::RustcPlugin;
 
 fn main() {
     env_logger::init();
-    DiscoverPlugin::driver_main();
+
+    println!("hello driver");
+    //DiscoverPlugin::driver_main();
 }

@@ -22,8 +22,12 @@ use std::{borrow::Cow, env, process::Command};
 
 pub mod mock_discover_pass;
 pub mod substitution_pass;
+///Used to set channel name for interprocess callbacks from driver instances in MockDiscoverPass
 pub const DISCOVER_TMP: &str = "DISCOVER_BOOTSTRAP";
+
 pub const SELECTED_CRATES: &[&str] = &["memchr", "serde_json"];
+//Environment variable for mocks definitions in rustc
+pub const SUBSTITUTION_MOCK_PATHS: &str = "SUBSTITUTION_MOCK_PATHS";
 // This struct is the plugin provided to the rustc_plugin framework,
 // and it must be exported for use by the CLI/driver binaries.
 pub struct PrintAllItemsPlugin;

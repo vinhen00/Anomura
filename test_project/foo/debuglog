@@ -1,0 +1,6 @@
+[/home/eli/Documents/rustc_plugin/crates/rustc_plugin/src/cli.rs:46:3] &path = "/home/eli/.cargo/bin/mock_discover_driver_exec"
+error: failed to find cargo build command. defaulting to check
+error: `rustc -vV` didn't have a line for `host:`, got:
+hello driver
+
+discover pass failed with error ExitCode(101),
