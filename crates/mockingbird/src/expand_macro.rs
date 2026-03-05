@@ -104,7 +104,7 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     };
 
     let name = mock.name;
-    let name_str = quote! {name};
+    let name_str = quote! {#name}.to_string();
     let ret_type = mock.ret_type;
     let ret_val = mock.ret_val;
 
@@ -164,7 +164,7 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
 
     let struct_name = mock.struct_name;
     let name = mock.name;
-    let name_str = quote! {name.to_string };
+    let name_str = quote!{#name}.to_string();
     let ret_type = mock.ret_type;
     let ret_val = mock.ret_val;
 
