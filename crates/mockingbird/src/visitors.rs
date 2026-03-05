@@ -174,6 +174,7 @@ impl MutVisitor for SymbolFixer {
 #[derive(Clone, Debug)]
 pub struct MockedFun {
     name: String,
+    path: String,
     sig: rustc_ast::FnSig,
     body: Box<rustc_ast::Block>,
     symbols: Vec<String>,
@@ -182,12 +183,13 @@ pub struct MockedFun {
 
 //encodes using pretty printing, this kinda sucks but it might work out idfk
 impl MockedFun {
-    pub fn new(fun: rustc_ast::Fn) -> MockedFun {
+    pub fn new(fun: rustc_ast::Fn, path: String) -> MockedFun {
         //println!("{:#?}", fun);
         let name = fun.ident.as_str().to_string();
         match fun.body {
             Some(body) => MockedFun {
                 name,
+                path,
                 sig: fun.sig,
                 body,
                 symbols: Vec::new(),

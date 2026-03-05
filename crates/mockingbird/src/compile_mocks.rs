@@ -93,9 +93,9 @@ impl CompileMocks {
         self.inline.clone()
     }
 
-    fn handle_fn(&mut self, fn_data: &rustc_ast::Fn) {
+    fn handle_fn(&mut self, fn_data: &rustc_ast::Fn, path: String) {
         if fn_data.ident.name.as_str() != "main" {
-            let mut mocked_fn = MockedFun::new(fn_data.clone());
+            let mut mocked_fn = MockedFun::new(fn_data.clone(), path);
             mocked_fn.collect_names();
 
             self.mocks.push(mocked_fn);
@@ -103,11 +103,14 @@ impl CompileMocks {
     }
 
     fn handle_impl(&mut self, impl_data: &rustc_ast::Impl) {
-        let imp_name =
-            extract_struct_name_from_impl(impl_data.clone()).expect("failed to parse struct");
+        let imp_name = extract_struct_name_from_impl(impl_data.clone()).expect("failed to parse struct");
         for imp_item in &impl_data.items {
+            let mut path = "".to_string();
+            for attr in &imp_item.attrs {
+                path = extract_attribute_name(attr.clone());
+            }
             if let rustc_ast::AssocItemKind::Fn(fn_data) = &imp_item.kind {
-                let mut mocked_fn = MockedFun::new(*fn_data.clone());
+                let mut mocked_fn = MockedFun::new(*fn_data.clone(), path);
                 mocked_fn.collect_names();
                 mocked_fn.set_name(format!("{}.{}", imp_name, mocked_fn.get_name()));
                 self.mocks.push(mocked_fn);
@@ -118,9 +121,13 @@ impl CompileMocks {
     fn handle_mod(&mut self, mod_items: &rustc_ast::ModKind) {
         if let rustc_ast::ModKind::Loaded(items, ..) = mod_items {
             for i in items {
+                let mut path = "".to_string();
+                for attr in &i.attrs {
+                    path = extract_attribute_name(attr.clone());
+                }
                 match &i.kind {
                     rustc_ast::ItemKind::Fn(fn_data) => {
-                        self.handle_fn(fn_data);
+                        self.handle_fn(fn_data, path);
                     }
                     rustc_ast::ItemKind::Impl(impl_data) => {
                         self.handle_impl(&impl_data);
@@ -257,8 +264,9 @@ impl rustc_driver::Callbacks for CompileMocks {
             return Compilation::Stop;
         }
         for item in &krate.items {
+            let mut path = "".to_string();
             for attr in &item.attrs {
-                println!("{}", extract_attribute_name(attr.clone()));
+                path = extract_attribute_name(attr.clone());
             }
             println!("checking item {:?}", item.kind.ident());
             match &item.kind {
@@ -268,7 +276,7 @@ impl rustc_driver::Callbacks for CompileMocks {
                     } else {
                         println!("parsing fn second time")
                     }
-                    self.handle_fn(fn_data);
+                    self.handle_fn(fn_data, path);
                 }
                 rustc_ast::ItemKind::Impl(impl_data) => {
                     if run_once {
