@@ -73,7 +73,7 @@ pub fn extract_struct_name_from_impl(imp: rustc_ast::Impl) -> Option<String> {
 pub struct CompileMocks {
     used_in_plugin: bool,
     mocks: Vec<MockedFun>,
-    inline: Option<String>,
+    pub inline: Option<String>,
 }
 
 impl CompileMocks {
@@ -225,6 +225,7 @@ impl rustc_driver::Callbacks for CompileMocks {
         if self.inline.is_none() {
             run_once = true
         }
+
 
         //we are using it within a
         if self.used_in_plugin {

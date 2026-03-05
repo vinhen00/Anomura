@@ -15,7 +15,7 @@ fn main() {
         println!("no mocks found");
         return;
     };
-    println!("got res: {:?}", res);
+    //println!("got res: {:?}", res);
 
     let mut crates_containing_mocks: HashMap<String, Vec<MockFnCall>> = HashMap::new();
     /*   for mock_fn in &res.fn_calls {

@@ -1,4 +1,4 @@
-use crate::{DISCOVER_TMP, Utf8Path};
+use crate::{Utf8Path, DISCOVER_TMP};
 use clap::Parser;
 use interprocess::local_socket::traits::{Listener as _, Stream};
 use interprocess::local_socket::{
@@ -7,10 +7,10 @@ use interprocess::local_socket::{
 };
 use itertools::Itertools;
 use mockingbird::compile_mocks::CompileMocks;
-use mockingbird::{MockedFun, compile_mocks};
-use rustc_ast::PathSegment;
+use mockingbird::{compile_mocks, MockedFun};
 use rustc_ast::token::TokenKind::{self, Eof};
-use rustc_ast::{MethodCall, visit::Visitor};
+use rustc_ast::PathSegment;
+use rustc_ast::{visit::Visitor, MethodCall};
 use rustc_interface::Config;
 use rustc_parse::parser::{self};
 use rustc_plugin::{CrateFilter, RustcPlugin, RustcPluginArgs, RustcPluginError, RustcWrapperType};
@@ -152,9 +152,10 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         //receive a stream of expanded mock definitions
         while let Ok(mut conn) = self.listener.accept().map(BufReader::new) {
             conn.read_line(&mut buffer)?;
+            let deserial: String = serde_json::from_str(&buffer).expect("Should alway uwrap");
             //Do a single compilation of the file with concatinated mocks
             println!("before compile maccalls");
-            let mocked_fns = compile_maccalls(&buffer);
+            let mocked_fns = compile_maccalls(&deserial);
             println!("after compile maccalls");
 
             client_return.mocked_fns.append(&mut mocked_fns.get_mocks());
@@ -172,7 +173,8 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
 }
 
 pub fn compile_maccalls(program: &str) -> CompileMocks {
-    let mut mocked_funs = CompileMocks::new(Vec::new(), Some(String::from(program)), false);
+    let mut mocked_funs = CompileMocks::new(Vec::new(), Some(program.to_string()), false);
+    //println!("Mockedfuns: {:#?}", mocked_funs.inline);
     rustc_driver::run_compiler(
         &["ignored".to_string(), "anything".to_string()],
         &mut mocked_funs,
