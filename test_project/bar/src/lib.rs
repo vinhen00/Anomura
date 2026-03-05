@@ -2,9 +2,11 @@ pub fn foo(a: u32) -> u32 {
     a * 2
 }
 
-pub struct Food;
+pub struct Food {
+    inner: String,
+}
 impl Food {
-    pub fn food_fun(&self) -> u32 {
-        42
+    pub fn food_fun(&mut self, n: String) {
+        self.inner = n;
     }
 }

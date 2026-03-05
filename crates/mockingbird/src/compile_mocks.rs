@@ -4,12 +4,13 @@ use std::path::Path;
 use std::sync::Arc;
 
 use proc_macro2::TokenStream;
+use rustc_ast::visit::Visitor;
 use rustc_ast_pretty::pprust;
 use std::str::FromStr;
 
 use rustc_driver::{Compilation, run_compiler};
 use rustc_interface::interface::{Compiler, Config};
-use rustc_session::config::{CrateType, Input};
+use rustc_session::config::CrateType;
 
 use crate::expand_macro::{expand_mock_fn, expand_mock_method};
 use crate::visitors::MockedFun;
@@ -68,15 +69,20 @@ pub fn extract_struct_name_from_impl(imp: rustc_ast::Impl) -> Option<String> {
     };
     path.segments.last().map(|seg| seg.ident.to_string())
 }
-
+#[derive(Debug)]
 pub struct CompileMocks {
+    used_in_plugin: bool,
     mocks: Vec<MockedFun>,
     inline: Option<String>,
 }
 
 impl CompileMocks {
-    pub fn new(mocks: Vec<MockedFun>, inline: Option<String>) -> Self {
-        CompileMocks { mocks, inline }
+    pub fn new(mocks: Vec<MockedFun>, inline: Option<String>, used_in_plugin: bool) -> Self {
+        CompileMocks {
+            mocks,
+            inline,
+            used_in_plugin,
+        }
     }
 
     pub fn get_mocks(&self) -> Vec<MockedFun> {
@@ -110,20 +116,20 @@ impl CompileMocks {
     }
 
     fn handle_mod(&mut self, mod_items: &rustc_ast::ModKind) {
-        if let rustc_ast::ModKind::Loaded(items, _, _) = mod_items {
+        if let rustc_ast::ModKind::Loaded(items, ..) = mod_items {
             for i in items {
                 match &i.kind {
                     rustc_ast::ItemKind::Fn(fn_data) => {
                         self.handle_fn(fn_data);
                     }
                     rustc_ast::ItemKind::Impl(impl_data) => {
-                        self.handle_impl(impl_data);
+                        self.handle_impl(&impl_data);
                     }
                     rustc_ast::ItemKind::MacCall(mac_data) => {
                         self.handle_maccall(mac_data);
                     }
                     rustc_ast::ItemKind::Mod(_, _, mod_data) => {
-                        self.handle_mod(mod_data);
+                        self.handle_mod(&mod_data);
                     }
                     _ => {}
                 }
@@ -133,8 +139,8 @@ impl CompileMocks {
 
     ///This runs a new compilation process inside the callback function for the original compilation process
     ///This new compilation compiles the expanded macros and saves
-    fn compile_maccalls(&mut self, program: &str) {
-        let mut mocked_funs = CompileMocks::new(Vec::new(), Some(String::from(program)));
+    pub fn compile_maccalls(&mut self, program: &str) {
+        let mut mocked_funs = CompileMocks::new(Vec::new(), Some(String::from(program)), false);
         run_compiler(
             &[
                 "ignored".to_string(),
@@ -157,20 +163,18 @@ impl CompileMocks {
         let args = mac_call.args.clone();
         let tokens = args.tokens;
         let result;
-        let expanded_stream;
         let syn_ts = TokenStream::from_str(&pprust::tts_to_string(&tokens))
             .expect("failed to parse token stream");
 
-        if let Some(path) = mac_call.path.segments.first() {
+        if let Some(path) = mac_call.path.segments.last() {
             match path.ident.name.as_str() {
-                "mock_fn" => expanded_stream = expand_mock_fn(syn_ts).to_string(),
-                "mock_method" => expanded_stream = expand_mock_method(syn_ts).to_string(),
+                "mock_fn" => result = expand_mock_fn(syn_ts).to_string(),
+                "mock_method" => result = expand_mock_method(syn_ts).to_string(),
                 _ => return,
             }
         } else {
             return;
         }
-        result = expanded_stream;
 
         println!("result: {:?}", result);
 
@@ -199,14 +203,17 @@ impl rustc_driver::Callbacks for CompileMocks {
                     mockdefs: program.clone(),
                 }));
             }
-            None => {
+            None if !self.used_in_plugin => {
                 config.file_loader = Some(Box::new(MockFileLoader {
                     file: "mock_defs.rs".to_string(),
                 }));
             }
+            None => (),
         }
-        config.opts.crate_types = vec![CrateType::Executable];
-        config.opts.search_paths.clear();
+        if !self.used_in_plugin {
+            config.opts.crate_types = vec![CrateType::Executable];
+            config.opts.search_paths.clear();
+        }
     }
 
     fn after_crate_root_parsing(
@@ -218,7 +225,14 @@ impl rustc_driver::Callbacks for CompileMocks {
         if self.inline.is_none() {
             run_once = true
         }
+
+        //we are using it within a
+        if self.used_in_plugin {
+            self.visit_crate(krate);
+            return Compilation::Stop;
+        }
         for item in &krate.items {
+            println!("checking item {:?}", item.kind.ident());
             match &item.kind {
                 rustc_ast::ItemKind::Fn(fn_data) => {
                     if run_once {
@@ -258,9 +272,19 @@ impl rustc_driver::Callbacks for CompileMocks {
 
         if let Some(program) = &self.get_inline()
             && run_once
+            && !self.used_in_plugin
         {
             self.compile_maccalls(program)
         }
         Compilation::Stop
+    }
+}
+
+impl<'a> Visitor<'a> for CompileMocks {
+    #[doc = r" The result type of the `visit_*` methods. Can be either `()`,"]
+    #[doc = r" or `ControlFlow<T>`."]
+    type Result = ();
+    fn visit_mac_call(&mut self, node: &'_ rustc_ast::MacCall) -> Self::Result {
+        self.handle_maccall(node);
     }
 }

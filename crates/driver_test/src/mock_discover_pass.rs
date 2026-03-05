@@ -6,9 +6,12 @@ use interprocess::local_socket::{
     ToNsName,
 };
 use itertools::Itertools;
+use mockingbird::compile_mocks::CompileMocks;
+use mockingbird::{MockedFun, compile_mocks};
 use rustc_ast::PathSegment;
 use rustc_ast::token::TokenKind::{self, Eof};
 use rustc_ast::{MethodCall, visit::Visitor};
+use rustc_interface::Config;
 use rustc_parse::parser::{self};
 use rustc_plugin::{CrateFilter, RustcPlugin, RustcPluginArgs, RustcPluginError, RustcWrapperType};
 use rustc_session::parse::ParseSess;
@@ -81,7 +84,7 @@ impl Default for DiscoverPlugin {
 
 #[derive(Debug)]
 pub struct DiscoverClientReturn {
-    pub fn_calls: Vec<MockFnCall>,
+    pub mocked_fns: Vec<MockedFun>,
 }
 
 impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
@@ -116,10 +119,11 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         compiler_args: Vec<String>,
         plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {
-        let mut callbacks = DiscoverPluginCallback::default();
+        let mut callbacks = CompileMocks::new(Vec::new(), None, true);
         println!("compiler_args: {:?}", plugin_args.cargo_args);
         rustc_driver::run_compiler(&compiler_args, &mut callbacks);
-        let _ = callbacks.send_back_results().inspect_err(|e| {
+        println!("got callbacks {:?}", callbacks);
+        let _ = send_back_results(&callbacks).inspect_err(|e| {
             eprintln!(
                 "callback failed to send back result, got error message {:?}",
                 e
@@ -137,23 +141,23 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
     fn before_execution(&mut self) {}
 
     fn after_execution(&self) -> Result<DiscoverClientReturn, RustcPluginError> {
-        let mut client_return = DiscoverClientReturn { fn_calls: vec![] };
-        let mut buffer = String::with_capacity(1024);
+        let mut client_return = DiscoverClientReturn { mocked_fns: vec![] };
+        let mut buffer = String::with_capacity(16192);
         self.listener
             .set_nonblocking(local_socket::ListenerNonblockingMode::Accept)
             .map_err(|_| {
                 RustcPluginError::ClientReturnError("failed to set nonblockng state".to_string())
             })?;
+
+        //receive a stream of expanded mock definitions
         while let Ok(mut conn) = self.listener.accept().map(BufReader::new) {
             conn.read_line(&mut buffer)?;
-            let deserialized = &mut serde_json::from_str(&buffer).map_err(|e| {
-                RustcPluginError::ClientReturnError(format!(
-                    "failed to deserialize incoming message. got error {:?}. \n Message looked like this {:?}",
-                    e, buffer
-                ))
-            })?;
+            //Do a single compilation of the file with concatinated mocks
+            println!("before compile maccalls");
+            let mocked_fns = compile_maccalls(&buffer);
+            println!("after compile maccalls");
 
-            client_return.fn_calls.append(deserialized);
+            client_return.mocked_fns.append(&mut mocked_fns.get_mocks());
             // Avoid holding up resources.
             drop(conn);
 
@@ -166,25 +170,36 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         Ok(client_return)
     }
 }
+
+pub fn compile_maccalls(program: &str) -> CompileMocks {
+    let mut mocked_funs = CompileMocks::new(Vec::new(), Some(String::from(program)), false);
+    rustc_driver::run_compiler(
+        &["ignored".to_string(), "anything".to_string()],
+        &mut mocked_funs,
+    );
+    mocked_funs
+}
 #[derive(Default)]
 pub struct DiscoverPluginCallback {
     mock_fns: Vec<MockFnCall>,
 }
-impl DiscoverPluginCallback {
-    pub fn send_back_results(&self) -> io::Result<()> {
-        let name_str = std::env::var(DISCOVER_TMP)
-            .expect("there should be a discover tmp env var created in the main cargo command");
-        let name = if GenericNamespaced::is_supported() {
-            name_str.clone().to_ns_name::<GenericNamespaced>()?
-        } else {
-            name_str.clone().to_fs_name::<GenericFilePath>()?
-        };
+pub fn send_back_results(compile_mocks: &CompileMocks) -> io::Result<()> {
+    let Some(inline_result) = compile_mocks.get_inline() else {
+        return Err(io::Error::other("no mocks to unpack"));
+    };
 
-        let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
-        let serialized = serde_json::to_vec(&self.mock_fns)?;
-        conn.get_mut().write_all(&serialized)?;
-        Ok(())
-    }
+    let name_str = std::env::var(DISCOVER_TMP)
+        .expect("there should be a discover tmp env var created in the main cargo command");
+    let name = if GenericNamespaced::is_supported() {
+        name_str.clone().to_ns_name::<GenericNamespaced>()?
+    } else {
+        name_str.clone().to_fs_name::<GenericFilePath>()?
+    };
+
+    let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
+    let serialized = serde_json::to_vec(&inline_result)?;
+    conn.get_mut().write_all(&serialized)?;
+    Ok(())
 }
 
 impl rustc_driver::Callbacks for DiscoverPluginCallback {

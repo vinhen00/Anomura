@@ -13,7 +13,7 @@ fn main() {
         })
     else {
         println!("no mocks found");
-        exit(0);
+        return;
     };
     println!("got res: {:?}", res);
 

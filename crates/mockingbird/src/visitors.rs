@@ -178,6 +178,7 @@ pub struct MockedFun {
     idents: Vec<String>,
 }
 
+//encodes using pretty printing, this kinda sucks but it might work out idfk
 impl MockedFun {
     pub fn new(fun: rustc_ast::Fn) -> MockedFun {
         let name = fun.ident.as_str().to_string();

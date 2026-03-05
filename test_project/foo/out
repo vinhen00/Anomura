@@ -1,4 +1,0 @@
-plugin_subdir: "plugin-nightly-2025-08-20"
-final command: PLUGIN_ARGS="{\"allcaps\":false,\"cargo_args\":[]}" RUSTC_WRAPPER="/Users/eli/.cargo/bin/mock_discover_driver_exec" "cargo" "check" "--target-dir" "/Users/eli/Documents/project_mockingbird/test_project/foo/target/plugin-nightly-2025-08-20"
-compiler_args: []
-in crate root parse!

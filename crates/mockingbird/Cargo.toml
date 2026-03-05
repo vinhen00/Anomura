@@ -8,6 +8,7 @@ mock-macro = { path = "../mock-macro" }
 quote = "1"
 syn = { version = "2", features = ["full"] }
 proc-macro2 = "1"
+serde = "1.0.228"
 
 
 

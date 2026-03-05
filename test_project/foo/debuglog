@@ -49,10 +49,10 @@ warning: fields `identifier` and `return_val` are never read
 14 |     return_val: MockReturnVal,
    |     ^^^^^^^^^^
 
-[DEBUG rustc_plugin::driver] Running normal Rust for crate bar. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate foobar. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 warning: `mockingbird_definitions` (lib) generated 4 warnings
 [DEBUG rustc_plugin::driver] Running normal Rust for crate syn. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate foobar. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate bar. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate api_macro. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 warning: unused variable: `input`
   --> crates/api_macro/src/lib.rs:46:13
@@ -82,20 +82,20 @@ warning: struct `MockDefInput` is never constructed
 28 | struct MockDefInput {
    |        ^^^^^^^^^^^^
 
+[DEBUG rustc_plugin::driver] Running normal Rust for crate mock_macro. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 warning: `api_macro` (lib) generated 4 warnings
     Checking foo v0.1.0 (/home/eli/Documents/project_mockingbird/test_project/foo)
 [DEBUG rustc_plugin::driver] Running plugin for crate foo. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=true, is_target_crate=false
+callback failed to send back result, got error message Custom { kind: Other, error: "no mocks to unpack" }
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
 [/home/eli/Documents/rustc_plugin/crates/rustc_plugin/src/cli.rs:46:3] &path = "/home/eli/.cargo/bin/mock_substitute_driver_exec"
 error: failed to find cargo build command. defaulting to check
 [DEBUG rustc_plugin::cli] PLUGIN_ARGS={"allcaps":false,"cargo_args":[]}
 [DEBUG rustc_plugin::cli] final command: MANY_SPECIFIC_CRATES="[]" PLUGIN_ARGS="{\"allcaps\":false,\"cargo_args\":[]}" RUSTC_WRAPPER="/home/eli/.cargo/bin/mock_substitute_driver_exec" "cargo" "check" "--target-dir" "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20"
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate unicode_ident. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate proc_macro2. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate quote. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
-[DEBUG rustc_plugin::driver] Running normal Rust for crate syn. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate mockingbird_definitions. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 warning: field `0` is never read
  --> crates/mockingbird_definitions/src/lib.rs:1:28
@@ -141,6 +141,9 @@ warning: fields `identifier` and `return_val` are never read
 [DEBUG rustc_plugin::driver] Running normal Rust for crate bar. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate foobar. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 warning: `mockingbird_definitions` (lib) generated 4 warnings
+[DEBUG rustc_plugin::driver] Running normal Rust for crate quote. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate syn. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
+[DEBUG rustc_plugin::driver] Running normal Rust for crate mock_macro. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 [DEBUG rustc_plugin::driver] Running normal Rust for crate api_macro. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false
 warning: unused variable: `input`
   --> crates/api_macro/src/lib.rs:46:13
