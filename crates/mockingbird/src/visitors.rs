@@ -66,7 +66,9 @@ struct SymbolFixer {
 }
 
 //SymbolFixer will walk through an AST and fix all Identifiers and Symbols
-// what does it mean to *fix* an identifier?
+//This is to avoid name resolution errors as literals and idents get
+//stored as adresses which've been overwritten in the second compilation
+//SymbolFixer recreates these adresses with the proper names
 impl MutVisitor for SymbolFixer {
     fn visit_expr(&mut self, expr: &mut rustc_ast::Expr) {
         match &mut expr.kind {
@@ -181,6 +183,7 @@ pub struct MockedFun {
 //encodes using pretty printing, this kinda sucks but it might work out idfk
 impl MockedFun {
     pub fn new(fun: rustc_ast::Fn) -> MockedFun {
+        //println!("{:#?}", fun);
         let name = fun.ident.as_str().to_string();
         match fun.body {
             Some(body) => MockedFun {
@@ -191,7 +194,7 @@ impl MockedFun {
                 idents: Vec::new(),
             },
             None => {
-                panic!()
+                panic!("Mocked fun missing body, this shouldnt ever happen")
             }
         }
     }
@@ -237,4 +240,6 @@ impl MockedFun {
         visitor.visit_fn_decl(&mut self.sig.decl);
         visitor.visit_block(&mut self.body);
     }
+
+
 }

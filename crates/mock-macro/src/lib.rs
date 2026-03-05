@@ -12,6 +12,6 @@ pub fn mock_method(item: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn mocked(_: TokenStream, item: TokenStream) -> TokenStream {
+pub fn mocked(attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }

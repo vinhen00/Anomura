@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, env};
 
-use crate::Utf8Path;
 use crate::mock_discover_pass::MockFnCall;
+use crate::Utf8Path;
 use clap::Parser;
 use itertools::Itertools;
 use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
@@ -18,10 +18,10 @@ pub struct SubstitutePluginArgs {
 
 #[non_exhaustive]
 pub struct SubstitutePlugin {
-    crate_mock_map: HashMap<String, Vec<MockFnCall>>,
+    crate_mock_map: HashMap<String, Vec<MockedFun>>,
 }
 impl SubstitutePlugin {
-    pub fn new(crate_mock_map: HashMap<String, Vec<MockFnCall>>) -> Self {
+    pub fn new(crate_mock_map: HashMap<String, Vec<MockedFun>>) -> Self {
         Self { crate_mock_map }
     }
 }

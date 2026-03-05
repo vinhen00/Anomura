@@ -190,6 +190,30 @@ impl CompileMocks {
             }
         }
     }
+
+}
+
+
+
+fn extract_attribute_name(atr: rustc_ast::Attribute) -> String {
+    let mut path = "".to_string();
+    if let rustc_ast::AttrKind::Normal(norm) = atr.kind {
+        if let rustc_ast::AttrArgs::Delimited(del_args) = norm.item.args {
+           for token in del_args.tokens.iter() {
+                if let rustc_ast::tokenstream::TokenTree::Token(tok,_) = token {
+                    if let rustc_ast::token::TokenKind::Ident(name,_) = tok.kind {
+                        if path != "" {
+                            path = format!("{}::{}", path, name.as_str());
+                        }
+                        else { path = name.as_str().to_string()}
+                        //println!("TOK: {:#?}", path);
+                    }
+
+                }
+           }
+        }
+    }
+    path
 }
 
 //Compile mocks is a compiler setting the compiles the file that the mocked functions reside in.
@@ -233,6 +257,9 @@ impl rustc_driver::Callbacks for CompileMocks {
             return Compilation::Stop;
         }
         for item in &krate.items {
+            for attr in &item.attrs {
+                println!("{}", extract_attribute_name(attr.clone()));
+            }
             println!("checking item {:?}", item.kind.ident());
             match &item.kind {
                 rustc_ast::ItemKind::Fn(fn_data) => {

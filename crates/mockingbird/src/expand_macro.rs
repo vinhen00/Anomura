@@ -3,14 +3,16 @@ use std::any::TypeId;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    Expr, Ident, Path, Token, Type, bracketed,
+    bracketed,
     parse::{Parse, ParseStream},
     parse2,
     punctuated::Punctuated,
+    Expr, Ident, Path, Token, Type,
 };
 
 struct MockFun {
     name: Path,
+    path: Path,
     input_types: Vec<Type>,
     input_ident: Vec<Ident>,
     ret_type: Type,
@@ -81,6 +83,7 @@ pub fn parse_struct_field_value_array<P: Parse>(
 impl Parse for MockFun {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let name = parse_struct_field_value::<Path>("name", &input, true)?;
+        let path = parse_struct_field_value::<Path>("path", &input, true)?;
         let input_types = parse_struct_field_value_array("input_types", &input, true)?;
         let input_ident = parse_struct_field_value_array("input_ident", &input, true)?;
         let ret_type = parse_struct_field_value("ret_type", &input, true)?;
@@ -88,6 +91,7 @@ impl Parse for MockFun {
 
         Ok(MockFun {
             name,
+            path,
             input_types,
             input_ident,
             ret_type,
@@ -103,7 +107,8 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
         Err(e) => panic!("invalid mock_def! input: {} with error:  {e} ", &input),
     };
 
-    let name = mock.name;
+    let name = mock.name.segments.last();
+    let path = mock.path;
     let name_str = quote! {#name}.to_string();
     let ret_type = mock.ret_type;
     let ret_val = mock.ret_val;
@@ -115,7 +120,7 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
         .map(|(ident, ty)| quote! { #ident: #ty });
 
     let expanded = quote! {
-        #[mocked]
+        #[mocked( #path )]
         fn #name(#(#params),*) -> #ret_type {
             println!("Mocked version of function {} was used", #name_str);
             #ret_val
@@ -128,6 +133,7 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
 struct MockMethod {
     struct_name: Path,
     name: Path,
+    path: Path,
     input_types: Vec<Type>,
     input_ident: Vec<Ident>,
     ret_type: Type,
@@ -138,6 +144,7 @@ impl Parse for MockMethod {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let struct_name = parse_struct_field_value::<Path>("struct_name", &input, true)?;
         let name = parse_struct_field_value::<Path>("name", &input, true)?;
+        let path = parse_struct_field_value::<Path>("path", &input, true)?;
         let input_types = parse_struct_field_value_array("input_types", &input, true)?;
         let input_ident = parse_struct_field_value_array("input_ident", &input, true)?;
         let ret_type = parse_struct_field_value("ret_type", &input, true)?;
@@ -146,6 +153,7 @@ impl Parse for MockMethod {
         Ok(MockMethod {
             struct_name,
             name,
+            path,
             input_types,
             input_ident,
             ret_type,
@@ -162,9 +170,10 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
         Err(e) => panic!("invalid mock_def! input: {}", e),
     };
 
-    let struct_name = mock.struct_name;
+    let struct_name = mock.struct_name.segments.last();
     let name = mock.name;
-    let name_str = quote!{#name}.to_string();
+    let name_str = quote! {#name}.to_string();
+    let path = mock.path;
     let ret_type = mock.ret_type;
     let ret_val = mock.ret_val;
 
@@ -176,7 +185,7 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         impl #struct_name {
-            #[mocked]
+            #[mocked( #path )]
             fn #name(&mut self, #(#params),*) -> #ret_type {
                 println!("Mocked version of method {} was used", #name_str);
                 #ret_val

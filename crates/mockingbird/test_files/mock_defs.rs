@@ -3,6 +3,7 @@ use mock_macro::mock_def;
 use mock_macro::mocked;
 mock_fn! {
     name: foo,
+    path: bar::foo,
     input_types: [i32, i32],
     input_ident: [a, b],
     ret_type: i32,
@@ -14,6 +15,7 @@ mock_fn! {
 mock_method! {
     struct_name: Stroop,
     name: bar,
+    path: kar::Stroop::bar,
     input_types: [String],
     input_ident: [n],
     ret_type: (),
