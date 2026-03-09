@@ -22,6 +22,8 @@ use serde::{Deserialize, Serialize};
 
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::process::exit;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::{borrow::Cow, env};
 #[derive(Parser, Serialize, Deserialize, Clone)]
 pub struct DiscoverPluginArgs {
@@ -35,7 +37,8 @@ pub struct DiscoverPluginArgs {
 #[non_exhaustive]
 pub struct DiscoverPlugin {
     channel_name: String,
-    listener: Listener,
+    listener: Option<Listener>,
+    collected_mocks: Arc<Mutex<Vec<MockedFun>>>,
 }
 impl DiscoverPlugin {
     pub fn new() -> Self {
@@ -75,7 +78,8 @@ impl DiscoverPlugin {
         };
         DiscoverPlugin {
             channel_name: name_string,
-            listener,
+            listener: Some(listener),
+            collected_mocks: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -141,37 +145,34 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         cargo.args(&args.cargo_args);
     }
 
-    fn before_execution(&mut self) {}
+    fn before_execution(&mut self) {
+        // Start a background thread to listen for connections during cargo execution
+        let mocks = self.collected_mocks.clone();
+        let listener = self.listener.take().expect("listener should exist");
+        thread::spawn(move || {
+            listener.set_nonblocking(local_socket::ListenerNonblockingMode::Accept).ok();
+            let timeout = std::time::Instant::now() + std::time::Duration::from_secs(10);
+            while std::time::Instant::now() < timeout {
+                if let Ok(mut conn) = listener.accept() {
+                    let mut buffer = String::with_capacity(16192);
+                    if let Ok(mut reader) = BufReader::new(conn).read_line(&mut buffer) {
+                        if let Ok(deserial) = serde_json::from_str::<String>(&buffer) {
+                            let fns = compile_maccalls(&deserial);
+                            if let Ok(mut m) = mocks.lock() {
+                                m.append(&mut fns.get_mocks());
+                            }
+                        }
+                    }
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        });
+    }
 
     fn after_execution(&self) -> Result<DiscoverClientReturn, RustcPluginError> {
-        let mut client_return = DiscoverClientReturn { mocked_fns: vec![] };
-        let mut buffer = String::with_capacity(16192);
-        self.listener
-            .set_nonblocking(local_socket::ListenerNonblockingMode::Accept)
-            .map_err(|_| {
-                RustcPluginError::ClientReturnError("failed to set nonblockng state".to_string())
-            })?;
-
-        //receive a stream of expanded mock definitions
-        while let Ok(mut conn) = self.listener.accept().map(BufReader::new) {
-            conn.read_line(&mut buffer)?;
-            let deserial: String = serde_json::from_str(&buffer).expect("Should alway uwrap");
-            //Do a single compilation of the file with concatinated mocks
-            println!("before compile maccalls");
-            let mocked_fns = compile_maccalls(&deserial);
-            println!("after compile maccalls");
-
-            client_return.mocked_fns.append(&mut mocked_fns.get_mocks());
-            // Avoid holding up resources.
-            drop(conn);
-
-            // read_line keeps the line feed at the end.
-
-            // Clear the buffer so that the next iteration will display new data
-            // instead of messages stacking on top of one another.
-            buffer.clear();
-        }
-        Ok(client_return)
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        let mocked_fns = self.collected_mocks.lock().unwrap().clone();
+        Ok(DiscoverClientReturn { mocked_fns })
     }
 }
 
@@ -202,8 +203,10 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
     };
 
     let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
-    let serialized = serde_json::to_vec(&inline_result)?;
-    conn.get_mut().write_all(&serialized)?;
+    let json = serde_json::to_string(&inline_result)?;
+    conn.write_all(json.as_bytes())?;
+    conn.write_all(b"\n")?;
+    conn.flush()?;
     Ok(())
 }
 

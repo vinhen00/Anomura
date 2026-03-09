@@ -17,7 +17,9 @@ fn main() {
         println!("no mocks found");
         return;
     };
-    //println!("got res: {:?}", res);
+    for i in &res.mocked_fns {
+        println!("mocked fn: {} in path: {}", i.get_name(), i.get_path());
+    }
 
     let mut crates_containing_mocks: HashMap<String, Vec<MockedFun>> = HashMap::new();
     for mock_fn in &res.mocked_fns {
