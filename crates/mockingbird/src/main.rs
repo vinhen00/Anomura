@@ -3,12 +3,11 @@
 #![feature(rustc_private)]
 use std::process::Command;
 extern crate rustc_driver;
-use mockingbird::{compile_mocks::CompileMocks, function_intercept::FunctionIntercept};
+use mockingbird::{compile_mocks::CompileMocks, function_intercept::FunctionIntercept, parse_mocks::ParseMocks};
 use rustc_driver::run_compiler;
 
 fn main() {
-    println!("hello");
-    let mut mocked_funs = CompileMocks::new(Vec::new(), None, false);
+    let mut expanded_macros = ParseMocks::new(false);
     run_compiler(
         &[
             "ignored".to_string(),
@@ -21,6 +20,20 @@ fn main() {
             "mock_macro=./target/debug/mock_macro.dll".to_string(),
             "-L".to_string(),
             "dependency=./target/debug".to_string(),
+        ],
+        &mut expanded_macros,
+    );
+
+
+    let mut mocked_funs = CompileMocks::new(Vec::new(), expanded_macros.get_program(), false);
+    run_compiler(
+        &[
+            "ignored".to_string(),
+            "mock_defs.rs".to_string(),
+            "--crate-type".to_string(),
+            "bin".to_string(),
+            "-o".to_string(),
+            "./target/mocked_main".to_string(),
         ],
         &mut mocked_funs,
     );

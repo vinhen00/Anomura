@@ -2,6 +2,7 @@ use rustc_driver::Compilation;
 use rustc_interface::interface::{Compiler, Config};
 use rustc_session::config::CrateType;
 
+use crate::parse_mocks;
 use crate::compile_mocks;
 use crate::visitors;
 
@@ -28,7 +29,7 @@ impl FunctionIntercept {
 //Function_intercept is a compiler setting that compiles the target file and replaces the function body of the functions that have a mocked variant
 impl rustc_driver::Callbacks for FunctionIntercept {
     fn config(&mut self, config: &mut Config) {
-        config.file_loader = Some(Box::new(compile_mocks::MockFileLoader {
+        config.file_loader = Some(Box::new(parse_mocks::MockFileLoader {
             file: "mock_test.rs".to_string(),
         }));
         config.opts.crate_types = vec![CrateType::Executable];

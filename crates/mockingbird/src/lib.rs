@@ -2,6 +2,7 @@
 pub mod compile_mocks;
 mod expand_macro;
 pub mod function_intercept;
+pub mod parse_mocks;
 mod visitors;
 
 extern crate rustc_ast;
