@@ -6,8 +6,11 @@ use interprocess::local_socket::{
     ToNsName,
 };
 use itertools::Itertools;
+
 use mockingbird::compile_mocks::CompileMocks;
+use mockingbird::parse_mocks::ParseMocks;
 use mockingbird::{compile_mocks, MockedFun};
+
 use rustc_ast::token::TokenKind::{self, Eof};
 use rustc_ast::PathSegment;
 use rustc_ast::{visit::Visitor, MethodCall};
@@ -119,7 +122,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         compiler_args: Vec<String>,
         plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {
-        let mut callbacks = CompileMocks::new(Vec::new(), None, true);
+        let mut callbacks = ParseMocks::new(true);
         println!("compiler_args: {:?}", plugin_args.cargo_args);
         rustc_driver::run_compiler(&compiler_args, &mut callbacks);
         println!("got callbacks {:?}", callbacks);
@@ -173,7 +176,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
 }
 
 pub fn compile_maccalls(program: &str) -> CompileMocks {
-    let mut mocked_funs = CompileMocks::new(Vec::new(), Some(program.to_string()), false);
+    let mut mocked_funs = CompileMocks::new(Vec::new(), program.to_string(), false);
     //println!("Mockedfuns: {:#?}", mocked_funs.inline);
     rustc_driver::run_compiler(
         &["ignored".to_string(), "anything".to_string()],
@@ -185,8 +188,8 @@ pub fn compile_maccalls(program: &str) -> CompileMocks {
 pub struct DiscoverPluginCallback {
     mock_fns: Vec<MockFnCall>,
 }
-pub fn send_back_results(compile_mocks: &CompileMocks) -> io::Result<()> {
-    let Some(inline_result) = compile_mocks.get_inline() else {
+pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
+    let inline_result = parse_mocks.get_program() else {
         return Err(io::Error::other("no mocks to unpack"));
     };
 

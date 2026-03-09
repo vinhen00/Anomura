@@ -2,6 +2,9 @@ use std::{borrow::Cow, collections::HashMap, env};
 
 use crate::mock_discover_pass::MockFnCall;
 use crate::Utf8Path;
+
+use mockingbird::MockedFun;
+
 use clap::Parser;
 use itertools::Itertools;
 use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};

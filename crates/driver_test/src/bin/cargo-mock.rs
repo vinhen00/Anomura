@@ -2,6 +2,8 @@
 
 use std::{collections::HashMap, process::exit};
 
+use mockingbird::MockedFun;
+
 use driver_test::mock_discover_pass::MockFnCall;
 
 fn main() {
@@ -20,7 +22,7 @@ fn main() {
     let mut crates_containing_mocks: HashMap<String, Vec<MockedFun>> = HashMap::new();
     for mock_fn in &res.mocked_fns {
         crates_containing_mocks
-            .entry(mock_fn.path_segments[0].path.clone())
+            .entry(mock_fn.get_path())
             .and_modify(|v| v.push(mock_fn.clone()))
             .or_default();
     }
