@@ -2,7 +2,8 @@ use mock_macro::{mock_fn, mock_method};
 
 fn main() {
     mock_fn! {
-        name: Bar::foo,
+        name: foo,
+        path: bar::foo,
         input_types: [u32],
         input_ident: [a],
         ret_type: u32,
@@ -14,6 +15,7 @@ fn main() {
     mock_method! {
         struct_name: Bar::Food,
         name: bar,
+        path: bar::Food::bar,
         input_types: [String],
         input_ident: [n],
         ret_type: (),
