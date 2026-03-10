@@ -2,6 +2,9 @@ use rustc_driver::Compilation;
 use rustc_interface::interface::{Compiler, Config};
 use rustc_session::config::CrateType;
 
+use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
+
+
 use crate::parse_mocks;
 use crate::compile_mocks;
 use crate::visitors;
@@ -29,11 +32,7 @@ impl FunctionIntercept {
 //Function_intercept is a compiler setting that compiles the target file and replaces the function body of the functions that have a mocked variant
 impl rustc_driver::Callbacks for FunctionIntercept {
     fn config(&mut self, config: &mut Config) {
-        config.file_loader = Some(Box::new(parse_mocks::MockFileLoader {
-            file: "mock_test.rs".to_string(),
-        }));
-        config.opts.crate_types = vec![CrateType::Executable];
-        config.opts.search_paths.clear();
+        println!("Started config");
     }
 
     fn after_crate_root_parsing(
@@ -41,6 +40,9 @@ impl rustc_driver::Callbacks for FunctionIntercept {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
+        println!("Started compilation");
+        //println!("Have Krate {:#?}", krate);
+
         //First create copies of all functions that will be mocked
         let mut function_originals: Vec<Box<rustc_ast::Item>> = Vec::new();
         let mut method_originals = Vec::new();

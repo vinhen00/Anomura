@@ -69,12 +69,6 @@ impl RustcPlugin for SubstitutePlugin {
         compiler_args: Vec<String>,
         plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {
-        //println!("{:#?}", plugin_args.filter);
-        //let mut mockfuns: Vec<MockedFun>;
-        // match self.crate_mock_map.get(crate_name) {
-        //     Some(mocks) => { mockfuns = mocks }
-        //     None => { mockfuns = Vec::new() }
-        // }
         let mut callbacks = FunctionIntercept::new(Vec::new());
         println!("runnin sugstitution plugin for crate {crate_name}");
         println!("compiler_args: {:?}", plugin_args.cargo_args);
