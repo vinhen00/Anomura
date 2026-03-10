@@ -45,15 +45,6 @@ pub struct DiscoverPlugin {
 impl DiscoverPlugin {
     pub fn new() -> Self {
         let tmp_dir = std::env::temp_dir();
-<<<<<<< HEAD
-        let pid = std::process::id();
-
-        let socket_path = tmp_dir.join(format!("mock_discover_{}.sock", pid));
-        let name_string = socket_path.to_string_lossy().to_string();
-
-        let name = if GenericNamespaced::is_supported() {
-            name_string.clone().to_ns_name::<GenericNamespaced>().unwrap()
-=======
         let (name_string, name) = if GenericNamespaced::is_supported() {
             let name_string = format!("{}tmpr.sock", tmp_dir.display());
             let name = name_string
@@ -61,23 +52,12 @@ impl DiscoverPlugin {
                 .to_ns_name::<GenericNamespaced>()
                 .unwrap();
             (name_string, name)
->>>>>>> 0e4e161c7cc704ab4a00b6c4f41227d6ff1c9390
         } else {
-            name_string.clone().to_fs_name::<GenericFilePath>().unwrap()
+            let name_string = format!("/tmp/{}.sock", tmp_dir.display());
+            let name = name_string.clone().to_fs_name::<GenericFilePath>().unwrap();
+            (name_string, name)
         };
-<<<<<<< HEAD
-
-        //println!("Init listener to {}", name_string);
-        //std::thread::sleep(std::time::Duration::from_millis(500));
-
-        let _ = std::fs::remove_file(&name_string);
-
-=======
         println!("Init listener to {}", name_string);
-<<<<<<< HEAD
->>>>>>> 0e4e161c7cc704ab4a00b6c4f41227d6ff1c9390
-=======
->>>>>>> 0e4e161c7cc704ab4a00b6c4f41227d6ff1c9390
 
         let listener = match ListenerOptions::new().name(name).create_sync() {
             Err(e) if e.kind() == io::ErrorKind::AddrInUse => {
@@ -178,9 +158,9 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {
         let mut callbacks = ParseMocks::new(true);
-        //println!("compiler_args: {:?}", plugin_args.cargo_args);
+        println!("compiler_args: {:?}", plugin_args.cargo_args);
         rustc_driver::run_compiler(&compiler_args, &mut callbacks);
-        //println!("got callbacks {:?}", callbacks);
+        println!("got callbacks {:?}", callbacks);
         let _ = send_back_results(&callbacks).inspect_err(|e| {
             eprintln!(
                 "callback failed to send back result, got error message {:?}",
@@ -198,50 +178,10 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
 
     fn before_execution(&mut self) {
         // Start a background thread to listen for connections during cargo execution
-<<<<<<< HEAD
-<<<<<<< HEAD
-        let mocks = self.collected_mocks.clone();
-        let listener = self.listener.take().expect("listener should exist");
-        thread::spawn(move || {
-            listener.set_nonblocking(local_socket::ListenerNonblockingMode::Accept).ok();
-            let timeout = std::time::Instant::now() + std::time::Duration::from_secs(10);
-            while std::time::Instant::now() < timeout {
-                if let Ok(conn) = listener.accept() {
-                    let mut buffer = String::with_capacity(16192);
-                    if let Ok(mut _reader) = BufReader::new(conn).read_line(&mut buffer) {
-                        //println!("Recieved msg");
-                        if let Ok(deserial) = serde_json::from_str::<String>(&buffer) {
-                            let fns = compile_maccalls(&deserial);
-                            if let Ok(mut m) = mocks.lock() {
-                                m.append(&mut fns.get_mocks());
-                            }
-                        }
-                    }
-                }
-                //std::thread::sleep(std::time::Duration::from_millis(10));
-            }
-        });
-    }
-
-    fn after_execution(&self) -> Result<DiscoverClientReturn, RustcPluginError> {
-        std::thread::sleep(std::time::Duration::from_millis(500));
-        let mocked_fns = self.collected_mocks.lock().unwrap().clone();
-        //println!("After_execution: Found {} mocks", mocked_fns.len());
-
-        let _ = std::fs::remove_file(&self.channel_name);
-
-
-=======
         //let mocks = self.collected_mocks.clone();
         //let listener = self.listener.take().expect("listener should exist");
     }
 
-=======
-        //let mocks = self.collected_mocks.clone();
-        //let listener = self.listener.take().expect("listener should exist");
-    }
-
->>>>>>> 0e4e161c7cc704ab4a00b6c4f41227d6ff1c9390
     fn after_execution(&mut self) -> Result<DiscoverClientReturn, RustcPluginError> {
         //std::thread::sleep(std::time::Duration::from_millis(500));
 
@@ -269,7 +209,6 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         })?;
 
         println!("After_execution: Found {} mocks", mocked_fns.len());
->>>>>>> 0e4e161c7cc704ab4a00b6c4f41227d6ff1c9390
         Ok(DiscoverClientReturn { mocked_fns })
     }
 }
@@ -297,15 +236,7 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
         name_str.clone().to_fs_name::<GenericFilePath>()?
     };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    //println!("Sending mock {} to {}", inline_result, name_str);
-=======
     println!("Sending mock {:?} to {}", inline_result, name_str);
->>>>>>> 0e4e161c7cc704ab4a00b6c4f41227d6ff1c9390
-=======
-    println!("Sending mock {:?} to {}", inline_result, name_str);
->>>>>>> 0e4e161c7cc704ab4a00b6c4f41227d6ff1c9390
     let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
     let json = serde_json::to_string(&inline_result)?;
     conn.write_all(json.as_bytes())?;
@@ -373,7 +304,7 @@ impl<'a> Visitor<'a> for MockVisitor<'a> {
         };
 
         if elem.ident.as_str() == "mock" {
-            //println!("found mock {node:?}");
+            println!("found mock {node:?}");
             let tokens = &node.args.tokens;
             let mut parser = rustc_parse::parser::Parser::new(self.psess, tokens.clone(), None)
                 .recovery(parser::Recovery::Allowed);
@@ -382,7 +313,7 @@ impl<'a> Visitor<'a> for MockVisitor<'a> {
                 if let Ok(expr) = parser.parse_expr() {
                     match expr.kind {
                         rustc_ast::ExprKind::Call(expr, args) => {
-                            //println!("with function call {:?} with args: {:?}", &expr, args);
+                            println!("with function call {:?} with args: {:?}", &expr, args);
                             let rustc_ast::ExprKind::Path(_, path) = expr.kind else {
                                 eprintln!("function identifier must be a path");
                                 exit(1);
@@ -396,7 +327,7 @@ impl<'a> Visitor<'a> for MockVisitor<'a> {
                             });
                         }
                         rustc_ast::ExprKind::MethodCall(method_call) => {
-                            //println!("with method call: {:?}", method_call);
+                            println!("with method call: {:?}", method_call);
                             self.method_calls.push(*method_call);
                         }
                         _ => (),
