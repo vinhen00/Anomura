@@ -74,6 +74,9 @@ impl DiscoverPlugin {
 
 =======
         println!("Init listener to {}", name_string);
+<<<<<<< HEAD
+>>>>>>> 0e4e161c7cc704ab4a00b6c4f41227d6ff1c9390
+=======
 >>>>>>> 0e4e161c7cc704ab4a00b6c4f41227d6ff1c9390
 
         let listener = match ListenerOptions::new().name(name).create_sync() {
@@ -196,6 +199,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
     fn before_execution(&mut self) {
         // Start a background thread to listen for connections during cargo execution
 <<<<<<< HEAD
+<<<<<<< HEAD
         let mocks = self.collected_mocks.clone();
         let listener = self.listener.take().expect("listener should exist");
         thread::spawn(move || {
@@ -232,6 +236,12 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         //let listener = self.listener.take().expect("listener should exist");
     }
 
+=======
+        //let mocks = self.collected_mocks.clone();
+        //let listener = self.listener.take().expect("listener should exist");
+    }
+
+>>>>>>> 0e4e161c7cc704ab4a00b6c4f41227d6ff1c9390
     fn after_execution(&mut self) -> Result<DiscoverClientReturn, RustcPluginError> {
         //std::thread::sleep(std::time::Duration::from_millis(500));
 
@@ -288,7 +298,11 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
     };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     //println!("Sending mock {} to {}", inline_result, name_str);
+=======
+    println!("Sending mock {:?} to {}", inline_result, name_str);
+>>>>>>> 0e4e161c7cc704ab4a00b6c4f41227d6ff1c9390
 =======
     println!("Sending mock {:?} to {}", inline_result, name_str);
 >>>>>>> 0e4e161c7cc704ab4a00b6c4f41227d6ff1c9390
