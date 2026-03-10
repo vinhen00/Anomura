@@ -17,6 +17,7 @@ fn main() {
         println!("no mocks found");
         return;
     };
+    println!("Mocking done found {} functions to mock", &res.mocked_fns.len());
     for i in &res.mocked_fns {
         println!("mocked fn: {} in path: {}", i.get_name(), i.get_path());
     }

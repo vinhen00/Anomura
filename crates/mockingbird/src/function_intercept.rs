@@ -66,7 +66,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                 rustc_ast::ItemKind::Fn(fn_data) => {
                     for mock in &mut self.mocks {
                         if fn_data.ident.name.as_str() == mock.get_name().as_str() {
-                            println!("Mocking {}", mock.get_name());
+                            //println!("Mocking {}", mock.get_name());
                             mock.resolve_names();
                             //println!("{:#?}", foo.get_body());
 
@@ -105,7 +105,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                                 let method_name =
                                     format!("{}.{}", imp_name, fn_data.ident.name.as_str());
                                 if method_name == mock.get_name().as_str() {
-                                    println!("Mocking method {}", mock.get_name());
+                                    //println!("Mocking method {}", mock.get_name());
                                     mock.resolve_names();
                                     //println!("{:#?}", mock.get_body());
                                     fn_data.sig.decl = mock.get_sig().decl;

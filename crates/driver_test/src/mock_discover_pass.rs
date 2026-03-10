@@ -55,6 +55,9 @@ impl DiscoverPlugin {
             let name = name_string.clone().to_fs_name::<GenericFilePath>().unwrap();
             (name_string, name)
         };
+        println!("Init listener to {}", name_string);
+        std::thread::sleep(std::time::Duration::from_millis(2000));
+
         let listener = match ListenerOptions::new().name(name).create_sync() {
             Err(e) if e.kind() == io::ErrorKind::AddrInUse => {
                 // When a program that uses a file-type socket name terminates
@@ -124,7 +127,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
     fn run(
         crate_name: String,
         compiler_args: Vec<String>,
-        plugin_args: Self::Args,
+        plugin_args: Self::Args
     ) -> rustc_interface::interface::Result<()> {
         let mut callbacks = ParseMocks::new(true);
         println!("compiler_args: {:?}", plugin_args.cargo_args);
@@ -153,9 +156,9 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
             listener.set_nonblocking(local_socket::ListenerNonblockingMode::Accept).ok();
             let timeout = std::time::Instant::now() + std::time::Duration::from_secs(10);
             while std::time::Instant::now() < timeout {
-                if let Ok(mut conn) = listener.accept() {
+                if let Ok(conn) = listener.accept() {
                     let mut buffer = String::with_capacity(16192);
-                    if let Ok(mut reader) = BufReader::new(conn).read_line(&mut buffer) {
+                    if let Ok(mut _reader) = BufReader::new(conn).read_line(&mut buffer) {
                         if let Ok(deserial) = serde_json::from_str::<String>(&buffer) {
                             let fns = compile_maccalls(&deserial);
                             if let Ok(mut m) = mocks.lock() {
@@ -172,6 +175,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
     fn after_execution(&self) -> Result<DiscoverClientReturn, RustcPluginError> {
         std::thread::sleep(std::time::Duration::from_millis(500));
         let mocked_fns = self.collected_mocks.lock().unwrap().clone();
+        println!("After_execution: Found {} mocks", mocked_fns.len());
         Ok(DiscoverClientReturn { mocked_fns })
     }
 }
@@ -202,6 +206,7 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
         name_str.clone().to_fs_name::<GenericFilePath>()?
     };
 
+    println!("Sending mock {} to {}", inline_result, name_str);
     let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
     let json = serde_json::to_string(&inline_result)?;
     conn.write_all(json.as_bytes())?;
@@ -216,7 +221,7 @@ impl rustc_driver::Callbacks for DiscoverPluginCallback {
         compiler: &rustc_interface::interface::Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> rustc_driver::Compilation {
-        println!("in crate root parse");
+        // println!("in crate root parse");
         let mut visitor = MockVisitor::new(&compiler.sess.psess);
         visitor.visit_crate(krate);
         self.mock_fns = visitor.fn_calls;

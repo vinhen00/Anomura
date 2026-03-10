@@ -174,7 +174,7 @@ impl rustc_driver::Callbacks for CompileMocks {
             for attr in &item.attrs {
                 path = extract_attribute_name(attr.clone());
             }
-            println!("checking item {:?}", item.kind.ident());
+            // println!("checking item {:?}", item.kind.ident());
             match &item.kind {
                 rustc_ast::ItemKind::Fn(fn_data) => {
                     self.handle_fn(fn_data, path);

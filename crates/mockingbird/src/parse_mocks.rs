@@ -89,7 +89,7 @@ impl ParseMocks {
     ///This runs a new compilation process inside the callback function for the original compilation process
     ///This new compilation compiles the expanded macros and saves
     fn handle_maccall(&mut self, mac_call: &rustc_ast::MacCall) {
-        println!("handle_maccall");
+        // println!("handle_maccall");
 
         let args = mac_call.args.clone();
         let tokens = args.tokens;
@@ -107,7 +107,7 @@ impl ParseMocks {
             return;
         }
 
-        println!("result: {:?}", result);
+        //println!("result: {:?}", result);
 
         self.program.push_str(&result);
     }
@@ -143,7 +143,7 @@ impl rustc_driver::Callbacks for ParseMocks {
             return Compilation::Stop;
         }
         for item in &krate.items {
-            println!("checking item {:?}", item.kind.ident());
+            //println!("checking item {:?}", item.kind.ident());
             match &item.kind {
                 rustc_ast::ItemKind::Mod(_, _, mod_data) => {
                     self.handle_mod(mod_data);
