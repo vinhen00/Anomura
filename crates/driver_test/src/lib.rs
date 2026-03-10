@@ -98,7 +98,7 @@ impl RustcPlugin for PrintAllItemsPlugin {
         Ok(())
     }
 
-    fn after_execution(&self) -> rustc_plugin::PluginResult<()> {
+    fn after_execution(&mut self) -> rustc_plugin::PluginResult<()> {
         Ok(())
     }
 }

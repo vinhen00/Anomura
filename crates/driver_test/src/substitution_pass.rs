@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, env};
 
-use crate::mock_discover_pass::MockFnCall;
 use crate::Utf8Path;
+use crate::mock_discover_pass::MockFnCall;
 
 use mockingbird::MockedFun;
 use mockingbird::function_intercept;
@@ -91,7 +91,7 @@ impl RustcPlugin for SubstitutePlugin {
 
     fn before_execution(&mut self) {}
 
-    fn after_execution(&self) -> PluginResult<()> {
+    fn after_execution(&mut self) -> PluginResult<()> {
         Ok(())
     }
 }
