@@ -1,4 +1,4 @@
-use crate::{Utf8Path, DISCOVER_TMP};
+use crate::{DISCOVER_TMP, Utf8Path};
 use clap::Parser;
 use interprocess::local_socket::traits::{Listener as _, Stream};
 use interprocess::local_socket::{
@@ -9,11 +9,11 @@ use itertools::Itertools;
 
 use mockingbird::compile_mocks::CompileMocks;
 use mockingbird::parse_mocks::ParseMocks;
-use mockingbird::{compile_mocks, MockedFun};
+use mockingbird::{MockedFun, compile_mocks};
 
-use rustc_ast::token::TokenKind::{self, Eof};
 use rustc_ast::PathSegment;
-use rustc_ast::{visit::Visitor, MethodCall};
+use rustc_ast::token::TokenKind::{self, Eof};
+use rustc_ast::{MethodCall, visit::Visitor};
 use rustc_interface::Config;
 use rustc_parse::parser::{self};
 use rustc_plugin::{CrateFilter, RustcPlugin, RustcPluginArgs, RustcPluginError, RustcWrapperType};
@@ -40,6 +40,7 @@ pub struct DiscoverPlugin {
     listener: Option<Listener>,
     collected_mocks: Arc<Mutex<Vec<MockedFun>>>,
 }
+
 impl DiscoverPlugin {
     pub fn new() -> Self {
         let tmp_dir = std::env::temp_dir();
@@ -127,7 +128,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
     fn run(
         crate_name: String,
         compiler_args: Vec<String>,
-        plugin_args: Self::Args
+        plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {
         let mut callbacks = ParseMocks::new(true);
         println!("compiler_args: {:?}", plugin_args.cargo_args);
@@ -153,7 +154,9 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         let mocks = self.collected_mocks.clone();
         let listener = self.listener.take().expect("listener should exist");
         thread::spawn(move || {
-            listener.set_nonblocking(local_socket::ListenerNonblockingMode::Accept).ok();
+            listener
+                .set_nonblocking(local_socket::ListenerNonblockingMode::Accept)
+                .ok();
             let timeout = std::time::Instant::now() + std::time::Duration::from_secs(10);
             while std::time::Instant::now() < timeout {
                 if let Ok(conn) = listener.accept() {
