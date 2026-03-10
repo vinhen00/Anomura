@@ -34,9 +34,9 @@ impl rustc_span::source_map::FileLoader for MockDefsLoader {
         Err(io::Error::other("oops"))
     }
 
-    fn current_directory(&self) -> Result<std::path::PathBuf, std::io::Error> {
-        Ok(std::path::PathBuf::from("."))
-    }
+    // fn current_directory(&self) -> Result<std::path::PathBuf, std::io::Error> {
+    //     Ok(std::path::PathBuf::from("."))
+    // }
 }
 
 pub fn extract_struct_name_from_impl(imp: rustc_ast::Impl) -> Option<String> {

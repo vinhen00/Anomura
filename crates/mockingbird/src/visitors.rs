@@ -205,6 +205,10 @@ impl MockedFun {
         self.name = new_name;
     }
 
+    pub fn get_path(&self) -> String {
+        self.path.clone()
+    }
+
     pub fn get_name(&self) -> String {
         self.name.clone()
     }

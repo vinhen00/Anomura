@@ -43,9 +43,9 @@ impl rustc_span::source_map::FileLoader for MockFileLoader {
         Err(std::io::Error::other("Could not open file"))
     }
 
-    fn current_directory(&self) -> Result<std::path::PathBuf, std::io::Error> {
-        Ok(std::path::PathBuf::from("."))
-    }
+    // fn current_directory(&self) -> Result<std::path::PathBuf, std::io::Error> {
+    //     Ok(std::path::PathBuf::from("."))
+    // }
 }
 
 
