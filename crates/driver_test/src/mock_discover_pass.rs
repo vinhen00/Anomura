@@ -1,20 +1,18 @@
-use crate::{Utf8Path, DISCOVER_TMP};
+use crate::{DISCOVER_TMP, Utf8Path};
 use clap::Parser;
 use interprocess::local_socket::traits::{Listener as _, Stream};
 use interprocess::local_socket::{
-    self, GenericFilePath, GenericNamespaced, Listener, ListenerOptions, NameType, ToFsName,
-    ToNsName,
+    self, GenericFilePath, GenericNamespaced, ListenerOptions, NameType, ToFsName, ToNsName,
 };
 use itertools::Itertools;
 
+use mockingbird::MockedFun;
 use mockingbird::compile_mocks::CompileMocks;
 use mockingbird::parse_mocks::ParseMocks;
-use mockingbird::{compile_mocks, MockedFun};
 
-use rustc_ast::token::TokenKind::{self, Eof};
 use rustc_ast::PathSegment;
-use rustc_ast::{visit::Visitor, MethodCall};
-use rustc_interface::Config;
+use rustc_ast::token::TokenKind::{self, Eof};
+use rustc_ast::{MethodCall, visit::Visitor};
 use rustc_parse::parser::{self};
 use rustc_plugin::{CrateFilter, RustcPlugin, RustcPluginArgs, RustcPluginError, RustcWrapperType};
 use rustc_session::parse::ParseSess;
@@ -22,8 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::process::exit;
-use std::sync::{Arc, Mutex};
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::{borrow::Cow, env};
 #[derive(Parser, Serialize, Deserialize, Clone)]
 pub struct DiscoverPluginArgs {
@@ -34,17 +31,22 @@ pub struct DiscoverPluginArgs {
     cargo_args: Vec<String>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CallBackMessage {
+    NewMocks(String),
+    Done,
+}
+
 #[non_exhaustive]
 pub struct DiscoverPlugin {
     channel_name: String,
-    listener: Option<Listener>,
-    collected_mocks: Arc<Mutex<Vec<MockedFun>>>,
+    listener_handle: Option<JoinHandle<Vec<MockedFun>>>,
 }
 impl DiscoverPlugin {
     pub fn new() -> Self {
         let tmp_dir = std::env::temp_dir();
         let (name_string, name) = if GenericNamespaced::is_supported() {
-            let name_string = format!("{}.sock", tmp_dir.display());
+            let name_string = format!("{}tmpr.sock", tmp_dir.display());
             let name = name_string
                 .clone()
                 .to_ns_name::<GenericNamespaced>()
@@ -56,7 +58,6 @@ impl DiscoverPlugin {
             (name_string, name)
         };
         println!("Init listener to {}", name_string);
-        std::thread::sleep(std::time::Duration::from_millis(2000));
 
         let listener = match ListenerOptions::new().name(name).create_sync() {
             Err(e) if e.kind() == io::ErrorKind::AddrInUse => {
@@ -79,10 +80,37 @@ impl DiscoverPlugin {
             }
             x => x.unwrap(),
         };
+
+        let listener_handle: JoinHandle<Vec<MockedFun>> = thread::spawn(move || {
+            let mut all_mocked_fns = vec![];
+            // listener
+            //     .set_nonblocking(local_socket::ListenerNonblockingMode::Accept)
+            //     .ok();
+            //let timeout = std::time::Instant::now() + std::time::Duration::from_secs(10);
+            while let Ok(conn) = listener.accept() {
+                let mut buffer = String::with_capacity(16192);
+                if let Ok(mut _reader) = BufReader::new(conn).read_line(&mut buffer) {
+                    if let Ok(deserial) = serde_json::from_str::<CallBackMessage>(&buffer) {
+                        match deserial {
+                            CallBackMessage::NewMocks(text) => {
+                                let mocked_fns = compile_maccalls(&text);
+                                all_mocked_fns.append(&mut mocked_fns.get_mocks());
+                            }
+                            CallBackMessage::Done => {
+                                println!("got message done");
+                                return all_mocked_fns;
+                            }
+                        }
+                    }
+                }
+                //i think this just potentially messes thins up
+                //std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            all_mocked_fns
+        });
         DiscoverPlugin {
             channel_name: name_string,
-            listener: Some(listener),
-            collected_mocks: Arc::new(Mutex::new(Vec::new())),
+            listener_handle: Some(listener_handle),
         }
     }
 }
@@ -127,7 +155,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
     fn run(
         crate_name: String,
         compiler_args: Vec<String>,
-        plugin_args: Self::Args
+        plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {
         let mut callbacks = ParseMocks::new(true);
         println!("compiler_args: {:?}", plugin_args.cargo_args);
@@ -150,31 +178,36 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
 
     fn before_execution(&mut self) {
         // Start a background thread to listen for connections during cargo execution
-        let mocks = self.collected_mocks.clone();
-        let listener = self.listener.take().expect("listener should exist");
-        thread::spawn(move || {
-            listener.set_nonblocking(local_socket::ListenerNonblockingMode::Accept).ok();
-            let timeout = std::time::Instant::now() + std::time::Duration::from_secs(10);
-            while std::time::Instant::now() < timeout {
-                if let Ok(conn) = listener.accept() {
-                    let mut buffer = String::with_capacity(16192);
-                    if let Ok(mut _reader) = BufReader::new(conn).read_line(&mut buffer) {
-                        if let Ok(deserial) = serde_json::from_str::<String>(&buffer) {
-                            let fns = compile_maccalls(&deserial);
-                            if let Ok(mut m) = mocks.lock() {
-                                m.append(&mut fns.get_mocks());
-                            }
-                        }
-                    }
-                }
-                std::thread::sleep(std::time::Duration::from_millis(10));
-            }
-        });
+        //let mocks = self.collected_mocks.clone();
+        //let listener = self.listener.take().expect("listener should exist");
     }
 
-    fn after_execution(&self) -> Result<DiscoverClientReturn, RustcPluginError> {
-        std::thread::sleep(std::time::Duration::from_millis(500));
-        let mocked_fns = self.collected_mocks.lock().unwrap().clone();
+    fn after_execution(&mut self) -> Result<DiscoverClientReturn, RustcPluginError> {
+        //std::thread::sleep(std::time::Duration::from_millis(500));
+
+        let name = if GenericNamespaced::is_supported() {
+            self.channel_name
+                .clone()
+                .to_ns_name::<GenericNamespaced>()?
+        } else {
+            self.channel_name.clone().to_fs_name::<GenericFilePath>()?
+        };
+
+        println!("Sending Done");
+        let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
+        let json = serde_json::to_string(&CallBackMessage::Done).unwrap();
+        conn.write_all(json.as_bytes())?;
+        conn.write_all(b"\n")?;
+        conn.flush()?;
+
+        let listener_handle = self.listener_handle.take().expect(
+            "in after_execution DiscoverPlugin should contain a listener_handle to be consumed",
+        );
+
+        let mocked_fns = listener_handle.join().map_err(|e| {
+            RustcPluginError::ClientReturnError(format!("listener process returned : {:?}", e))
+        })?;
+
         println!("After_execution: Found {} mocks", mocked_fns.len());
         Ok(DiscoverClientReturn { mocked_fns })
     }
@@ -182,7 +215,6 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
 
 pub fn compile_maccalls(program: &str) -> CompileMocks {
     let mut mocked_funs = CompileMocks::new(Vec::new(), program.to_string(), false);
-    //println!("Mockedfuns: {:#?}", mocked_funs.inline);
     rustc_driver::run_compiler(
         &["ignored".to_string(), "anything".to_string()],
         &mut mocked_funs,
@@ -194,9 +226,7 @@ pub struct DiscoverPluginCallback {
     mock_fns: Vec<MockFnCall>,
 }
 pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
-    let inline_result = parse_mocks.get_program() else {
-        return Err(io::Error::other("no mocks to unpack"));
-    };
+    let inline_result = CallBackMessage::NewMocks(parse_mocks.get_program());
 
     let name_str = std::env::var(DISCOVER_TMP)
         .expect("there should be a discover tmp env var created in the main cargo command");
@@ -206,7 +236,7 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
         name_str.clone().to_fs_name::<GenericFilePath>()?
     };
 
-    println!("Sending mock {} to {}", inline_result, name_str);
+    println!("Sending mock {:?} to {}", inline_result, name_str);
     let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
     let json = serde_json::to_string(&inline_result)?;
     conn.write_all(json.as_bytes())?;
