@@ -4,9 +4,11 @@ use crate::mock_discover_pass::MockFnCall;
 use crate::Utf8Path;
 
 use mockingbird::MockedFun;
+use mockingbird::function_intercept;
 
 use clap::Parser;
 use itertools::Itertools;
+use mockingbird::function_intercept::FunctionIntercept;
 use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +51,9 @@ impl RustcPlugin for SubstitutePlugin {
         //Hashset to skip duplicates
         //only execute driver on crates containing mocks
         let filter = CrateFilter::RunOnCrates(self.crate_mock_map.keys().cloned().collect_vec());
+        if let CrateFilter::RunOnCrates(filt) = &filter {
+            println!("{:#?}", filt);
+        }
         //let filter = CrateFilter::OnlyWorkspace;
         RustcPluginArgs {
             args,
@@ -64,11 +69,18 @@ impl RustcPlugin for SubstitutePlugin {
         compiler_args: Vec<String>,
         plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {
-        let mut callbacks = SubstitutePluginCallback::default();
+        //println!("{:#?}", plugin_args.filter);
+        //let mut mockfuns: Vec<MockedFun>;
+        // match self.crate_mock_map.get(crate_name) {
+        //     Some(mocks) => { mockfuns = mocks }
+        //     None => { mockfuns = Vec::new() }
+        // }
+        let mut callbacks = FunctionIntercept::new(Vec::new());
         println!("runnin sugstitution plugin for crate {crate_name}");
         println!("compiler_args: {:?}", plugin_args.cargo_args);
 
-        rustc_driver::run_compiler(&compiler_args, &mut callbacks);
+        let result = rustc_driver::run_compiler(&compiler_args, &mut callbacks);
+        println!("{:#?}", result);
         Ok(())
     }
 
@@ -83,18 +95,18 @@ impl RustcPlugin for SubstitutePlugin {
         Ok(())
     }
 }
-#[derive(Default)]
-pub struct SubstitutePluginCallback {
-    mock_fns: Vec<MockFnCall>,
-}
+// #[derive(Default)]
+// pub struct SubstitutePluginCallback {
+//     mock_fns: Vec<MockFnCall>,
+// }
 
-impl rustc_driver::Callbacks for SubstitutePluginCallback {
-    fn after_crate_root_parsing(
-        &mut self,
-        compiler: &rustc_interface::interface::Compiler,
-        krate: &mut rustc_ast::Crate,
-    ) -> rustc_driver::Compilation {
-        //send messages to main cargo process with mocks found.
-        rustc_driver::Compilation::Stop
-    }
-}
+// impl rustc_driver::Callbacks for SubstitutePluginCallback {
+//     fn after_crate_root_parsing(
+//         &mut self,
+//         compiler: &rustc_interface::interface::Compiler,
+//         krate: &mut rustc_ast::Crate,
+//     ) -> rustc_driver::Compilation {
+//         //send messages to main cargo process with mocks found.
+//         rustc_driver::Compilation::Stop
+//     }
+// }

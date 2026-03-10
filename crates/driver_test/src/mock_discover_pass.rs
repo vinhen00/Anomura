@@ -43,20 +43,22 @@ pub struct DiscoverPlugin {
 impl DiscoverPlugin {
     pub fn new() -> Self {
         let tmp_dir = std::env::temp_dir();
-        let (name_string, name) = if GenericNamespaced::is_supported() {
-            let name_string = format!("{}.sock", tmp_dir.display());
-            let name = name_string
-                .clone()
-                .to_ns_name::<GenericNamespaced>()
-                .unwrap();
-            (name_string, name)
+        let pid = std::process::id();
+
+        let socket_path = tmp_dir.join(format!("mock_discover_{}.sock", pid));
+        let name_string = socket_path.to_string_lossy().to_string();
+
+        let name = if GenericNamespaced::is_supported() {
+            name_string.clone().to_ns_name::<GenericNamespaced>().unwrap()
         } else {
-            let name_string = format!("/tmp/{}.sock", tmp_dir.display());
-            let name = name_string.clone().to_fs_name::<GenericFilePath>().unwrap();
-            (name_string, name)
+            name_string.clone().to_fs_name::<GenericFilePath>().unwrap()
         };
-        println!("Init listener to {}", name_string);
-        std::thread::sleep(std::time::Duration::from_millis(2000));
+
+        //println!("Init listener to {}", name_string);
+        //std::thread::sleep(std::time::Duration::from_millis(500));
+
+        let _ = std::fs::remove_file(&name_string);
+
 
         let listener = match ListenerOptions::new().name(name).create_sync() {
             Err(e) if e.kind() == io::ErrorKind::AddrInUse => {
@@ -130,9 +132,9 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         plugin_args: Self::Args
     ) -> rustc_interface::interface::Result<()> {
         let mut callbacks = ParseMocks::new(true);
-        println!("compiler_args: {:?}", plugin_args.cargo_args);
+        //println!("compiler_args: {:?}", plugin_args.cargo_args);
         rustc_driver::run_compiler(&compiler_args, &mut callbacks);
-        println!("got callbacks {:?}", callbacks);
+        //println!("got callbacks {:?}", callbacks);
         let _ = send_back_results(&callbacks).inspect_err(|e| {
             eprintln!(
                 "callback failed to send back result, got error message {:?}",
@@ -159,6 +161,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
                 if let Ok(conn) = listener.accept() {
                     let mut buffer = String::with_capacity(16192);
                     if let Ok(mut _reader) = BufReader::new(conn).read_line(&mut buffer) {
+                        //println!("Recieved msg");
                         if let Ok(deserial) = serde_json::from_str::<String>(&buffer) {
                             let fns = compile_maccalls(&deserial);
                             if let Ok(mut m) = mocks.lock() {
@@ -167,7 +170,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
                         }
                     }
                 }
-                std::thread::sleep(std::time::Duration::from_millis(10));
+                //std::thread::sleep(std::time::Duration::from_millis(10));
             }
         });
     }
@@ -175,7 +178,11 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
     fn after_execution(&self) -> Result<DiscoverClientReturn, RustcPluginError> {
         std::thread::sleep(std::time::Duration::from_millis(500));
         let mocked_fns = self.collected_mocks.lock().unwrap().clone();
-        println!("After_execution: Found {} mocks", mocked_fns.len());
+        //println!("After_execution: Found {} mocks", mocked_fns.len());
+
+        let _ = std::fs::remove_file(&self.channel_name);
+
+
         Ok(DiscoverClientReturn { mocked_fns })
     }
 }
@@ -206,7 +213,7 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
         name_str.clone().to_fs_name::<GenericFilePath>()?
     };
 
-    println!("Sending mock {} to {}", inline_result, name_str);
+    //println!("Sending mock {} to {}", inline_result, name_str);
     let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
     let json = serde_json::to_string(&inline_result)?;
     conn.write_all(json.as_bytes())?;
@@ -274,7 +281,7 @@ impl<'a> Visitor<'a> for MockVisitor<'a> {
         };
 
         if elem.ident.as_str() == "mock" {
-            println!("found mock {node:?}");
+            //println!("found mock {node:?}");
             let tokens = &node.args.tokens;
             let mut parser = rustc_parse::parser::Parser::new(self.psess, tokens.clone(), None)
                 .recovery(parser::Recovery::Allowed);
@@ -283,7 +290,7 @@ impl<'a> Visitor<'a> for MockVisitor<'a> {
                 if let Ok(expr) = parser.parse_expr() {
                     match expr.kind {
                         rustc_ast::ExprKind::Call(expr, args) => {
-                            println!("with function call {:?} with args: {:?}", &expr, args);
+                            //println!("with function call {:?} with args: {:?}", &expr, args);
                             let rustc_ast::ExprKind::Path(_, path) = expr.kind else {
                                 eprintln!("function identifier must be a path");
                                 exit(1);
@@ -297,7 +304,7 @@ impl<'a> Visitor<'a> for MockVisitor<'a> {
                             });
                         }
                         rustc_ast::ExprKind::MethodCall(method_call) => {
-                            println!("with method call: {:?}", method_call);
+                            //println!("with method call: {:?}", method_call);
                             self.method_calls.push(*method_call);
                         }
                         _ => (),

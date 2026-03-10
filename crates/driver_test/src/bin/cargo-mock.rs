@@ -27,7 +27,7 @@ fn main() {
         crates_containing_mocks
             .entry(mock_fn.get_path())
             .and_modify(|v| v.push(mock_fn.clone()))
-            .or_default();
+            .or_insert(vec![mock_fn.clone()]);
     }
 
     if let Err(e) = rustc_plugin::cli_main(driver_test::substitution_pass::SubstitutePlugin::new(
