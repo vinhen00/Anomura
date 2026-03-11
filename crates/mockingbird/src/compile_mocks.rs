@@ -1,21 +1,12 @@
 use std::io;
-use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
 
-use proc_macro2::TokenStream;
-use rustc_ast::visit::Visitor;
-use rustc_ast_pretty::pprust;
-use std::str::FromStr;
-
-use rustc_driver::{Compilation, run_compiler};
+use rustc_driver::Compilation;
 use rustc_interface::interface::{Compiler, Config};
 use rustc_session::config::CrateType;
 
-use crate::expand_macro::{expand_mock_fn, expand_mock_method};
 use crate::visitors::MockedFun;
-
-
 
 pub struct MockDefsLoader {
     pub mockdefs: String,
@@ -46,7 +37,6 @@ pub fn extract_struct_name_from_impl(imp: rustc_ast::Impl) -> Option<String> {
     path.segments.last().map(|seg| seg.ident.to_string())
 }
 
-
 #[derive(Debug)]
 pub struct CompileMocks {
     used_in_plugin: bool,
@@ -67,7 +57,6 @@ impl CompileMocks {
         self.mocks.clone()
     }
 
-
     fn handle_fn(&mut self, fn_data: &rustc_ast::Fn, path: String) {
         if fn_data.ident.name.as_str() != "main" {
             let mut mocked_fn = MockedFun::new(fn_data.clone(), path);
@@ -78,7 +67,8 @@ impl CompileMocks {
     }
 
     fn handle_impl(&mut self, impl_data: &rustc_ast::Impl) {
-        let imp_name = extract_struct_name_from_impl(impl_data.clone()).expect("failed to parse struct");
+        let imp_name =
+            extract_struct_name_from_impl(impl_data.clone()).expect("failed to parse struct");
         for imp_item in &impl_data.items {
             let mut path = "".to_string();
             for attr in &imp_item.attrs {
@@ -115,28 +105,24 @@ impl CompileMocks {
             }
         }
     }
-
-
 }
-
-
 
 fn extract_attribute_name(atr: rustc_ast::Attribute) -> String {
     let mut path = "".to_string();
     if let rustc_ast::AttrKind::Normal(norm) = atr.kind {
         if let rustc_ast::AttrArgs::Delimited(del_args) = norm.item.args {
-           for token in del_args.tokens.iter() {
-                if let rustc_ast::tokenstream::TokenTree::Token(tok,_) = token {
-                    if let rustc_ast::token::TokenKind::Ident(name,_) = tok.kind {
+            for token in del_args.tokens.iter() {
+                if let rustc_ast::tokenstream::TokenTree::Token(tok, _) = token {
+                    if let rustc_ast::token::TokenKind::Ident(name, _) = tok.kind {
                         if path != "" {
                             path = format!("{}::{}", path, name.as_str());
+                        } else {
+                            path = name.as_str().to_string()
                         }
-                        else { path = name.as_str().to_string()}
                         //println!("TOK: {:#?}", path);
                     }
-
                 }
-           }
+            }
         }
     }
     path
@@ -162,8 +148,6 @@ impl rustc_driver::Callbacks for CompileMocks {
         compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
-
-
         //we are using it within a
         // if self.used_in_plugin {
         //     self.visit_crate(krate);

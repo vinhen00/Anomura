@@ -4,9 +4,8 @@ use rustc_session::config::CrateType;
 
 use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
 
-
-use crate::parse_mocks;
 use crate::compile_mocks;
+use crate::parse_mocks;
 use crate::visitors;
 
 #[derive(Debug)]

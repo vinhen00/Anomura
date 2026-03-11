@@ -86,7 +86,7 @@ impl RustcPlugin for PrintAllItemsPlugin {
     // In the driver, we use the Rustc API to start a compiler session
     // for the arguments given to us by rustc_plugin.
     fn run(
-        crate_name: String,
+        _crate_name: String,
         compiler_args: Vec<String>,
         plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {
@@ -180,7 +180,7 @@ impl<'tcx> Visitor<'tcx> for PrintVisitor<'tcx> {
 
 #[test]
 pub fn libtest() {
-    let args = PrintAllItemsPluginArgs::parse();
+    let _args = PrintAllItemsPluginArgs::parse();
     println!("args");
     let hello = "hello world";
     assert_eq!("hello world", hello);

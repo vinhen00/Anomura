@@ -1,10 +1,8 @@
 use std::{borrow::Cow, collections::HashMap, env};
 
 use crate::Utf8Path;
-use crate::mock_discover_pass::MockFnCall;
 
 use mockingbird::MockedFun;
-use mockingbird::function_intercept;
 
 use clap::Parser;
 use itertools::Itertools;
@@ -49,8 +47,10 @@ impl RustcPlugin for SubstitutePlugin {
             .for_each(|a| log::debug!("discover arg: {:?}", a));
 
         //Hashset to skip duplicates
+        let crate_filters = self.crate_mock_map.keys().cloned().collect_vec();
         //only execute driver on crates containing mocks
-        let filter = CrateFilter::RunOnCrates(self.crate_mock_map.keys().cloned().collect_vec());
+        println!("crate filters: {:?}", crate_filters);
+        let filter = CrateFilter::RunOnCrates(crate_filters);
         if let CrateFilter::RunOnCrates(filt) = &filter {
             println!("{:#?}", filt);
         }

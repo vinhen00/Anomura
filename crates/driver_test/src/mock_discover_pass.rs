@@ -46,7 +46,7 @@ impl DiscoverPlugin {
     pub fn new() -> Self {
         let tmp_dir = std::env::temp_dir();
         let (name_string, name) = if GenericNamespaced::is_supported() {
-            let name_string = format!("{}tmpr.sock", tmp_dir.display());
+            let name_string = format!("{tmp_dir:#?} / tmp.sock");
             let name = name_string
                 .clone()
                 .to_ns_name::<GenericNamespaced>()
@@ -147,13 +147,13 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
             args,
             filter,
             wrapper_type: RustcWrapperType::RustcWrapper,
-            rustc_enabled_for_non_filtered: true,
+            rustc_enabled_for_non_filtered: false,
             default_build_command: None,
         }
     }
 
     fn run(
-        crate_name: String,
+        _crate_name: String,
         compiler_args: Vec<String>,
         plugin_args: Self::Args,
     ) -> rustc_interface::interface::Result<()> {
@@ -176,11 +176,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         cargo.args(&args.cargo_args);
     }
 
-    fn before_execution(&mut self) {
-        // Start a background thread to listen for connections during cargo execution
-        //let mocks = self.collected_mocks.clone();
-        //let listener = self.listener.take().expect("listener should exist");
-    }
+    fn before_execution(&mut self) {}
 
     fn after_execution(&mut self) -> Result<DiscoverClientReturn, RustcPluginError> {
         //std::thread::sleep(std::time::Duration::from_millis(500));
