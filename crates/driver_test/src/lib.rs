@@ -10,6 +10,7 @@ extern crate rustc_middle;
 extern crate rustc_parse;
 extern crate rustc_session;
 use clap::Parser;
+use itertools::Itertools;
 use rustc_hir::{
     Item,
     intravisit::{self, Visitor},
@@ -43,8 +44,6 @@ pub struct PrintAllItemsPluginArgs {
 }
 
 impl RustcPlugin for PrintAllItemsPlugin {
-    type Args = PrintAllItemsPluginArgs;
-
     fn version(&self) -> Cow<'static, str> {
         env!("CARGO_PKG_VERSION").into()
     }
@@ -56,11 +55,9 @@ impl RustcPlugin for PrintAllItemsPlugin {
     // In the CLI, we ask Clap to parse arguments and also specify a CrateFilter.
     // If one of the CLI arguments was a specific file to analyze, then you
     // could provide a different filter.
-    fn args(&self, _target_dir: &Utf8Path) -> RustcPluginArgs<Self::Args> {
-        let args = PrintAllItemsPluginArgs::parse_from(env::args().skip(1));
-        args.cargo_args
-            .iter()
-            .for_each(|a| println!("arg: {:?}", a));
+    fn args(&self, _target_dir: &Utf8Path) -> RustcPluginArgs {
+        let args = env::args().skip(1).collect_vec();
+        args.iter().for_each(|a| println!("arg: {:?}", a));
 
         let filter = CrateFilter::RunOnCrates(
             SELECTED_CRATES
@@ -69,7 +66,7 @@ impl RustcPlugin for PrintAllItemsPlugin {
                 .collect::<Vec<String>>(),
         );
         RustcPluginArgs {
-            args,
+            args: Some(args),
             filter,
             wrapper_type: RustcWrapperType::RustcWrapper,
             rustc_enabled_for_non_filtered: true,
@@ -78,9 +75,8 @@ impl RustcPlugin for PrintAllItemsPlugin {
     }
 
     // Pass Cargo arguments (like --feature) from the top-level CLI to Cargo.
-    fn modify_cargo(&self, cargo: &mut Command, args: &Self::Args) {
-        println!("cargo args: {:?}", &args.cargo_args);
-        cargo.args(&args.cargo_args);
+    fn modify_cargo(&self, cargo: &mut Command, args: &Vec<String>) {
+        println!("cargo args: {:?}", &args);
     }
 
     // In the driver, we use the Rustc API to start a compiler session
@@ -88,7 +84,7 @@ impl RustcPlugin for PrintAllItemsPlugin {
     fn run(
         _crate_name: String,
         compiler_args: Vec<String>,
-        plugin_args: Self::Args,
+        plugin_args: &Vec<String>,
     ) -> rustc_interface::interface::Result<()> {
         let mut callbacks = PrintAllItemsCallbacks {
             args: Some(plugin_args.clone()),
@@ -104,7 +100,7 @@ impl RustcPlugin for PrintAllItemsPlugin {
 }
 
 struct PrintAllItemsCallbacks {
-    args: Option<PrintAllItemsPluginArgs>,
+    args: Option<Vec<String>>,
 }
 
 impl rustc_driver::Callbacks for PrintAllItemsCallbacks {
@@ -130,7 +126,7 @@ impl rustc_driver::Callbacks for PrintAllItemsCallbacks {
 // The core of our analysis. Right now it just prints out a description of each item.
 // I recommend reading the Rustc Development Guide to better understand which compiler APIs
 // are relevant to whatever task you have.
-fn print_all_items(tcx: TyCtxt, args: PrintAllItemsPluginArgs) {
+fn print_all_items(tcx: TyCtxt, args: Vec<String>) {
     tcx.hir_visit_all_item_likes_in_crate(&mut PrintVisitor { args, tcx });
     for id in tcx.hir_free_items() {
         let item = &tcx.hir_item(id);
@@ -152,7 +148,7 @@ fn print_all_items(tcx: TyCtxt, args: PrintAllItemsPluginArgs) {
 }
 
 struct PrintVisitor<'tcx> {
-    args: PrintAllItemsPluginArgs,
+    args: Vec<String>,
     tcx: TyCtxt<'tcx>,
 }
 
@@ -169,9 +165,6 @@ impl<'tcx> Visitor<'tcx> for PrintVisitor<'tcx> {
                 self.tcx.def_descr(item.owner_id.to_def_id())
             ),
         };
-        if self.args.allcaps {
-            msg = msg.to_uppercase();
-        }
         println!("{msg}");
 
         intravisit::walk_item(self, item)

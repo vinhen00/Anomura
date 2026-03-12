@@ -14,12 +14,16 @@ use rustc_ast::PathSegment;
 use rustc_ast::token::TokenKind::{self, Eof};
 use rustc_ast::{MethodCall, visit::Visitor};
 use rustc_parse::parser::{self};
-use rustc_plugin::{CrateFilter, RustcPlugin, RustcPluginArgs, RustcPluginError, RustcWrapperType};
+use rustc_plugin::{
+    CargoBuildCommand, CrateFilter, DefaultBuildCommand, RustcPlugin, RustcPluginArgs,
+    RustcPluginError, RustcWrapperType,
+};
 use rustc_session::parse::ParseSess;
 use serde::{Deserialize, Serialize};
 
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::process::exit;
+use std::str::FromStr;
 use std::thread::{self, JoinHandle};
 use std::{borrow::Cow, env};
 #[derive(Parser, Serialize, Deserialize, Clone)]
@@ -46,7 +50,7 @@ impl DiscoverPlugin {
     pub fn new() -> Self {
         let tmp_dir = std::env::temp_dir();
         let (name_string, name) = if GenericNamespaced::is_supported() {
-            let name_string = format!("{tmp_dir:#?} / tmp.sock");
+            let name_string = format!("{tmp_dir:#?}/tmp.sock");
             let name = name_string
                 .clone()
                 .to_ns_name::<GenericNamespaced>()
@@ -126,8 +130,6 @@ pub struct DiscoverClientReturn {
 }
 
 impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
-    type Args = DiscoverPluginArgs;
-
     fn version(&self) -> Cow<'static, str> {
         env!("CARGO_PKG_VERSION").into()
     }
@@ -136,29 +138,27 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         "mock_discover_driver_exec".into()
     }
 
-    fn args(&self, _target_dir: &Utf8Path) -> rustc_plugin::RustcPluginArgs<Self::Args> {
-        let args = DiscoverPluginArgs::parse_from(env::args().skip(1));
-        args.cargo_args
-            .iter()
+    fn args(&self, _target_dir: &Utf8Path) -> rustc_plugin::RustcPluginArgs {
+        let args = env::args().skip(2).collect_vec();
+        args.iter()
             .for_each(|a| log::debug!("discover arg: {:?}", a));
 
-        let filter = CrateFilter::OnlyWorkspace;
         RustcPluginArgs {
-            args,
-            filter,
+            args: Some(args),
+            filter: CrateFilter::OnlyWorkspace,
             wrapper_type: RustcWrapperType::RustcWrapper,
             rustc_enabled_for_non_filtered: false,
-            default_build_command: None,
+            default_build_command: Some(DefaultBuildCommand::Override(CargoBuildCommand::Check)),
         }
     }
 
     fn run(
         _crate_name: String,
         compiler_args: Vec<String>,
-        plugin_args: Self::Args,
+        plugin_args: &Vec<String>,
     ) -> rustc_interface::interface::Result<()> {
         let mut callbacks = ParseMocks::new(true);
-        println!("compiler_args: {:?}", plugin_args.cargo_args);
+        println!("compiler_args: {:?}", plugin_args);
         rustc_driver::run_compiler(&compiler_args, &mut callbacks);
         println!("got callbacks {:?}", callbacks);
         let _ = send_back_results(&callbacks).inspect_err(|e| {
@@ -170,17 +170,14 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         Ok(())
     }
 
-    fn modify_cargo(&self, cargo: &mut std::process::Command, args: &Self::Args) {
-        println!("cargo args: {:?}", &args.cargo_args);
+    fn modify_cargo(&self, cargo: &mut std::process::Command, args: &Vec<String>) {
         cargo.env(DISCOVER_TMP, &self.channel_name);
-        cargo.args(&args.cargo_args);
+        cargo.args(args);
     }
 
     fn before_execution(&mut self) {}
 
     fn after_execution(&mut self) -> Result<DiscoverClientReturn, RustcPluginError> {
-        //std::thread::sleep(std::time::Duration::from_millis(500));
-
         let name = if GenericNamespaced::is_supported() {
             self.channel_name
                 .clone()
@@ -189,6 +186,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
             self.channel_name.clone().to_fs_name::<GenericFilePath>()?
         };
 
+        //tell the server that we are done looking for messages sent from rustc_driver instances
         println!("Sending Done");
         let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
         let json = serde_json::to_string(&CallBackMessage::Done).unwrap();
@@ -197,7 +195,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         conn.flush()?;
 
         let listener_handle = self.listener_handle.take().expect(
-            "in after_execution DiscoverPlugin should contain a listener_handle to be consumed",
+            "after_execution in DiscoverPlugin should contain a listener_handle to be consumed",
         );
 
         let mocked_fns = listener_handle.join().map_err(|e| {

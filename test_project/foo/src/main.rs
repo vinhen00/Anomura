@@ -1,6 +1,5 @@
-use mock_macro::{mock_fn, mock_method};
 use bar;
-
+use mock_macro::{mock_fn, mock_method};
 
 mock_fn! {
     name: foo,
@@ -26,8 +25,7 @@ mock_method! {
     }
 }
 
-
-
 fn main() {
+    println!("bar");
     bar::foo(67);
 }

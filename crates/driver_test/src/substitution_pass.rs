@@ -30,8 +30,6 @@ impl SubstitutePlugin {
 }
 
 impl RustcPlugin for SubstitutePlugin {
-    type Args = SubstitutePluginArgs;
-
     fn version(&self) -> Cow<'static, str> {
         env!("CARGO_PKG_VERSION").into()
     }
@@ -40,10 +38,9 @@ impl RustcPlugin for SubstitutePlugin {
         "mock_substitute_driver_exec".into()
     }
 
-    fn args(&self, _target_dir: &Utf8Path) -> rustc_plugin::RustcPluginArgs<Self::Args> {
-        let args = SubstitutePluginArgs::parse_from(env::args().skip(1));
-        args.cargo_args
-            .iter()
+    fn args(&self, _target_dir: &Utf8Path) -> rustc_plugin::RustcPluginArgs {
+        let args = env::args().skip(2).collect_vec();
+        args.iter()
             .for_each(|a| log::debug!("discover arg: {:?}", a));
 
         //Hashset to skip duplicates
@@ -56,7 +53,7 @@ impl RustcPlugin for SubstitutePlugin {
         }
         //let filter = CrateFilter::OnlyWorkspace;
         RustcPluginArgs {
-            args,
+            args: Some(args),
             filter,
             wrapper_type: RustcWrapperType::RustcWrapper,
             rustc_enabled_for_non_filtered: true,
@@ -67,20 +64,20 @@ impl RustcPlugin for SubstitutePlugin {
     fn run(
         crate_name: String,
         compiler_args: Vec<String>,
-        plugin_args: Self::Args,
+        plugin_args: &Vec<String>,
     ) -> rustc_interface::interface::Result<()> {
         let mut callbacks = FunctionIntercept::new(Vec::new());
         println!("runnin sugstitution plugin for crate {crate_name}");
-        println!("compiler_args: {:?}", plugin_args.cargo_args);
+        println!("plugin_args: {:?}", plugin_args);
 
         let result = rustc_driver::run_compiler(&compiler_args, &mut callbacks);
         println!("{:#?}", result);
         Ok(())
     }
 
-    fn modify_cargo(&self, cargo: &mut std::process::Command, args: &Self::Args) {
-        println!("cargo args: {:?}", &args.cargo_args);
-        cargo.args(&args.cargo_args);
+    fn modify_cargo(&self, cargo: &mut std::process::Command, args: &Vec<String>) {
+        println!("cargo args: {:?}", &args);
+        cargo.args(args);
     }
 
     fn before_execution(&mut self) {}
