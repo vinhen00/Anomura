@@ -10,11 +10,10 @@ use mockingbird::function_intercept::FunctionIntercept;
 use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
 use serde::{Deserialize, Serialize};
 
+
+
 #[derive(clap::Parser, Serialize, Deserialize)]
 pub struct SubstitutePluginArgs {
-    #[arg(short, long)]
-    allcaps: bool,
-
     #[clap(last = true)]
     cargo_args: Vec<String>,
 }

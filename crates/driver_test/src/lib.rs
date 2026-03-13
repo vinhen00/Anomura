@@ -43,61 +43,61 @@ pub struct PrintAllItemsPluginArgs {
     cargo_args: Vec<String>,
 }
 
-impl RustcPlugin for PrintAllItemsPlugin {
-    fn version(&self) -> Cow<'static, str> {
-        env!("CARGO_PKG_VERSION").into()
-    }
+// impl RustcPlugin for PrintAllItemsPlugin {
+//     fn version(&self) -> Cow<'static, str> {
+//         env!("CARGO_PKG_VERSION").into()
+//     }
 
-    fn driver_name(&self) -> Cow<'static, str> {
-        "print-all-items-driver".into()
-    }
+//     fn driver_name(&self) -> Cow<'static, str> {
+//         "print-all-items-driver".into()
+//     }
 
-    // In the CLI, we ask Clap to parse arguments and also specify a CrateFilter.
-    // If one of the CLI arguments was a specific file to analyze, then you
-    // could provide a different filter.
-    fn args(&self, _target_dir: &Utf8Path) -> RustcPluginArgs {
-        let args = env::args().skip(1).collect_vec();
-        args.iter().for_each(|a| println!("arg: {:?}", a));
+//     // In the CLI, we ask Clap to parse arguments and also specify a CrateFilter.
+//     // If one of the CLI arguments was a specific file to analyze, then you
+//     // could provide a different filter.
+//     fn args(&self, _target_dir: &Utf8Path) -> RustcPluginArgs {
+//         let args = env::args().skip(1).collect_vec();
+//         args.iter().for_each(|a| println!("arg: {:?}", a));
 
-        let filter = CrateFilter::RunOnCrates(
-            SELECTED_CRATES
-                .iter()
-                .map(|s| String::from(*s))
-                .collect::<Vec<String>>(),
-        );
-        RustcPluginArgs {
-            args: Some(args),
-            filter,
-            wrapper_type: RustcWrapperType::RustcWrapper,
-            rustc_enabled_for_non_filtered: true,
-            default_build_command: None,
-        }
-    }
+//         let filter = CrateFilter::RunOnCrates(
+//             SELECTED_CRATES
+//                 .iter()
+//                 .map(|s| String::from(*s))
+//                 .collect::<Vec<String>>(),
+//         );
+//         RustcPluginArgs {
+//             args: Some(args),
+//             filter,
+//             wrapper_type: RustcWrapperType::RustcWrapper,
+//             rustc_enabled_for_non_filtered: true,
+//             default_build_command: None,
+//         }
+//     }
 
-    // Pass Cargo arguments (like --feature) from the top-level CLI to Cargo.
-    fn modify_cargo(&self, cargo: &mut Command, args: &Vec<String>) {
-        println!("cargo args: {:?}", &args);
-    }
+//     // Pass Cargo arguments (like --feature) from the top-level CLI to Cargo.
+//     fn modify_cargo(&self, cargo: &mut Command, args: &Vec<String>) {
+//         println!("cargo args: {:?}", &args);
+//     }
 
-    // In the driver, we use the Rustc API to start a compiler session
-    // for the arguments given to us by rustc_plugin.
-    fn run(
-        _crate_name: String,
-        compiler_args: Vec<String>,
-        plugin_args: &Vec<String>,
-    ) -> rustc_interface::interface::Result<()> {
-        let mut callbacks = PrintAllItemsCallbacks {
-            args: Some(plugin_args.clone()),
-        };
-        //println!("compiler_args: {:?}", plugin_args.cargo_args);
-        rustc_driver::run_compiler(&compiler_args, &mut callbacks);
-        Ok(())
-    }
+//     // In the driver, we use the Rustc API to start a compiler session
+//     // for the arguments given to us by rustc_plugin.
+//     fn run(
+//         _crate_name: String,
+//         compiler_args: Vec<String>,
+//         plugin_args: &Vec<String>,
+//     ) -> rustc_interface::interface::Result<()> {
+//         let mut callbacks = PrintAllItemsCallbacks {
+//             args: Some(plugin_args.clone()),
+//         };
+//         //println!("compiler_args: {:?}", plugin_args.cargo_args);
+//         rustc_driver::run_compiler(&compiler_args, &mut callbacks);
+//         Ok(())
+//     }
 
-    fn after_execution(&mut self) -> rustc_plugin::PluginResult<()> {
-        Ok(())
-    }
-}
+//     fn after_execution(&mut self) -> rustc_plugin::PluginResult<()> {
+//         Ok(())
+//     }
+// }
 
 struct PrintAllItemsCallbacks {
     args: Option<Vec<String>>,

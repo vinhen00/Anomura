@@ -71,7 +71,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                             mock.resolve_names();
                             //println!("{:#?}", foo.get_body());
 
-                            fn_data.sig.decl = mock.get_sig().decl;
+                            //fn_data.sig.decl = mock.get_sig().decl;
                             fn_data.body = Some(mock.get_body());
                         }
                     }
@@ -109,7 +109,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                                     //println!("Mocking method {}", mock.get_name());
                                     mock.resolve_names();
                                     //println!("{:#?}", mock.get_body());
-                                    fn_data.sig.decl = mock.get_sig().decl;
+                                    //fn_data.sig.decl = mock.get_sig().decl;
                                     fn_data.body = Some(mock.get_body());
                                 }
                             }

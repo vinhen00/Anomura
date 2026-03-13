@@ -5,5 +5,5 @@ use rustc_plugin::RustcPlugin;
 
 fn main() {
     env_logger::init();
-    PrintAllItemsPlugin::driver_main();
+    //PrintAllItemsPlugin::driver_main();
 }
