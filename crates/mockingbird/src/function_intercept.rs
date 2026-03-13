@@ -66,7 +66,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                             mock.resolve_names();
                             //println!("{:#?}", foo.get_body());
 
-                            //fn_data.sig.decl = mock.get_sig().decl;
+                            fn_data.sig.decl = mock.get_sig().decl;
                             fn_data.body = Some(mock.get_body());
                         }
                     }

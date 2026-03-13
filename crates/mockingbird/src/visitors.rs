@@ -175,7 +175,7 @@ impl MutVisitor for SymbolFixer {
 pub struct MockedFun {
     name: String,
     path: String,
-    //sig: rustc_ast::FnSig,
+    sig: rustc_ast::FnSig,
     body: Box<rustc_ast::Block>,
     symbols: Vec<String>,
     idents: Vec<String>,
@@ -190,7 +190,7 @@ impl MockedFun {
             Some(body) => MockedFun {
                 name,
                 path,
-                //sig: fun.sig,
+                sig: fun.sig,
                 body,
                 symbols: Vec::new(),
                 idents: Vec::new(),
@@ -213,9 +213,9 @@ impl MockedFun {
         self.name.clone()
     }
 
-    // pub fn get_sig(&self) -> rustc_ast::FnSig {
-    //     self.sig.clone()
-    // }
+    pub fn get_sig(&self) -> rustc_ast::FnSig {
+        self.sig.clone()
+    }
 
     pub fn get_body(&self) -> Box<rustc_ast::Block> {
         self.body.clone()
@@ -227,7 +227,7 @@ impl MockedFun {
             symbols: Vec::new(),
             idents: Vec::new(),
         };
-       // visitor.visit_fn_decl(&mut self.sig.decl);
+       visitor.visit_fn_decl(&mut self.sig.decl);
         visitor.visit_block(&mut self.body);
         self.symbols = visitor.symbols;
         self.idents = visitor.idents;
@@ -243,7 +243,7 @@ impl MockedFun {
             idents: self.idents.clone(),
             dict: HashMap::new(),
         };
-        //visitor.visit_fn_decl(&mut self.sig.decl);
+        visitor.visit_fn_decl(&mut self.sig.decl);
         visitor.visit_block(&mut self.body);
     }
 

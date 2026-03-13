@@ -3,7 +3,7 @@ pub fn foo(a: u32) -> u32 {
 }
 
 pub struct Food {
-    inner: String,
+    pub inner: String,
 }
 impl Food {
     pub fn food_fun(&mut self, n: String) {
