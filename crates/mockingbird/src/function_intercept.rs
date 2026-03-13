@@ -1,11 +1,9 @@
 use rustc_driver::Compilation;
-use rustc_interface::interface::{Compiler, Config};
-use rustc_session::config::CrateType;
+use rustc_interface::interface::{Compiler};
 
-use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
+//use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
 
 use crate::compile_mocks;
-use crate::parse_mocks;
 use crate::visitors;
 
 #[derive(Debug)]
@@ -30,9 +28,6 @@ impl FunctionIntercept {
 
 //Function_intercept is a compiler setting that compiles the target file and replaces the function body of the functions that have a mocked variant
 impl rustc_driver::Callbacks for FunctionIntercept {
-    fn config(&mut self, config: &mut Config) {
-        println!("Started config");
-    }
 
     fn after_crate_root_parsing(
         &mut self,

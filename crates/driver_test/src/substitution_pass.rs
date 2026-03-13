@@ -4,7 +4,6 @@ use crate::Utf8Path;
 
 use mockingbird::MockedFun;
 
-use clap::Parser;
 use itertools::Itertools;
 use mockingbird::function_intercept::FunctionIntercept;
 use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
@@ -85,18 +84,3 @@ impl RustcPlugin for SubstitutePlugin {
         Ok(())
     }
 }
-// #[derive(Default)]
-// pub struct SubstitutePluginCallback {
-//     mock_fns: Vec<MockFnCall>,
-// }
-
-// impl rustc_driver::Callbacks for SubstitutePluginCallback {
-//     fn after_crate_root_parsing(
-//         &mut self,
-//         compiler: &rustc_interface::interface::Compiler,
-//         krate: &mut rustc_ast::Crate,
-//     ) -> rustc_driver::Compilation {
-//         //send messages to main cargo process with mocks found.
-//         rustc_driver::Compilation::Stop
-//     }
-// }

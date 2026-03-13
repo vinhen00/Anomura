@@ -145,7 +145,7 @@ impl rustc_driver::Callbacks for CompileMocks {
 
     fn after_crate_root_parsing(
         &mut self,
-        compiler: &Compiler,
+        _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
         //we are using it within a

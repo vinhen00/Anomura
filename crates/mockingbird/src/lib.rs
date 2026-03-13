@@ -20,7 +20,5 @@ extern crate rustc_passes;
 extern crate rustc_serialize;
 extern crate rustc_session;
 extern crate rustc_span;
-use rustc_interface::interface::Compiler;
-use rustc_session::{CompilerIO, Session, parse::ParseSess};
-use rustc_span::source_map::FilePathMapping;
+
 pub use visitors::MockedFun;

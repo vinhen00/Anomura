@@ -1,19 +1,15 @@
-use std::io;
 use std::io::Read;
-use std::path::Path;
-use std::sync::Arc;
+
 
 use proc_macro2::TokenStream;
 use rustc_ast::visit::Visitor;
 use rustc_ast_pretty::pprust;
 use std::str::FromStr;
 
-use rustc_driver::{Compilation, run_compiler};
-use rustc_interface::interface::{Compiler, Config};
-use rustc_session::config::CrateType;
+use rustc_driver::Compilation;
+use rustc_interface::interface::Compiler;
 
 use crate::expand_macro::{expand_mock_fn, expand_mock_method};
-use crate::visitors::MockedFun;
 
 
 
@@ -121,19 +117,10 @@ impl ParseMocks {
 //Will grab all functions defined therein, and store them as a field in the mocks.
 //Stops compilation when done
 impl rustc_driver::Callbacks for ParseMocks {
-    fn config(&mut self, config: &mut Config) {
-        if !self.used_in_plugin {
-            config.file_loader = Some(Box::new(MockFileLoader {
-                file: "mock_defs.rs".to_string(),
-            }));
-            config.opts.crate_types = vec![CrateType::Executable];
-            config.opts.search_paths.clear();
-        }
-    }
 
     fn after_crate_root_parsing(
         &mut self,
-        compiler: &Compiler,
+        _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
 

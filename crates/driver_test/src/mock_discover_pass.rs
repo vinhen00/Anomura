@@ -10,20 +10,16 @@ use mockingbird::MockedFun;
 use mockingbird::compile_mocks::CompileMocks;
 use mockingbird::parse_mocks::ParseMocks;
 
-use rustc_ast::PathSegment;
-use rustc_ast::token::TokenKind::{self, Eof};
-use rustc_ast::{MethodCall, visit::Visitor};
-use rustc_parse::parser::{self};
+
 use rustc_plugin::{
     CargoBuildCommand, CrateFilter, DefaultBuildCommand, RustcPlugin, RustcPluginArgs,
     RustcPluginError, RustcWrapperType,
 };
-use rustc_session::parse::ParseSess;
+
 use serde::{Deserialize, Serialize};
 
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::process::exit;
-use std::str::FromStr;
 use std::thread::{self, JoinHandle};
 use std::{borrow::Cow, env};
 #[derive(Parser, Serialize, Deserialize, Clone)]
@@ -215,10 +211,7 @@ pub fn compile_maccalls(program: &str) -> CompileMocks {
     );
     mocked_funs
 }
-#[derive(Default)]
-pub struct DiscoverPluginCallback {
-    mock_fns: Vec<MockFnCall>,
-}
+
 pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
     let inline_result = CallBackMessage::NewMocks(parse_mocks.get_program());
 
@@ -239,98 +232,4 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
     Ok(())
 }
 
-impl rustc_driver::Callbacks for DiscoverPluginCallback {
-    fn after_crate_root_parsing(
-        &mut self,
-        compiler: &rustc_interface::interface::Compiler,
-        krate: &mut rustc_ast::Crate,
-    ) -> rustc_driver::Compilation {
-        // println!("in crate root parse");
-        let mut visitor = MockVisitor::new(&compiler.sess.psess);
-        visitor.visit_crate(krate);
-        self.mock_fns = visitor.fn_calls;
-        //send messages to main cargo process with mocks found.
-        rustc_driver::Compilation::Stop
-    }
-}
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MockPathSegment {
-    pub path: String,
-}
-impl MockPathSegment {
-    pub fn new(path: PathSegment) -> Self {
-        MockPathSegment {
-            path: path.ident.as_str().to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MockFnCall {
-    pub path_segments: Vec<MockPathSegment>,
-}
-pub struct MockMethodCalls {}
-
-pub struct MockVisitor<'a> {
-    psess: &'a ParseSess,
-    fn_calls: Vec<MockFnCall>,
-    method_calls: Vec<MethodCall>,
-}
-impl<'a> MockVisitor<'a> {
-    pub fn new(psess: &'a ParseSess) -> Self {
-        MockVisitor {
-            psess,
-            fn_calls: vec![],
-            method_calls: vec![],
-        }
-    }
-}
-
-impl<'a> Visitor<'a> for MockVisitor<'a> {
-    #[doc = r" The result type of the `visit_*` methods. Can be either `()`,"]
-    #[doc = r" or `ControlFlow<T>`."]
-    type Result = ();
-    fn visit_mac_call(&mut self, node: &'_ rustc_ast::MacCall) -> Self::Result {
-        let Some(elem) = node.path.segments.iter().last() else {
-            log::error!("failed to find last segment");
-            return;
-        };
-
-        if elem.ident.as_str() == "mock" {
-            println!("found mock {node:?}");
-            let tokens = &node.args.tokens;
-            let mut parser = rustc_parse::parser::Parser::new(self.psess, tokens.clone(), None)
-                .recovery(parser::Recovery::Allowed);
-
-            while parser.token != Eof {
-                if let Ok(expr) = parser.parse_expr() {
-                    match expr.kind {
-                        rustc_ast::ExprKind::Call(expr, args) => {
-                            println!("with function call {:?} with args: {:?}", &expr, args);
-                            let rustc_ast::ExprKind::Path(_, path) = expr.kind else {
-                                eprintln!("function identifier must be a path");
-                                exit(1);
-                            };
-                            self.fn_calls.push(MockFnCall {
-                                path_segments: path
-                                    .segments
-                                    .into_iter()
-                                    .map(MockPathSegment::new)
-                                    .collect_vec(),
-                            });
-                        }
-                        rustc_ast::ExprKind::MethodCall(method_call) => {
-                            println!("with method call: {:?}", method_call);
-                            self.method_calls.push(*method_call);
-                        }
-                        _ => (),
-                    }
-                }
-                while parser.token.kind == TokenKind::Comma {
-                    parser.bump();
-                }
-            }
-        }
-    }
-}
