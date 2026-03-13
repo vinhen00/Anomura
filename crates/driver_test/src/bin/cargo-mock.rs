@@ -15,22 +15,22 @@ fn main() {
         println!("no mocks found");
         return;
     };
-    println!(
-        "Mocking done found {} functions to mock",
-        &res.mocked_fns.len()
-    );
-    for i in &res.mocked_fns {
-        println!("mocked fn: {} in path: {}", i.get_name(), i.get_path());
-    }
+    // println!(
+    //     "Mocking done found {} functions to mock",
+    //     &res.mocked_fns.len()
+    // );
+    // for i in &res.mocked_fns {
+    //     println!("mocked fn: {} in path: {}", i.get_name(), i.get_path());
+    // }
 
-    let mut crates_containing_mocks: HashMap<String, Vec<MockedFun>> = HashMap::new();
-    for mock_fn in &res.mocked_fns {
-        println!("mock fn path : {:?}", mock_fn.get_path());
-        crates_containing_mocks
-            .entry(mock_fn.get_path())
-            .and_modify(|v| v.push(mock_fn.clone()))
-            .or_insert(vec![mock_fn.clone()]);
-    }
+    // let mut crates_containing_mocks: HashMap<String, Vec<MockedFun>> = HashMap::new();
+    // for mock_fn in &res.mocked_fns {
+    //     println!("mock fn path : {:?}", mock_fn.get_path());
+    //     crates_containing_mocks
+    //         .entry(mock_fn.get_path())
+    //         .and_modify(|v| v.push(mock_fn.clone()))
+    //         .or_insert(vec![mock_fn.clone()]);
+    // }
 
     if let Err(e) = rustc_plugin::cli_main(driver_test::substitution_pass::SubstitutePlugin::new(
         crates_containing_mocks,

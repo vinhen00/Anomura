@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::HashMap, env};
 
 use crate::Utf8Path;
 
-use mockingbird::MockedFun;
+use mockingbird::{MockedFun, compile_mocks::CompileMocks};
 
 use itertools::Itertools;
 use mockingbird::function_intercept::FunctionIntercept;
@@ -19,11 +19,24 @@ pub struct SubstitutePluginArgs {
 
 #[non_exhaustive]
 pub struct SubstitutePlugin {
+    program: String,
     crate_mock_map: HashMap<String, Vec<MockedFun>>,
 }
 impl SubstitutePlugin {
-    pub fn new(crate_mock_map: HashMap<String, Vec<MockedFun>>) -> Self {
-        Self { crate_mock_map }
+    pub fn new(program: String)-> Self {
+        let mut callbacks = CompileMocks::new(Vec::new(), program.clone(), true);
+        rustc_driver::run_compiler(&[], &mut callbacks);
+
+        let mut crate_mock_map: HashMap<String, Vec<MockedFun>> = HashMap::new();
+        for mock_fn in &callbacks.get_mocks() {
+            println!("mock fn path : {:?}", mock_fn.get_path());
+            crate_mock_map
+                .entry(mock_fn.get_path())
+                .and_modify(|v| v.push(mock_fn.clone()))
+                .or_insert(vec![mock_fn.clone()]);
+        }
+
+        Self {program, crate_mock_map }
     }
 }
 

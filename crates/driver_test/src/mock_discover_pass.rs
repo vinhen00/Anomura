@@ -40,7 +40,7 @@ pub enum CallBackMessage {
 #[non_exhaustive]
 pub struct DiscoverPlugin {
     channel_name: String,
-    listener_handle: Option<JoinHandle<Vec<MockedFun>>>,
+    listener_handle: Option<JoinHandle<Vec<String>>>,
 }
 impl DiscoverPlugin {
     pub fn new() -> Self {
@@ -81,8 +81,8 @@ impl DiscoverPlugin {
             x => x.unwrap(),
         };
 
-        let listener_handle: JoinHandle<Vec<MockedFun>> = thread::spawn(move || {
-            let mut all_mocked_fns = vec![];
+        let listener_handle: JoinHandle<Vec<String>> = thread::spawn(move || {
+            let mut all_mocked_fns = Vec::new();
             // listener
             //     .set_nonblocking(local_socket::ListenerNonblockingMode::Accept)
             //     .ok();
@@ -93,8 +93,7 @@ impl DiscoverPlugin {
                     if let Ok(deserial) = serde_json::from_str::<CallBackMessage>(&buffer) {
                         match deserial {
                             CallBackMessage::NewMocks(text) => {
-                                let mocked_fns = compile_maccalls(&text);
-                                all_mocked_fns.append(&mut mocked_fns.get_mocks());
+                                all_mocked_fns.push(text);
                             }
                             CallBackMessage::Done => {
                                 println!("got message done");
@@ -122,7 +121,7 @@ impl Default for DiscoverPlugin {
 
 #[derive(Debug)]
 pub struct DiscoverClientReturn {
-    pub mocked_fns: Vec<MockedFun>,
+    pub mocked_fns: String,
 }
 
 impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
@@ -198,8 +197,10 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
             RustcPluginError::ClientReturnError(format!("listener process returned : {:?}", e))
         })?;
 
+        let program = mocked_fns.join("");
+
         println!("After_execution: Found {} mocks", mocked_fns.len());
-        Ok(DiscoverClientReturn { mocked_fns })
+        Ok(DiscoverClientReturn { mocked_fns: program })
     }
 }
 
