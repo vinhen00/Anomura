@@ -8,7 +8,7 @@ mock_fn! {
     input_ident: [a, b],
     ret_type: i32,
     ret_val: {
-        println!("foo printed a: {}, b: {}", a, b);
+        println!("foo printed a: {}, b: {}", foo_original(1,2), b);
         foo_original(a,b) + a + b}
 }
 

@@ -1,9 +1,42 @@
 use rustc_ast::mut_visit::MutVisitor;
 use std::collections::HashMap;
 
+
+
+
 struct SymbolFinder {
     symbols: Vec<String>,
     idents: Vec<String>,
+}
+
+impl SymbolFinder {
+
+    fn visit_token_stream (&mut self, ts: &rustc_ast::tokenstream::TokenStream) {
+        for tree in ts.iter() {
+
+            match tree {
+                rustc_ast::tokenstream::TokenTree::Token(token, _) => {
+                    match &token.kind {
+                        rustc_ast::token::TokenKind::Literal(lit) => {
+                            self.symbols.push(lit.symbol.as_str().to_string());
+                        }
+
+                        rustc_ast::token::TokenKind::Ident(name, _) => {
+                            self.idents.push(name.as_str().to_string());
+                        }
+
+                        _ => {}
+                    }
+                }
+                rustc_ast::tokenstream::TokenTree::Delimited(_,_,_, inner_tokenstream) => {
+                    self.visit_token_stream(inner_tokenstream);
+                }
+                _ => {}
+            }
+        }
+    }
+
+
 }
 
 //SymbolFinder finds symbols and Idents from an AST
@@ -27,21 +60,8 @@ impl MutVisitor for SymbolFinder {
     //Mac calls not stricly necessary, but nice for debug to be able to print in mock functions
     fn visit_mac_call(&mut self, node: &mut rustc_ast::MacCall) {
         self.visit_path(&mut node.path);
-        for tree in node.args.tokens.iter() {
-            if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree {
-                match &token.kind {
-                    rustc_ast::token::TokenKind::Literal(lit) => {
-                        self.symbols.push(lit.symbol.as_str().to_string());
-                    }
-
-                    rustc_ast::token::TokenKind::Ident(name, _) => {
-                        self.idents.push(name.as_str().to_string());
-                    }
-
-                    _ => {}
-                }
-            }
-        }
+        self.visit_token_stream(&node.args.tokens);
+        
     }
 
     // Will collect ALL identifiers(including keywords and types) but doing this doesn't seem to cause any problems
@@ -63,6 +83,48 @@ struct SymbolFixer {
     symbols: Vec<String>,
     idents: Vec<String>,
     dict: HashMap<String, rustc_span::Symbol>,
+}
+
+impl SymbolFixer {
+    fn visit_token_stream (&mut self, trees: &mut Vec<rustc_ast::tokenstream::TokenTree>) {
+        for tree in trees {
+            match tree {
+                rustc_ast::tokenstream::TokenTree::Token(token, _) => {
+                    match &mut token.kind {
+                        rustc_ast::token::TokenKind::Literal(lit) => {
+                            let string = self.symbols.remove(0);
+                            lit.symbol = rustc_span::Symbol::intern(&string);
+                        }
+
+                        rustc_ast::token::TokenKind::Ident(name, _) => {
+                            let ident = self.idents.remove(0);
+
+                            match self.dict.get(&ident) {
+                                Some(symb) => {
+                                    *name = *symb;
+                                }
+                                None => {
+                                    let symb = rustc_span::Symbol::intern(ident.as_str());
+                                    self.dict.insert(ident, symb);
+                                    *name = symb;
+                                }
+                            }
+                        }
+
+                        _ => {}
+                    }
+                }
+                rustc_ast::tokenstream::TokenTree::Delimited(_,_,_, inner_tokenstream) => {
+                    let mut inner_trees: Vec<_> = inner_tokenstream.iter().cloned().collect();
+                    self.visit_token_stream(&mut inner_trees);
+                    *inner_tokenstream = rustc_ast::tokenstream::TokenStream::new(inner_trees);
+
+                }
+                _ => {}
+            }
+        }
+    }
+
 }
 
 //SymbolFixer will walk through an AST and fix all Identifiers and Symbols
@@ -99,33 +161,7 @@ impl MutVisitor for SymbolFixer {
     fn visit_mac_call(&mut self, node: &mut rustc_ast::MacCall) {
         self.visit_path(&mut node.path);
         let mut trees: Vec<_> = node.args.tokens.iter().cloned().collect();
-        for tree in &mut trees {
-            if let rustc_ast::tokenstream::TokenTree::Token(token, _) = tree {
-                match &mut token.kind {
-                    rustc_ast::token::TokenKind::Literal(lit) => {
-                        let string = self.symbols.remove(0);
-                        lit.symbol = rustc_span::Symbol::intern(&string);
-                    }
-
-                    rustc_ast::token::TokenKind::Ident(name, _) => {
-                        let ident = self.idents.remove(0);
-
-                        match self.dict.get(&ident) {
-                            Some(symb) => {
-                                *name = *symb;
-                            }
-                            None => {
-                                let symb = rustc_span::Symbol::intern(ident.as_str());
-                                self.dict.insert(ident, symb);
-                                *name = symb;
-                            }
-                        }
-                    }
-
-                    _ => {}
-                }
-            }
-        }
+        self.visit_token_stream(&mut trees);
         node.args.tokens = rustc_ast::tokenstream::TokenStream::new(trees);
     }
 
