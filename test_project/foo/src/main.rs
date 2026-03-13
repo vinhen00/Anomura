@@ -12,18 +12,18 @@ mock_fn! {
         a*100 }
 }
 
-mock_method! {
-    struct_name: Food,
-    name: bar,
-    path: bar,
-    input_types: [String],
-    input_ident: [n],
-    ret_type: (),
-    ret_val: {
-        println!("Changing name from {} to {}", self.waf, n);
-        self.waf = n;
-    }
-}
+//mock_method! {
+//    struct_name: Food,
+//    name: bar,
+//    path: bar,
+//    input_types: [String],
+//    input_ident: [n],
+//    ret_type: (),
+//    ret_val: {
+//        println!("Changing name from {} to {}", self.waf, n);
+//        self.waf = n;
+//    }
+//}
 
 fn main() {
     println!("bar");

@@ -33,7 +33,7 @@ fn main() {
     // }
 
     if let Err(e) = rustc_plugin::cli_main(driver_test::substitution_pass::SubstitutePlugin::new(
-        crates_containing_mocks,
+        res.mocked_fns,
     )) {
         eprintln!("substitute pass failed with error: {:?}", e);
         exit(1)

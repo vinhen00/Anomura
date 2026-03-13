@@ -1,173 +1,31 @@
-[DEBUG driver_test::mock_discover_pass] discover arg: "run"
-[/Users/eli/Documents/rustc_plugin/crates/rustc_plugin/src/cli.rs:55:3] &path = "/Users/eli/.cargo/bin/mock_discover_driver_exec"
+[/home/eli/.cargo/git/checkouts/rustc_plugin-facce47c4ec18085/b78eebf/crates/rustc_plugin/src/cli.rs:55:3] &path = "/home/eli/.cargo/bin/mock_discover_driver_exec"
 [DEBUG rustc_plugin::cli] PLUGIN_ARGS=[]
-[DEBUG rustc_plugin::cli] final command: DISCOVER_BOOTSTRAP="\"/var/folders/2k/rsdldn215hv7p_m17v3wmzgc0000gn/T/\"/tmp.sock" PLUGIN_ARGS="[]" RUN_NORMAL_RUSTC_ON_NON_FILTERED="0" RUSTC_PLUGIN_ON_WORKSPACE="" RUSTC_WRAPPER="/Users/eli/.cargo/bin/mock_discover_driver_exec" "cargo" "check" "--target-dir" "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20"
-   Compiling proc-macro2 v1.0.106
-   Compiling unicode-ident v1.0.24
-   Compiling quote v1.0.44
-   Compiling mockingbird_definitions v0.1.0 (/Users/eli/Documents/project_mockingbird/crates/mockingbird_definitions)
-    Checking foobar v0.1.0 (/Users/eli/Documents/project_mockingbird/test_project/foobar)
-    Checking bar v0.1.0 (/Users/eli/Documents/project_mockingbird/test_project/bar)
-[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2021", "/Users/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-1.0.106/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"nightly\", \"proc-macro\", \"span-locations\"))", "-C", "metadata=daac04557a9513df", "-C", "extra-filename=-ac2029a3c632d161", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/proc-macro2-ac2029a3c632d161", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-[DEBUG rustc_plugin::driver] skiping compilation for crate unicode_ident
-[DEBUG rustc_plugin::driver] skiping compilation for crate foobar
-[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2021", "/Users/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.44/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"proc-macro\"))", "-C", "metadata=e80135b14fb26c12", "-C", "extra-filename=-4804a4a57b056bae", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/quote-4804a4a57b056bae", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-[DEBUG rustc_plugin::driver] skiping compilation for crate mockingbird_definitions
-[DEBUG rustc_plugin::driver] skiping compilation for crate bar
-[DEBUG rustc_plugin::driver] skiping compilation for crate proc_macro2
-[DEBUG rustc_plugin::driver] skiping compilation for crate quote
-   Compiling syn v2.0.117
-[DEBUG rustc_plugin::driver] skiping compilation for crate syn
-   Compiling mock-macro v0.1.0 (/Users/eli/Documents/project_mockingbird/crates/mock-macro)
-   Compiling api_macro v0.1.0 (/Users/eli/Documents/project_mockingbird/crates/api_macro)
-[DEBUG rustc_plugin::driver] skiping compilation for crate api_macro
+[DEBUG rustc_plugin::cli] final command: DISCOVER_BOOTSTRAP="\"/tmp\"/tmp.sock" PLUGIN_ARGS="[]" RUN_NORMAL_RUSTC_ON_NON_FILTERED="0" RUSTC_PLUGIN_ON_WORKSPACE="" RUSTC_WRAPPER="/home/eli/.cargo/bin/mock_discover_driver_exec" "cargo" "check" "--target-dir" "/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20"
+   Compiling mock-macro v0.1.0 (/home/eli/project_mockingbird/crates/mock-macro)
 [DEBUG rustc_plugin::driver] skiping compilation for crate mock_macro
-    Checking foo v0.1.0 (/Users/eli/Documents/project_mockingbird/test_project/foo)
+    Checking foo v0.1.0 (/home/eli/project_mockingbird/test_project/foo)
 [DEBUG rustc_plugin::driver] Running plugin for crate foo. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=true, is_target_crate=false, specified_crate=None
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.50s
-[DEBUG driver_test::substitution_pass] discover arg: "run"
-[/Users/eli/Documents/rustc_plugin/crates/rustc_plugin/src/cli.rs:55:3] &path = "/Users/eli/.cargo/bin/mock_substitute_driver_exec"
-[DEBUG rustc_plugin::cli] PLUGIN_ARGS=["run"]
-[DEBUG rustc_plugin::cli] final command: MANY_SPECIFIC_CRATES="[\"bar\"]" PLUGIN_ARGS="[\"run\"]" RUN_NORMAL_RUSTC_ON_NON_FILTERED="1" RUSTC_WRAPPER="/Users/eli/.cargo/bin/mock_substitute_driver_exec" "cargo" "run" "--target-dir" "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20"
-[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2021", "/Users/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-1.0.106/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"nightly\", \"proc-macro\", \"span-locations\"))", "-C", "metadata=daac04557a9513df", "-C", "extra-filename=-ac2029a3c632d161", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/proc-macro2-ac2029a3c632d161", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2021", "/Users/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.44/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"proc-macro\"))", "-C", "metadata=e80135b14fb26c12", "-C", "extra-filename=-4804a4a57b056bae", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/quote-4804a4a57b056bae", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-   Compiling unicode-ident v1.0.24
-   Compiling mockingbird_definitions v0.1.0 (/Users/eli/Documents/project_mockingbird/crates/mockingbird_definitions)
-   Compiling bar v0.1.0 (/Users/eli/Documents/project_mockingbird/test_project/bar)
-   Compiling foobar v0.1.0 (/Users/eli/Documents/project_mockingbird/test_project/foobar)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+[/home/eli/.cargo/git/checkouts/rustc_plugin-facce47c4ec18085/b78eebf/crates/rustc_plugin/src/cli.rs:55:3] &path = "/home/eli/.cargo/bin/mock_substitute_driver_exec"
+error: failed to find cargo build command. defaulting to check
+[DEBUG rustc_plugin::cli] PLUGIN_ARGS=[]
+[DEBUG rustc_plugin::cli] final command: MANY_SPECIFIC_CRATES="[]" PLUGIN_ARGS="[]" RUN_NORMAL_RUSTC_ON_NON_FILTERED="1" RUSTC_WRAPPER="/home/eli/.cargo/bin/mock_substitute_driver_exec" SUBSTITUTION_MOCK_PATHS="# [mocked (bar)] fn foo (a : u32) -> u32 { println ! (\"Mocked version of function {} was used\" , \"foo\") ; { println ! (\"foo printed a: {}, b: {}\" , a) ; a * 100 } }impl Food { # [mocked (bar)] fn bar (& mut self , n : String) -> () { println ! (\"Mocked version of method {} was used\" , \"bar\") ; { println ! (\"Changing name from {} to {}\" , self . waf , n) ; self . waf = n ; } } }" "cargo" "check" "--target-dir" "/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20"
+[DEBUG rustc_plugin::driver] skiping compilation for crate mock_macro
+    Checking foo v0.1.0 (/home/eli/project_mockingbird/test_project/foo)
 [DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG rustc_plugin::driver] list of crates to run ["bar"]
-[DEBUG rustc_plugin::driver] list of crates to run ["bar"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate unicode_ident. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "unicode_ident", "--edition=2021", "/Users/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=b3e39b8704157f59", "-C", "extra-filename=-ba81f8239f651f37", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-[DEBUG rustc_plugin::driver] Running plugin for crate bar. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=Some("bar")
-[DEBUG rustc_plugin::driver] list of crates to run ["bar"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate mockingbird_definitions. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "mockingbird_definitions", "--edition=2024", "crates/mockingbird_definitions/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=9ca3a603e4935495", "-C", "extra-filename=-fcfd568c97fe383b", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-[DEBUG rustc_plugin::driver] list of crates to run ["bar"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate foobar. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "foobar", "--edition=2024", "test_project/foobar/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "-C", "split-debuginfo=unpacked", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=3310aad7d946ea20", "-C", "extra-filename=-e89006bdd4a26c56", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-warning: field `0` is never read
- --> crates/mockingbird_definitions/src/lib.rs:1:28
+[DEBUG rustc_plugin::driver] list of crates to run []
+[DEBUG rustc_plugin::driver] Running normal Rust for crate foo. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "foo", "--edition=2024", "test_project/foo/src/main.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,metadata", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=8f2bc126fa8ff5dd", "-C", "extra-filename=-c8a3ccb971df1b8e", "--out-dir", "/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "bar=/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libbar-1f9432f43681cbf5.rmeta", "--extern", "foobar=/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libfoobar-da1e44876ac9fb8f.rmeta", "--extern", "mock_macro=/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libmock_macro-ea8e15d6983c7156.so", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+error: expected one of `!` or `::`, found `:`
+ --> test_project/foo/src/main.rs:5:9
   |
-1 | pub struct CrateIdentifier(String);
-  |            --------------- ^^^^^^
-  |            |
-  |            field in this struct
-  |
-  = help: consider removing this field
-  = note: `#[warn(dead_code)]` on by default
+5 |     name: foo,
+  |         ^ expected one of `!` or `::`
 
-warning: fields `krate` and `path` are never read
- --> crates/mockingbird_definitions/src/lib.rs:4:5
-  |
-3 | pub struct Identifier {
-  |            ---------- fields in this struct
-4 |     krate: CrateIdentifier,
-  |     ^^^^^
-5 |     path: Vec<String>,
-  |     ^^^^
-
-warning: fields `val` and `val_type` are never read
-  --> crates/mockingbird_definitions/src/lib.rs:9:5
+error: expected one of `!` or `::`, found `:`
+  --> test_project/foo/src/main.rs:16:16
    |
- 8 | pub struct MockReturnVal {
-   |            ------------- fields in this struct
- 9 |     val: String,
-   |     ^^^
-10 |     val_type: Option<String>,
-   |     ^^^^^^^^
+16 |     struct_name: Food,
+   |                ^ expected one of `!` or `::`
 
-warning: fields `identifier` and `return_val` are never read
-  --> crates/mockingbird_definitions/src/lib.rs:13:5
-   |
-12 | pub struct MockDefinition {
-   |            -------------- fields in this struct
-13 |     identifier: Identifier,
-   |     ^^^^^^^^^^
-14 |     return_val: MockReturnVal,
-   |     ^^^^^^^^^^
-
-warning: `mockingbird_definitions` (lib) generated 4 warnings
-   Compiling proc-macro2 v1.0.106
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG rustc_plugin::driver] list of crates to run ["bar"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate proc_macro2. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "proc_macro2", "--edition=2021", "/Users/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-1.0.106/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"nightly\", \"proc-macro\", \"span-locations\"))", "-C", "metadata=1be89a3d7c744c75", "-C", "extra-filename=-923d1884ad3e45b2", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "unicode_ident=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libunicode_ident-ba81f8239f651f37.rmeta", "--cap-lints", "allow", "--cfg", "wrap_proc_macro", "--cfg", "proc_macro_span", "--cfg", "proc_macro_span_location", "--cfg", "proc_macro_span_file", "--check-cfg", "cfg(fuzzing)", "--check-cfg", "cfg(no_is_available)", "--check-cfg", "cfg(no_literal_byte_character)", "--check-cfg", "cfg(no_literal_c_string)", "--check-cfg", "cfg(no_source_text)", "--check-cfg", "cfg(proc_macro_span)", "--check-cfg", "cfg(proc_macro_span_file)", "--check-cfg", "cfg(proc_macro_span_location)", "--check-cfg", "cfg(procmacro2_backtrace)", "--check-cfg", "cfg(procmacro2_build_probe)", "--check-cfg", "cfg(procmacro2_nightly_testing)", "--check-cfg", "cfg(procmacro2_semver_exempt)", "--check-cfg", "cfg(randomize_layout)", "--check-cfg", "cfg(span_locations)", "--check-cfg", "cfg(super_unstable)", "--check-cfg", "cfg(wrap_proc_macro)", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-   Compiling quote v1.0.44
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG rustc_plugin::driver] list of crates to run ["bar"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate quote. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "quote", "--edition=2021", "/Users/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.44/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"proc-macro\"))", "-C", "metadata=60c660c65a3a4de0", "-C", "extra-filename=-035cd9ecac1cecf4", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "proc_macro2=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-923d1884ad3e45b2.rmeta", "--cap-lints", "allow", "--check-cfg", "cfg(no_diagnostic_namespace)", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-   Compiling syn v2.0.117
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG rustc_plugin::driver] list of crates to run ["bar"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate syn. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "syn", "--edition=2021", "/Users/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/syn-2.0.117/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"clone-impls\"", "--cfg", "feature=\"default\"", "--cfg", "feature=\"derive\"", "--cfg", "feature=\"full\"", "--cfg", "feature=\"parsing\"", "--cfg", "feature=\"printing\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"clone-impls\", \"default\", \"derive\", \"extra-traits\", \"fold\", \"full\", \"parsing\", \"printing\", \"proc-macro\", \"test\", \"visit\", \"visit-mut\"))", "-C", "metadata=7b283cc5161c0e46", "-C", "extra-filename=-70bed6c7006fb512", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "proc_macro2=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-923d1884ad3e45b2.rmeta", "--extern", "quote=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-035cd9ecac1cecf4.rmeta", "--extern", "unicode_ident=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libunicode_ident-ba81f8239f651f37.rmeta", "--cap-lints", "allow", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-   Compiling mock-macro v0.1.0 (/Users/eli/Documents/project_mockingbird/crates/mock-macro)
-   Compiling api_macro v0.1.0 (/Users/eli/Documents/project_mockingbird/crates/api_macro)
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG rustc_plugin::driver] list of crates to run ["bar"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate api_macro. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "api_macro", "--edition=2024", "crates/api_macro/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "proc-macro", "--emit=dep-info,link", "-C", "prefer-dynamic", "-C", "embed-bitcode=no", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=cde43179db23ea9f", "-C", "extra-filename=-7db2696c8d6752e9", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "mockingbird_definitions=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libmockingbird_definitions-fcfd568c97fe383b.rlib", "--extern", "proc_macro2=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-923d1884ad3e45b2.rlib", "--extern", "quote=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-035cd9ecac1cecf4.rlib", "--extern", "syn=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libsyn-70bed6c7006fb512.rlib", "--extern", "proc_macro", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-[DEBUG rustc_plugin::driver] list of crates to run ["bar"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate mock_macro. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "mock_macro", "--edition=2021", "crates/mock-macro/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "proc-macro", "--emit=dep-info,link", "-C", "prefer-dynamic", "-C", "embed-bitcode=no", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=4eac3e045b408873", "-C", "extra-filename=-070c86c265300b8f", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "proc_macro2=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-923d1884ad3e45b2.rlib", "--extern", "quote=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-035cd9ecac1cecf4.rlib", "--extern", "syn=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libsyn-70bed6c7006fb512.rlib", "--extern", "proc_macro", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-warning: unused variable: `item`
- --> crates/mock-macro/src/lib.rs:4:16
-  |
-4 | pub fn mock_fn(item: TokenStream) -> TokenStream {
-  |                ^^^^ help: if this is intentional, prefix it with an underscore: `_item`
-  |
-  = note: `#[warn(unused_variables)]` on by default
-
-warning: unused variable: `item`
-  --> crates/mock-macro/src/lib.rs:10:20
-   |
-10 | pub fn mock_method(item: TokenStream) -> TokenStream {
-   |                    ^^^^ help: if this is intentional, prefix it with an underscore: `_item`
-
-warning: unused variable: `attr`
-  --> crates/mock-macro/src/lib.rs:15:15
-   |
-15 | pub fn mocked(attr: TokenStream, item: TokenStream) -> TokenStream {
-   |               ^^^^ help: if this is intentional, prefix it with an underscore: `_attr`
-
-warning: unused variable: `item`
-  --> crates/mock-macro/src/lib.rs:15:34
-   |
-15 | pub fn mocked(attr: TokenStream, item: TokenStream) -> TokenStream {
-   |                                  ^^^^ help: if this is intentional, prefix it with an underscore: `_item`
-
-warning: unused variable: `input`
-  --> crates/api_macro/src/lib.rs:46:13
-   |
-46 | pub fn mock(input: TokenStream) -> TokenStream {
-   |             ^^^^^ help: if this is intentional, prefix it with an underscore: `_input`
-   |
-   = note: `#[warn(unused_variables)]` on by default
-
-warning: constant `MOCK_HASH_IDENTIFIER` is never used
-  --> crates/api_macro/src/lib.rs:12:7
-   |
-12 | const MOCK_HASH_IDENTIFIER: &str =
-   |       ^^^^^^^^^^^^^^^^^^^^
-   |
-   = note: `#[warn(dead_code)]` on by default
-
-warning: enum `Modifier` is never used
-  --> crates/api_macro/src/lib.rs:15:6
-   |
-15 | enum Modifier {
-   |      ^^^^^^^^
-
-warning: struct `MockDefInput` is never constructed
-  --> crates/api_macro/src/lib.rs:28:8
-   |
-28 | struct MockDefInput {
-   |        ^^^^^^^^^^^^
-
-warning: `api_macro` (lib) generated 4 warnings
-warning: `mock-macro` (lib) generated 4 warnings
-   Compiling foo v0.1.0 (/Users/eli/Documents/project_mockingbird/test_project/foo)
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG rustc_plugin::driver] list of crates to run ["bar"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate foo. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/Users/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "foo", "--edition=2024", "test_project/foo/src/main.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "-C", "split-debuginfo=unpacked", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=b16cace41ad5a013", "-C", "extra-filename=-2acf96017ef14bf6", "--out-dir", "/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "api_macro=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libapi_macro-7db2696c8d6752e9.dylib", "--extern", "bar=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libbar-3dc819a21547c177.rlib", "--extern", "foobar=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libfoobar-e89006bdd4a26c56.rlib", "--extern", "mock_macro=/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libmock_macro-070c86c265300b8f.dylib", "--sysroot", "/Users/eli/.rustup/toolchains/nightly-2025-08-20-aarch64-apple-darwin"]
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.60s
-     Running `/Users/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/foo`
+error: could not compile `foo` (bin "foo") due to 2 previous errors
+substitute pass failed with error: ExitCode(101)
