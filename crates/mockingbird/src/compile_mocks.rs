@@ -1,49 +1,12 @@
 use std::io;
-use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
 
-use proc_macro2::TokenStream;
-use rustc_ast_pretty::pprust;
-use rustc_session::{CompilerIO, Session};
-use std::str::FromStr;
-
-use rustc_driver::{Compilation, run_compiler};
+use rustc_driver::Compilation;
 use rustc_interface::interface::{Compiler, Config};
-use rustc_session::config::{CrateType, Input};
+use rustc_session::config::CrateType;
 
-use crate::expand_macro::{expand_mock_fn, expand_mock_method};
 use crate::visitors::MockedFun;
-
-pub struct MockFileLoader {
-    pub file: String,
-}
-
-impl rustc_span::source_map::FileLoader for MockFileLoader {
-    fn file_exists(&self, path: &std::path::Path) -> bool {
-        path == std::path::Path::new(&self.file)
-    }
-
-    fn read_file(&self, path: &std::path::Path) -> std::io::Result<String> {
-        if path == std::path::Path::new(&self.file) {
-            let mut file =
-                std::fs::File::open(format!("crates/mockingbird/test_files/{}", self.file))?;
-            let mut contents = String::new();
-            file.read_to_string(&mut contents)?;
-            Ok(contents)
-        } else {
-            Err(std::io::Error::other("Could not open file"))
-        }
-    }
-
-    fn read_binary_file(&self, _path: &std::path::Path) -> std::io::Result<std::sync::Arc<[u8]>> {
-        Err(std::io::Error::other("Could not open file"))
-    }
-
-    // fn current_directory(&self) -> Result<std::path::PathBuf, std::io::Error> {
-    //     Ok(std::path::PathBuf::from("."))
-    // }
-}
 
 pub struct MockDefsLoader {
     pub mockdefs: String,
@@ -61,6 +24,10 @@ impl rustc_span::source_map::FileLoader for MockDefsLoader {
     fn read_binary_file(&self, _path: &Path) -> io::Result<Arc<[u8]>> {
         Err(io::Error::other("oops"))
     }
+
+    // fn current_directory(&self) -> Result<std::path::PathBuf, std::io::Error> {
+    //     Ok(std::path::PathBuf::from("."))
+    // }
 }
 
 pub fn extract_struct_name_from_impl(imp: rustc_ast::Impl) -> Option<String> {
@@ -70,27 +37,29 @@ pub fn extract_struct_name_from_impl(imp: rustc_ast::Impl) -> Option<String> {
     path.segments.last().map(|seg| seg.ident.to_string())
 }
 
+#[derive(Debug)]
 pub struct CompileMocks {
+    used_in_plugin: bool,
     mocks: Vec<MockedFun>,
-    inline: Option<String>,
+    program: String,
 }
 
 impl CompileMocks {
-    pub fn new(mocks: Vec<MockedFun>, inline: Option<String>) -> Self {
-        CompileMocks { mocks, inline }
+    pub fn new(mocks: Vec<MockedFun>, program: String, used_in_plugin: bool) -> Self {
+        CompileMocks {
+            mocks,
+            program,
+            used_in_plugin,
+        }
     }
 
     pub fn get_mocks(&self) -> Vec<MockedFun> {
         self.mocks.clone()
     }
 
-    pub fn get_inline(&self) -> Option<String> {
-        self.inline.clone()
-    }
-
-    fn handle_fn(&mut self, fn_data: &rustc_ast::Fn) {
+    fn handle_fn(&mut self, fn_data: &rustc_ast::Fn, path: String) {
         if fn_data.ident.name.as_str() != "main" {
-            let mut mocked_fn = MockedFun::new(fn_data.clone());
+            let mut mocked_fn = MockedFun::new(fn_data.clone(), path);
             mocked_fn.collect_names();
 
             self.mocks.push(mocked_fn);
@@ -101,8 +70,12 @@ impl CompileMocks {
         let imp_name =
             extract_struct_name_from_impl(impl_data.clone()).expect("failed to parse struct");
         for imp_item in &impl_data.items {
+            let mut path = "".to_string();
+            for attr in &imp_item.attrs {
+                path = extract_attribute_name(attr.clone());
+            }
             if let rustc_ast::AssocItemKind::Fn(fn_data) = &imp_item.kind {
-                let mut mocked_fn = MockedFun::new(*fn_data.clone());
+                let mut mocked_fn = MockedFun::new(*fn_data.clone(), path);
                 mocked_fn.collect_names();
                 mocked_fn.set_name(format!("{}.{}", imp_name, mocked_fn.get_name()));
                 self.mocks.push(mocked_fn);
@@ -111,82 +84,48 @@ impl CompileMocks {
     }
 
     fn handle_mod(&mut self, mod_items: &rustc_ast::ModKind) {
-        if let rustc_ast::ModKind::Loaded(items, _, _) = mod_items {
+        if let rustc_ast::ModKind::Loaded(items, ..) = mod_items {
             for i in items {
+                let mut path = "".to_string();
+                for attr in &i.attrs {
+                    path = extract_attribute_name(attr.clone());
+                }
                 match &i.kind {
                     rustc_ast::ItemKind::Fn(fn_data) => {
-                        self.handle_fn(fn_data);
+                        self.handle_fn(fn_data, path);
                     }
                     rustc_ast::ItemKind::Impl(impl_data) => {
-                        self.handle_impl(impl_data);
-                    }
-                    rustc_ast::ItemKind::MacCall(mac_data) => {
-                        self.handle_maccall(mac_data);
+                        self.handle_impl(&impl_data);
                     }
                     rustc_ast::ItemKind::Mod(_, _, mod_data) => {
-                        self.handle_mod(mod_data);
+                        self.handle_mod(&mod_data);
                     }
                     _ => {}
                 }
             }
         }
     }
+}
 
-    ///This runs a new compilation process inside the callback function for the original compilation process
-    ///This new compilation compiles the expanded macros and saves
-    fn compile_maccalls(&mut self, program: &str) {
-        let mut mocked_funs = CompileMocks::new(Vec::new(), Some(String::from(program)));
-        run_compiler(
-            &[
-                "ignored".to_string(),
-                "mock_defs.rs".to_string(),
-                "--crate-type".to_string(),
-                "bin".to_string(),
-                "-o".to_string(),
-                "./target/mocked_main".to_string(),
-            ],
-            &mut mocked_funs,
-        );
-        for mocked_fn in mocked_funs.mocks {
-            self.mocks.push(mocked_fn);
-        }
-    }
-
-    fn handle_maccall(&mut self, mac_call: &rustc_ast::MacCall) {
-        println!("handle_maccall");
-
-        let args = mac_call.args.clone();
-        let tokens = args.tokens;
-        let result;
-        let expanded_stream;
-        let syn_ts = TokenStream::from_str(&pprust::tts_to_string(&tokens))
-            .expect("failed to parse token stream");
-
-        if let Some(path) = mac_call.path.segments.first() {
-            match path.ident.name.as_str() {
-                "mock_fn" => expanded_stream = expand_mock_fn(syn_ts).to_string(),
-                "mock_method" => expanded_stream = expand_mock_method(syn_ts).to_string(),
-                _ => return,
-            }
-        } else {
-            return;
-        }
-        result = expanded_stream;
-
-        println!("result: {:?}", result);
-
-        match &self.inline {
-            Some(program) => {
-                self.inline = Some(format!("{program}\n {result}"));
-                println!("second pass: {:?}", self.inline);
-            }
-
-            None => {
-                println!("first pass result: {:?}", result);
-                self.inline = Some(result)
+fn extract_attribute_name(atr: rustc_ast::Attribute) -> String {
+    let mut path = "".to_string();
+    if let rustc_ast::AttrKind::Normal(norm) = atr.kind {
+        if let rustc_ast::AttrArgs::Delimited(del_args) = norm.item.args {
+            for token in del_args.tokens.iter() {
+                if let rustc_ast::tokenstream::TokenTree::Token(tok, _) = token {
+                    if let rustc_ast::token::TokenKind::Ident(name, _) = tok.kind {
+                        if path != "" {
+                            path = format!("{}::{}", path, name.as_str());
+                        } else {
+                            path = name.as_str().to_string()
+                        }
+                        //println!("TOK: {:#?}", path);
+                    }
+                }
             }
         }
     }
+    path
 }
 
 //Compile mocks is a compiler setting the compiles the file that the mocked functions reside in.
@@ -194,74 +133,54 @@ impl CompileMocks {
 //Stops compilation when done
 impl rustc_driver::Callbacks for CompileMocks {
     fn config(&mut self, config: &mut Config) {
-        match &self.inline {
-            Some(program) => {
-                config.file_loader = Some(Box::new(MockDefsLoader {
-                    mockdefs: program.clone(),
-                }));
-            }
-            None => {
-                config.file_loader = Some(Box::new(MockFileLoader {
-                    file: "mock_defs.rs".to_string(),
-                }));
-            }
+        config.file_loader = Some(Box::new(MockDefsLoader {
+            mockdefs: self.program.clone(),
+        }));
+
+        if !self.used_in_plugin {
+            config.opts.crate_types = vec![CrateType::Executable];
+            config.opts.search_paths.clear();
         }
-        config.opts.crate_types = vec![CrateType::Executable];
-        config.opts.search_paths.clear();
     }
 
     fn after_crate_root_parsing(
         &mut self,
-        compiler: &Compiler,
+        _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
-        let mut run_once = false;
-        if self.inline.is_none() {
-            run_once = true
-        }
+        //we are using it within a
+        // if self.used_in_plugin {
+        //     self.visit_crate(krate);
+        //     return Compilation::Stop;
+        // }
         for item in &krate.items {
+            let mut path = "".to_string();
+            for attr in &item.attrs {
+                path = extract_attribute_name(attr.clone());
+            }
+            // println!("checking item {:?}", item.kind.ident());
             match &item.kind {
                 rustc_ast::ItemKind::Fn(fn_data) => {
-                    if run_once {
-                        println!("parsing fn first time")
-                    } else {
-                        println!("parsing fn second time")
-                    }
-                    self.handle_fn(fn_data);
+                    self.handle_fn(fn_data, path);
                 }
                 rustc_ast::ItemKind::Impl(impl_data) => {
-                    if run_once {
-                        println!("parsing impl first time")
-                    } else {
-                        println!("parsing impl second time")
-                    }
                     self.handle_impl(impl_data);
                 }
                 rustc_ast::ItemKind::Mod(_, _, mod_data) => {
-                    if run_once {
-                        println!("parsing mod first time")
-                    } else {
-                        println!("parsing mod second time")
-                    }
                     self.handle_mod(mod_data);
-                }
-                rustc_ast::ItemKind::MacCall(mac_data) => {
-                    if run_once {
-                        println!("parsing maccall first time")
-                    } else {
-                        println!("parsing maccall second time")
-                    }
-                    self.handle_maccall(mac_data);
                 }
                 _ => {}
             }
         }
-
-        if let Some(program) = &self.get_inline()
-            && run_once
-        {
-            self.compile_maccalls(program)
-        }
         Compilation::Stop
     }
 }
+
+// impl<'a> Visitor<'a> for CompileMocks {
+//     #[doc = r" The result type of the `visit_*` methods. Can be either `()`,"]
+//     #[doc = r" or `ControlFlow<T>`."]
+//     type Result = ();
+//     fn visit_mac_call(&mut self, node: &'_ rustc_ast::MacCall) -> Self::Result {
+//         self.handle_maccall(node);
+//     }
+// }

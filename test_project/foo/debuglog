@@ -1,6 +1,31 @@
-[/home/eli/Documents/rustc_plugin/crates/rustc_plugin/src/cli.rs:46:3] &path = "/home/eli/.cargo/bin/mock_discover_driver_exec"
+[/home/eli/.cargo/git/checkouts/rustc_plugin-facce47c4ec18085/b78eebf/crates/rustc_plugin/src/cli.rs:55:3] &path = "/home/eli/.cargo/bin/mock_discover_driver_exec"
+[DEBUG rustc_plugin::cli] PLUGIN_ARGS=[]
+[DEBUG rustc_plugin::cli] final command: DISCOVER_BOOTSTRAP="\"/tmp\"/tmp.sock" PLUGIN_ARGS="[]" RUN_NORMAL_RUSTC_ON_NON_FILTERED="0" RUSTC_PLUGIN_ON_WORKSPACE="" RUSTC_WRAPPER="/home/eli/.cargo/bin/mock_discover_driver_exec" "cargo" "check" "--target-dir" "/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20"
+   Compiling mock-macro v0.1.0 (/home/eli/project_mockingbird/crates/mock-macro)
+[DEBUG rustc_plugin::driver] skiping compilation for crate mock_macro
+    Checking foo v0.1.0 (/home/eli/project_mockingbird/test_project/foo)
+[DEBUG rustc_plugin::driver] Running plugin for crate foo. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=true, is_target_crate=false, specified_crate=None
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+[/home/eli/.cargo/git/checkouts/rustc_plugin-facce47c4ec18085/b78eebf/crates/rustc_plugin/src/cli.rs:55:3] &path = "/home/eli/.cargo/bin/mock_substitute_driver_exec"
 error: failed to find cargo build command. defaulting to check
-error: `rustc -vV` didn't have a line for `host:`, got:
-hello driver
+[DEBUG rustc_plugin::cli] PLUGIN_ARGS=[]
+[DEBUG rustc_plugin::cli] final command: MANY_SPECIFIC_CRATES="[]" PLUGIN_ARGS="[]" RUN_NORMAL_RUSTC_ON_NON_FILTERED="1" RUSTC_WRAPPER="/home/eli/.cargo/bin/mock_substitute_driver_exec" SUBSTITUTION_MOCK_PATHS="# [mocked (bar)] fn foo (a : u32) -> u32 { println ! (\"Mocked version of function {} was used\" , \"foo\") ; { println ! (\"foo printed a: {}, b: {}\" , a) ; a * 100 } }impl Food { # [mocked (bar)] fn bar (& mut self , n : String) -> () { println ! (\"Mocked version of method {} was used\" , \"bar\") ; { println ! (\"Changing name from {} to {}\" , self . waf , n) ; self . waf = n ; } } }" "cargo" "check" "--target-dir" "/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20"
+[DEBUG rustc_plugin::driver] skiping compilation for crate mock_macro
+    Checking foo v0.1.0 (/home/eli/project_mockingbird/test_project/foo)
+[DEBUG mock_substitute_driver_exec] entered substitute driver
+[DEBUG rustc_plugin::driver] list of crates to run []
+[DEBUG rustc_plugin::driver] Running normal Rust for crate foo. Relevant variables: normal_rustc=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "foo", "--edition=2024", "test_project/foo/src/main.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,metadata", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=8f2bc126fa8ff5dd", "-C", "extra-filename=-c8a3ccb971df1b8e", "--out-dir", "/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "bar=/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libbar-1f9432f43681cbf5.rmeta", "--extern", "foobar=/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libfoobar-da1e44876ac9fb8f.rmeta", "--extern", "mock_macro=/home/eli/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libmock_macro-ea8e15d6983c7156.so", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+error: expected one of `!` or `::`, found `:`
+ --> test_project/foo/src/main.rs:5:9
+  |
+5 |     name: foo,
+  |         ^ expected one of `!` or `::`
 
-discover pass failed with error ExitCode(101),
+error: expected one of `!` or `::`, found `:`
+  --> test_project/foo/src/main.rs:16:16
+   |
+16 |     struct_name: Food,
+   |                ^ expected one of `!` or `::`
+
+error: could not compile `foo` (bin "foo") due to 2 previous errors
+substitute pass failed with error: ExitCode(101)

@@ -8,18 +8,18 @@ env_logger = { version = "0.10", default-features = false }
 clap = { version = "4.4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 itertools = "0.14.0"
-api_macro = { version = "0.1.0", path = "../api_macro" }
 log = "0.4.29"
-#rustc_plugin = { git = "https://github.com/EldritchEli/rustc_plugin.git", version = "0.14.3-nightly-2025-08-20" }
-rustc_plugin = { version = "0.14.3-nightly-2025-08-20", path = "../../../rustc_plugin/crates/rustc_plugin" }
+rustc_plugin = { git = "https://github.com/EldritchEli/rustc_plugin.git", version = "0.14.3-nightly-2025-08-20" }
+#rustc_plugin = { version = "0.14.3-nightly-2025-08-20", path = "../../../rustc_plugin/crates/rustc_plugin" }
 syn = "2.0.117"
 ipc-channel = "0.21.0"
 interprocess = "2.4.0"
 serde_json = "1.0.149"
+mockingbird = { version = "0.1.0", path = "../mockingbird" }
 
 [build-dependencies]
-#rustc_plugin = { git = "https://github.com/EldritchEli/rustc_plugin.git", version = "0.14.3-nightly-2025-08-20" }
-rustc_plugin = { version = "0.14.3-nightly-2025-08-20", path = "../../../rustc_plugin/crates/rustc_plugin" }
+rustc_plugin = { git = "https://github.com/EldritchEli/rustc_plugin.git", version = "0.14.3-nightly-2025-08-20" }
+#rustc_plugin = { version = "0.14.3-nightly-2025-08-20", path = "../../../rustc_plugin/crates/rustc_plugin" }
 
 [package.metadata.rust-analyzer]
 rustc_private = true

@@ -1,89 +1,113 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    Expr, Ident, Token, Type, bracketed,
+    bracketed,
     parse::{Parse, ParseStream},
     parse2,
     punctuated::Punctuated,
+    Expr, Ident, Path, Token, Type,
 };
 
 struct MockFun {
-    name: Ident,
+    name: Path,
+    path: Path,
     input_types: Vec<Type>,
     input_ident: Vec<Ident>,
     ret_type: Type,
     ret_val: Expr,
 }
 
+pub fn parse_struct_field_value<P: Parse>(
+    field_name: &str,
+    input: &ParseStream,
+    postfix_comma: bool,
+) -> syn::Result<P> {
+    let field: Ident = input
+        .parse::<Ident>()
+        .map_err(|e| syn::Error::new(e.span(), "failed to parse MockFun name ident"))?;
+    if field != field_name {
+        return Err(syn::Error::new(
+            field.span(),
+            format!("expected field {field_name}. Got {} instead", field),
+        ));
+    }
+    input.parse::<Token![:]>()?;
+    let res = input.parse::<P>().map_err(|e| {
+        syn::Error::new(
+            e.span(),
+            format!("failed to parse value of field_name {:?}", field_name),
+        )
+    })?;
+    if postfix_comma {
+        input.parse::<Token![,]>()?;
+    }
+    Ok(res)
+}
+pub fn parse_struct_field_value_array<P: Parse>(
+    field_name: &str,
+    input: &ParseStream,
+    postfix_comma: bool,
+) -> syn::Result<Vec<P>> {
+    let field: Ident = input
+        .parse::<Ident>()
+        .map_err(|e| syn::Error::new(e.span(), "failed to parse MockFun name ident"))?;
+    if field != field_name {
+        return Err(syn::Error::new(
+            field.span(),
+            format!(
+                "expected field_name {field_name} got {} instead",
+                field_name
+            ),
+        ));
+    }
+    input.parse::<Token![:]>()?;
+    let inner;
+    bracketed!(inner in input);
+    let res = Punctuated::<P, Token![,]>::parse_terminated(&inner)
+        .map_err(|e| {
+            syn::Error::new(
+                e.span(),
+                format!("failed to parse value of field_name {:?}", field_name),
+            )
+        })?
+        .into_iter()
+        .collect();
+    if postfix_comma {
+        input.parse::<Token![,]>()?;
+    }
+    Ok(res)
+}
+
 impl Parse for MockFun {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut name = None;
-        let mut input_types = None;
-        let mut input_ident = None;
-        let mut ret_type = None;
-        let mut ret_val = None;
-
-        while !input.is_empty() {
-            let field: Ident = input.parse()?;
-            input.parse::<Token![:]>()?;
-
-            match field.to_string().as_str() {
-                "name" => {
-                    name = Some(input.parse()?);
-                }
-                "input_types" => {
-                    let inner;
-                    bracketed!(inner in input);
-                    input_types = Some(
-                        Punctuated::<Type, Token![,]>::parse_terminated(&inner)?
-                            .into_iter()
-                            .collect(),
-                    );
-                }
-                "input_ident" => {
-                    let inner;
-                    bracketed!(inner in input);
-                    input_ident = Some(
-                        Punctuated::<Ident, Token![,]>::parse_terminated(&inner)?
-                            .into_iter()
-                            .collect(),
-                    );
-                }
-                "ret_type" => {
-                    ret_type = Some(input.parse()?);
-                }
-                "ret_val" => {
-                    ret_val = Some(input.parse()?);
-                }
-                _ => {
-                    return Err(syn::Error::new(field.span(), "Unknown field"));
-                }
-            }
-
-            if input.peek(Token![,]) {
-                input.parse::<Token![,]>()?;
-            }
-        }
+        let name = parse_struct_field_value::<Path>("name", &input, true)?;
+        let path = parse_struct_field_value::<Path>("path", &input, true)?;
+        let input_types = parse_struct_field_value_array("input_types", &input, true)?;
+        let input_ident = parse_struct_field_value_array("input_ident", &input, true)?;
+        let ret_type = parse_struct_field_value("ret_type", &input, true)?;
+        let ret_val = parse_struct_field_value("ret_val", &input, false)?;
 
         Ok(MockFun {
-            name: name.unwrap(),
-            input_types: input_types.unwrap(),
-            input_ident: input_ident.unwrap(),
-            ret_type: ret_type.unwrap(),
-            ret_val: ret_val.unwrap(),
+            name,
+            path,
+            input_types,
+            input_ident,
+            ret_type,
+            ret_val,
         })
     }
 }
 
 pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     //println!("Inside syn {}", input);
-    let mock = match parse2::<MockFun>(input) {
+    let mock = match parse2::<MockFun>(input.clone()) {
         Ok(m) => m,
-        Err(e) => panic!("invalid mock_def! input: {}", e),
+        Err(e) => panic!("invalid mock_def! input: {} with error:  {e} ", &input),
     };
 
-    let name = mock.name;
-    let name_str = name.to_string();
+    let name = mock.name.segments.last();
+    let path = mock.path;
+    let name_str = quote! {#name}.to_string();
     let ret_type = mock.ret_type;
     let ret_val = mock.ret_val;
 
@@ -94,7 +118,7 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
         .map(|(ident, ty)| quote! { #ident: #ty });
 
     let expanded = quote! {
-        #[mocked]
+        #[mocked( #path )]
         fn #name(#(#params),*) -> #ret_type {
             println!("Mocked version of function {} was used", #name_str);
             #ret_val
@@ -105,8 +129,9 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
 }
 
 struct MockMethod {
-    struct_name: Ident,
-    name: Ident,
+    struct_name: Path,
+    name: Path,
+    path: Path,
     input_types: Vec<Type>,
     input_ident: Vec<Ident>,
     ret_type: Type,
@@ -115,64 +140,22 @@ struct MockMethod {
 
 impl Parse for MockMethod {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut struct_name = None;
-        let mut name = None;
-        let mut input_types = None;
-        let mut input_ident = None;
-        let mut ret_type = None;
-        let mut ret_val = None;
-
-        while !input.is_empty() {
-            // parse
-            let field: Ident = input.parse()?;
-            input.parse::<Token![:]>()?;
-
-            match field.to_string().as_str() {
-                "struct_name" => struct_name = Some(input.parse()?),
-                "name" => {
-                    name = Some(input.parse()?);
-                }
-                "input_types" => {
-                    let inner;
-                    bracketed!(inner in input);
-                    input_types = Some(
-                        Punctuated::<Type, Token![,]>::parse_terminated(&inner)?
-                            .into_iter()
-                            .collect(),
-                    );
-                }
-                "input_ident" => {
-                    let inner;
-                    bracketed!(inner in input);
-                    input_ident = Some(
-                        Punctuated::<Ident, Token![,]>::parse_terminated(&inner)?
-                            .into_iter()
-                            .collect(),
-                    );
-                }
-                "ret_type" => {
-                    ret_type = Some(input.parse()?);
-                }
-                "ret_val" => {
-                    ret_val = Some(input.parse()?);
-                }
-                _ => {
-                    return Err(syn::Error::new(field.span(), "Unknown field"));
-                }
-            }
-
-            if input.peek(Token![,]) {
-                input.parse::<Token![,]>()?;
-            }
-        }
+        let struct_name = parse_struct_field_value::<Path>("struct_name", &input, true)?;
+        let name = parse_struct_field_value::<Path>("name", &input, true)?;
+        let path = parse_struct_field_value::<Path>("path", &input, true)?;
+        let input_types = parse_struct_field_value_array("input_types", &input, true)?;
+        let input_ident = parse_struct_field_value_array("input_ident", &input, true)?;
+        let ret_type = parse_struct_field_value("ret_type", &input, true)?;
+        let ret_val = parse_struct_field_value("ret_val", &input, false)?;
 
         Ok(MockMethod {
-            struct_name: struct_name.unwrap(),
-            name: name.unwrap(),
-            input_types: input_types.unwrap(),
-            input_ident: input_ident.unwrap(),
-            ret_type: ret_type.unwrap(),
-            ret_val: ret_val.unwrap(),
+            struct_name,
+            name,
+            path,
+            input_types,
+            input_ident,
+            ret_type,
+            ret_val,
         })
     }
 }
@@ -185,9 +168,10 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
         Err(e) => panic!("invalid mock_def! input: {}", e),
     };
 
-    let struct_name = mock.struct_name;
+    let struct_name = mock.struct_name.segments.last();
     let name = mock.name;
-    let name_str = name.to_string();
+    let name_str = quote! {#name}.to_string();
+    let path = mock.path;
     let ret_type = mock.ret_type;
     let ret_val = mock.ret_val;
 
@@ -199,7 +183,7 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         impl #struct_name {
-            #[mocked]
+            #[mocked( #path )]
             fn #name(&mut self, #(#params),*) -> #ret_type {
                 println!("Mocked version of method {} was used", #name_str);
                 #ret_val

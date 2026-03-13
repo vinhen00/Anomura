@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, process::exit};
 
-use driver_test::mock_discover_pass::MockFnCall;
+use mockingbird::MockedFun;
 
 fn main() {
     env_logger::init();
@@ -13,20 +13,27 @@ fn main() {
         })
     else {
         println!("no mocks found");
-        exit(0);
+        return;
     };
-    println!("got res: {:?}", res);
+    // println!(
+    //     "Mocking done found {} functions to mock",
+    //     &res.mocked_fns.len()
+    // );
+    // for i in &res.mocked_fns {
+    //     println!("mocked fn: {} in path: {}", i.get_name(), i.get_path());
+    // }
 
-    let mut crates_containing_mocks: HashMap<String, Vec<MockFnCall>> = HashMap::new();
-    for mock_fn in &res.fn_calls {
-        crates_containing_mocks
-            .entry(mock_fn.path_segments[0].path.clone())
-            .and_modify(|v| v.push(mock_fn.clone()))
-            .or_default();
-    }
+    // let mut crates_containing_mocks: HashMap<String, Vec<MockedFun>> = HashMap::new();
+    // for mock_fn in &res.mocked_fns {
+    //     println!("mock fn path : {:?}", mock_fn.get_path());
+    //     crates_containing_mocks
+    //         .entry(mock_fn.get_path())
+    //         .and_modify(|v| v.push(mock_fn.clone()))
+    //         .or_insert(vec![mock_fn.clone()]);
+    // }
 
     if let Err(e) = rustc_plugin::cli_main(driver_test::substitution_pass::SubstitutePlugin::new(
-        crates_containing_mocks,
+        res.mocked_fns,
     )) {
         eprintln!("substitute pass failed with error: {:?}", e);
         exit(1)

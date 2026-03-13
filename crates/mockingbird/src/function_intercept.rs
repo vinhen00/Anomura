@@ -1,6 +1,7 @@
 use rustc_driver::Compilation;
-use rustc_interface::interface::{Compiler, Config};
-use rustc_session::config::CrateType;
+use rustc_interface::interface::{Compiler};
+
+//use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
 
 use crate::compile_mocks;
 use crate::visitors;
@@ -27,19 +28,15 @@ impl FunctionIntercept {
 
 //Function_intercept is a compiler setting that compiles the target file and replaces the function body of the functions that have a mocked variant
 impl rustc_driver::Callbacks for FunctionIntercept {
-    fn config(&mut self, config: &mut Config) {
-        config.file_loader = Some(Box::new(compile_mocks::MockFileLoader {
-            file: "mock_test.rs".to_string(),
-        }));
-        config.opts.crate_types = vec![CrateType::Executable];
-        config.opts.search_paths.clear();
-    }
 
     fn after_crate_root_parsing(
         &mut self,
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
+        println!("Started compilation");
+        //println!("Have Krate {:#?}", krate);
+
         //First create copies of all functions that will be mocked
         let mut function_originals: Vec<Box<rustc_ast::Item>> = Vec::new();
         let mut method_originals = Vec::new();
@@ -65,7 +62,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                 rustc_ast::ItemKind::Fn(fn_data) => {
                     for mock in &mut self.mocks {
                         if fn_data.ident.name.as_str() == mock.get_name().as_str() {
-                            println!("Mocking {}", mock.get_name());
+                            //println!("Mocking {}", mock.get_name());
                             mock.resolve_names();
                             //println!("{:#?}", foo.get_body());
 
@@ -104,10 +101,10 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                                 let method_name =
                                     format!("{}.{}", imp_name, fn_data.ident.name.as_str());
                                 if method_name == mock.get_name().as_str() {
-                                    println!("Mocking method {}", mock.get_name());
+                                    //println!("Mocking method {}", mock.get_name());
                                     mock.resolve_names();
                                     //println!("{:#?}", mock.get_body());
-                                    fn_data.sig.decl = mock.get_sig().decl;
+                                    //fn_data.sig.decl = mock.get_sig().decl;
                                     fn_data.body = Some(mock.get_body());
                                 }
                             }

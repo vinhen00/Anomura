@@ -1,33 +1,13 @@
 // Tested with nightly-2025-03-28
 
 #![feature(rustc_private)]
-mod compile_mocks;
-mod expand_macro;
-mod function_intercept;
-mod visitors;
-
-extern crate rustc_ast;
-extern crate rustc_ast_pretty;
-extern crate rustc_data_structures;
-extern crate rustc_driver;
-extern crate rustc_error_codes;
-extern crate rustc_errors;
-extern crate rustc_hir;
-extern crate rustc_interface;
-extern crate rustc_middle;
-extern crate rustc_session;
-extern crate rustc_span;
-
 use std::process::Command;
-
+extern crate rustc_driver;
+use mockingbird::{compile_mocks::CompileMocks, function_intercept::FunctionIntercept, parse_mocks::ParseMocks};
 use rustc_driver::run_compiler;
 
-use crate::compile_mocks::CompileMocks;
-use crate::function_intercept::FunctionIntercept;
-
 fn main() {
-    println!("hello");
-    let mut mocked_funs = CompileMocks::new(Vec::new(), None);
+    let mut expanded_macros = ParseMocks::new(false);
     run_compiler(
         &[
             "ignored".to_string(),
@@ -40,6 +20,20 @@ fn main() {
             "mock_macro=./target/debug/mock_macro.dll".to_string(),
             "-L".to_string(),
             "dependency=./target/debug".to_string(),
+        ],
+        &mut expanded_macros,
+    );
+
+
+    let mut mocked_funs = CompileMocks::new(Vec::new(), expanded_macros.get_program(), false);
+    run_compiler(
+        &[
+            "ignored".to_string(),
+            "mock_defs.rs".to_string(),
+            "--crate-type".to_string(),
+            "bin".to_string(),
+            "-o".to_string(),
+            "./target/mocked_main".to_string(),
         ],
         &mut mocked_funs,
     );
