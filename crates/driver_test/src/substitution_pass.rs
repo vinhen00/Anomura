@@ -1,15 +1,14 @@
 use std::{borrow::Cow, collections::HashMap, env};
 
-use crate::Utf8Path;
+use crate::{Utf8Path, SUBSTITUTION_MOCK_PATHS};
 
-use mockingbird::{MockedFun, compile_mocks::CompileMocks};
+use mockingbird::{compile_mocks::CompileMocks, MockedFun};
 
 use itertools::Itertools;
 use mockingbird::function_intercept::FunctionIntercept;
+use rand::rngs::mock;
 use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
 use serde::{Deserialize, Serialize};
-
-
 
 #[derive(clap::Parser, Serialize, Deserialize)]
 pub struct SubstitutePluginArgs {
@@ -22,21 +21,27 @@ pub struct SubstitutePlugin {
     program: String,
     crate_mock_map: HashMap<String, Vec<MockedFun>>,
 }
+
+pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockedFun>> {
+    let mut callbacks = CompileMocks::new(Vec::new(), program.clone(), true);
+    rustc_driver::run_compiler(&[], &mut callbacks);
+
+    let mut crate_mock_map: HashMap<String, Vec<MockedFun>> = HashMap::new();
+    for mock_fn in &callbacks.get_mocks() {
+        println!("mock fn path : {:?}", mock_fn.get_path());
+        crate_mock_map
+            .entry(mock_fn.get_path())
+            .and_modify(|v| v.push(mock_fn.clone()))
+            .or_insert(vec![mock_fn.clone()]);
+    }
+    crate_mock_map
+}
 impl SubstitutePlugin {
-    pub fn new(program: String)-> Self {
-        let mut callbacks = CompileMocks::new(Vec::new(), program.clone(), true);
-        rustc_driver::run_compiler(&[], &mut callbacks);
-
-        let mut crate_mock_map: HashMap<String, Vec<MockedFun>> = HashMap::new();
-        for mock_fn in &callbacks.get_mocks() {
-            println!("mock fn path : {:?}", mock_fn.get_path());
-            crate_mock_map
-                .entry(mock_fn.get_path())
-                .and_modify(|v| v.push(mock_fn.clone()))
-                .or_insert(vec![mock_fn.clone()]);
+    pub fn new(program: String) -> Self {
+        Self {
+            program: program.clone(),
+            crate_mock_map: mock_map_from_program(program),
         }
-
-        Self {program, crate_mock_map }
     }
 }
 
@@ -77,6 +82,9 @@ impl RustcPlugin for SubstitutePlugin {
         compiler_args: Vec<String>,
         plugin_args: &Vec<String>,
     ) -> rustc_interface::interface::Result<()> {
+        let program = std::env::var(SUBSTITUTION_MOCK_PATHS)
+            .expect("should always be available at this point");
+        let compiled_program = mock_map_from_program(program);
         let mut callbacks = FunctionIntercept::new(Vec::new());
         println!("runnin sugstitution plugin for crate {crate_name}");
         println!("plugin_args: {:?}", plugin_args);
@@ -88,6 +96,7 @@ impl RustcPlugin for SubstitutePlugin {
 
     fn modify_cargo(&self, cargo: &mut std::process::Command, args: &Vec<String>) {
         println!("cargo args: {:?}", &args);
+        cargo.env(SUBSTITUTION_MOCK_PATHS, self.program.clone());
         cargo.args(args);
     }
 
