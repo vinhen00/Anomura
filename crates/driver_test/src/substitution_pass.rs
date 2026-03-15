@@ -81,6 +81,7 @@ impl RustcPlugin for SubstitutePlugin {
         let crate_filters = self.crate_mock_map.keys().cloned().collect_vec();
         //only execute driver on crates containing mocks
         println!("crate filters: {:?}", crate_filters);
+        println!("here we are");
         let filter = CrateFilter::RunOnCrates(crate_filters);
         if let CrateFilter::RunOnCrates(filt) = &filter {
             println!("{:#?}", filt);
@@ -106,22 +107,26 @@ impl RustcPlugin for SubstitutePlugin {
         let mut callbacks = FunctionIntercept::new(mocks);
         println!("runnin sugstitution plugin for crate {crate_name}");
         println!("plugin_args: {:?}", plugin_args);
+
+        //link against context
         let l_index = compiler_args
             .iter()
             .enumerate()
             .find(|(_, e)| *e == "-L")
             .map(|(i, _)| i)
             .unwrap();
-        let dependency_path = compiler_args[l_index + 1].split("=").collect_vec()[1].to_string();
-        assert!(dependency_path.starts_with("dependency="));
+        let dependency_args = compiler_args[l_index + 1].split("=").collect_vec();
+        assert!(dependency_args[0] == "dependency");
+        let dependency_path = dependency_args[1].to_string();
         let context_path = get_context_meta_file(Path::new(&dependency_path))
             .expect("context .rmeta path not found");
         let mut compiler_args = compiler_args;
         compiler_args.insert(l_index + 2, "--extern".into());
         compiler_args.insert(
             l_index + 3,
-            format!("context={}", context_path.to_string_lossy().to_string()),
+            format!("context={}", context_path.to_string_lossy()),
         );
+
         log::debug!("sub new compiler args: {:?}", compiler_args);
         rustc_driver::run_compiler(&compiler_args, &mut callbacks);
         Ok(())
