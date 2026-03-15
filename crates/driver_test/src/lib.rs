@@ -10,7 +10,6 @@ extern crate rustc_middle;
 extern crate rustc_parse;
 extern crate rustc_session;
 use rustc_plugin::Utf8Path;
-use serde::{Deserialize, Serialize};
 
 pub mod mock_discover_pass;
 pub mod substitution_pass;
@@ -20,4 +19,3 @@ pub const DISCOVER_TMP: &str = "DISCOVER_BOOTSTRAP";
 pub const SELECTED_CRATES: &[&str] = &["memchr", "serde_json"];
 //Environment variable for mocks definitions in rustc
 pub const SUBSTITUTION_MOCK_PATHS: &str = "SUBSTITUTION_MOCK_PATHS";
-

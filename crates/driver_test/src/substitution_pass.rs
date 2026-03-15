@@ -6,7 +6,10 @@ use mockingbird::{MockedFun, compile_mocks::CompileMocks};
 
 use itertools::Itertools;
 use mockingbird::function_intercept::FunctionIntercept;
-use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
+use rustc_plugin::{
+    CrateFilter, PluginResult, RustcEnabledForNonFiltered, RustcPlugin, RustcPluginArgs,
+    RustcWrapperType,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(clap::Parser, Serialize, Deserialize)]
@@ -77,12 +80,11 @@ impl RustcPlugin for SubstitutePlugin {
         if let CrateFilter::RunOnCrates(filt) = &filter {
             println!("{:#?}", filt);
         }
-        //let filter = CrateFilter::OnlyWorkspace;
         RustcPluginArgs {
             args: Some(args),
             filter,
             wrapper_type: RustcWrapperType::RustcWrapper,
-            rustc_enabled_for_non_filtered: true,
+            rustc_enabled_for_non_filtered: RustcEnabledForNonFiltered::Yes,
             default_build_command: None,
         }
     }
@@ -100,8 +102,7 @@ impl RustcPlugin for SubstitutePlugin {
         println!("runnin sugstitution plugin for crate {crate_name}");
         println!("plugin_args: {:?}", plugin_args);
 
-        let result = rustc_driver::run_compiler(&compiler_args, &mut callbacks);
-        println!("{:#?}", result);
+        rustc_driver::run_compiler(&compiler_args, &mut callbacks);
         Ok(())
     }
 
