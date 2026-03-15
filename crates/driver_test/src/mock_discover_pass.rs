@@ -6,14 +6,12 @@ use interprocess::local_socket::{
 };
 use itertools::Itertools;
 
-use mockingbird::MockedFun;
 use mockingbird::compile_mocks::CompileMocks;
 use mockingbird::parse_mocks::ParseMocks;
 
-
 use rustc_plugin::{
-    CargoBuildCommand, CrateFilter, DefaultBuildCommand, RustcPlugin, RustcPluginArgs,
-    RustcPluginError, RustcWrapperType,
+    CargoBuildCommand, CrateFilter, DefaultBuildCommand, RustcEnabledForNonFiltered, RustcPlugin,
+    RustcPluginArgs, RustcPluginError, RustcWrapperType,
 };
 
 use serde::{Deserialize, Serialize};
@@ -89,16 +87,16 @@ impl DiscoverPlugin {
             //let timeout = std::time::Instant::now() + std::time::Duration::from_secs(10);
             while let Ok(conn) = listener.accept() {
                 let mut buffer = String::with_capacity(16192);
-                if let Ok(mut _reader) = BufReader::new(conn).read_line(&mut buffer) {
-                    if let Ok(deserial) = serde_json::from_str::<CallBackMessage>(&buffer) {
-                        match deserial {
-                            CallBackMessage::NewMocks(text) => {
-                                all_mocked_fns.push(text);
-                            }
-                            CallBackMessage::Done => {
-                                println!("got message done");
-                                return all_mocked_fns;
-                            }
+                if let Ok(mut _reader) = BufReader::new(conn).read_line(&mut buffer)
+                    && let Ok(deserial) = serde_json::from_str::<CallBackMessage>(&buffer)
+                {
+                    match deserial {
+                        CallBackMessage::NewMocks(text) => {
+                            all_mocked_fns.push(text);
+                        }
+                        CallBackMessage::Done => {
+                            println!("got message done");
+                            return all_mocked_fns;
                         }
                     }
                 }
@@ -142,8 +140,10 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
             args: Some(args),
             filter: CrateFilter::OnlyWorkspace,
             wrapper_type: RustcWrapperType::RustcWrapper,
-            rustc_enabled_for_non_filtered: false,
-            default_build_command: Some(DefaultBuildCommand::Override(CargoBuildCommand::Check)),
+            rustc_enabled_for_non_filtered: RustcEnabledForNonFiltered::Only(vec![
+                "context".into(),
+            ]),
+            default_build_command: Some(DefaultBuildCommand::Override(CargoBuildCommand::Build)),
         }
     }
 
@@ -200,7 +200,9 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         let program = mocked_fns.join("");
 
         println!("After_execution: Found {} mocks", mocked_fns.len());
-        Ok(DiscoverClientReturn { mocked_fns: program })
+        Ok(DiscoverClientReturn {
+            mocked_fns: program,
+        })
     }
 }
 
@@ -232,5 +234,3 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
     conn.flush()?;
     Ok(())
 }
-
-

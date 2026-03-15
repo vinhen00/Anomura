@@ -1,8 +1,6 @@
 #![feature(rustc_private)]
 
-use std::{collections::HashMap, process::exit};
-
-use mockingbird::MockedFun;
+use std::process::exit;
 
 fn main() {
     env_logger::init();

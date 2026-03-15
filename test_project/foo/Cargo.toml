@@ -7,3 +7,4 @@ edition = "2024"
 bar = { version = "0.1.0", path = "../bar" }
 foobar = { version = "0.1.0", path = "../foobar" }
 mock-macro = { version = "0.1.0", path = "../../crates/mock-macro" }
+context = { version = "0.1.0", path = "../../crates/context" }
