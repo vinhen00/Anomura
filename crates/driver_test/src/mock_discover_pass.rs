@@ -143,7 +143,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
             rustc_enabled_for_non_filtered: RustcEnabledForNonFiltered::Only(vec![
                 "context".into(),
             ]),
-            default_build_command: Some(DefaultBuildCommand::Override(CargoBuildCommand::Check)),
+            default_build_command: Some(DefaultBuildCommand::Override(CargoBuildCommand::Build)),
         }
     }
 

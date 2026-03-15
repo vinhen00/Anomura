@@ -1,4 +1,3 @@
-use bar;
 use mock_macro::{mock_fn, mock_method};
 
 mock_fn! {
@@ -8,6 +7,7 @@ mock_fn! {
     input_ident: [test],
     ret_type: u32,
     ret_val: {
+        println!("greetings from context: {}",context::CONTEXT_CONST);
         println!("foo printed a: {}", test);
         //println!("Foo original printed {}", foo_original(10));
         1
@@ -28,6 +28,7 @@ mock_method! {
 }
 
 fn main() {
+    context::context();
     println!("bar");
     bar::foo(67);
     let mut food = bar::Food {

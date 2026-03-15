@@ -1,4 +1,9 @@
-use std::{borrow::Cow, collections::HashMap, env};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    env,
+    path::{Path, PathBuf},
+};
 
 use crate::{SUBSTITUTION_MOCK_PATHS, Utf8Path};
 
@@ -101,7 +106,23 @@ impl RustcPlugin for SubstitutePlugin {
         let mut callbacks = FunctionIntercept::new(mocks);
         println!("runnin sugstitution plugin for crate {crate_name}");
         println!("plugin_args: {:?}", plugin_args);
-
+        let l_index = compiler_args
+            .iter()
+            .enumerate()
+            .find(|(_, e)| *e == "-L")
+            .map(|(i, _)| i)
+            .unwrap();
+        let dependency_path = compiler_args[l_index + 1].split("=").collect_vec()[1].to_string();
+        assert!(dependency_path.starts_with("dependency="));
+        let context_path = get_context_meta_file(Path::new(&dependency_path))
+            .expect("context .rmeta path not found");
+        let mut compiler_args = compiler_args;
+        compiler_args.insert(l_index + 2, "--extern".into());
+        compiler_args.insert(
+            l_index + 3,
+            format!("context={}", context_path.to_string_lossy().to_string()),
+        );
+        log::debug!("sub new compiler args: {:?}", compiler_args);
         rustc_driver::run_compiler(&compiler_args, &mut callbacks);
         Ok(())
     }
@@ -117,4 +138,19 @@ impl RustcPlugin for SubstitutePlugin {
     fn after_execution(&mut self) -> PluginResult<()> {
         Ok(())
     }
+}
+fn get_context_meta_file(folder_path: &Path) -> Option<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(folder_path) else {
+        return None;
+    };
+
+    for entry in entries.flatten() {
+        let file_name = entry.file_name();
+        let name_str = file_name.to_string_lossy();
+
+        if name_str.starts_with("libcontext") && name_str.ends_with(".rmeta") {
+            return Some(entry.path());
+        }
+    }
+    None
 }
