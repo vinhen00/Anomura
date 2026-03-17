@@ -120,6 +120,7 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[mocked( #path )]
         fn #name(#(#params),*) -> #ret_type {
+            use std::println;
             println!("Mocked version of function {} was used", #name_str);
             #ret_val
         }
