@@ -1,6 +1,6 @@
+use flate2::read;
 use mock_macro::{mock_fn, mock_method};
 use rand;
-use flate2::read;
 
 mock_fn! {
     name: random_bool,
@@ -15,17 +15,13 @@ mock_fn! {
     }
 }
 
-
-
-
 fn main() {
     let random = rand::random_bool(0.0);
     println!("random returned {random}");
     let test = std::fs::read_to_string("test.txt");
     if let Ok(text) = test {
         println!("Test file inlcuded string {}", text);
-    }
-    else {
+    } else {
         println!("Failed to open file");
     }
 }
