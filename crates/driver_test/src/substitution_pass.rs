@@ -26,7 +26,7 @@ pub struct SubstitutePluginArgs {
 #[non_exhaustive]
 pub struct SubstitutePlugin {
     program: String,
-    crate_mock_map: HashMap<String, Vec<MockedFun>>,
+    crate_list: Vec<String>,
 }
 
 pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockedFun>> {
@@ -54,11 +54,14 @@ pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockedFun>>
     println!("mock map keys: {:?}", crate_mock_map.keys());
     crate_mock_map
 }
+
+
+
 impl SubstitutePlugin {
-    pub fn new(program: String) -> Self {
+    pub fn new(program: String, crate_list: Vec<String>) -> Self {
         Self {
             program: program.clone(),
-            crate_mock_map: mock_map_from_program(program),
+            crate_list,
         }
     }
 }
@@ -78,7 +81,7 @@ impl RustcPlugin for SubstitutePlugin {
             .for_each(|a| log::debug!("discover arg: {:?}", a));
 
         //Hashset to skip duplicates
-        let crate_filters = self.crate_mock_map.keys().cloned().collect_vec();
+        let crate_filters = self.crate_list.clone();
         //only execute driver on crates containing mocks
         println!("crate filters: {:?}", crate_filters);
         println!("here we are");

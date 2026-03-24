@@ -2,7 +2,6 @@ use proc_macro::TokenStream;
 
 #[proc_macro]
 pub fn mock_fn(_item: TokenStream) -> TokenStream {
-    //do we need to generate items here? would not TokenStream::new() suffice?
     TokenStream::new()
 }
 

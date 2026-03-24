@@ -13,6 +13,8 @@ fn main() {
         println!("no mocks found");
         return;
     };
+
+    println!("CRATE LIST: {:#?}", res.crate_list);
     // println!(
     //     "Mocking done found {} functions to mock",
     //     &res.mocked_fns.len()
@@ -32,6 +34,7 @@ fn main() {
 
     if let Err(e) = rustc_plugin::cli_main(driver_test::substitution_pass::SubstitutePlugin::new(
         res.mocked_fns,
+        res.crate_list,
     )) {
         eprintln!("substitute pass failed with error: {:?}", e);
         exit(1)

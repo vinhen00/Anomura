@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 bar = { version = "0.1.0", path = "../bar" }
 rand = "0.10.0"
-flate2 = "1.1.9"
 foobar = { version = "0.1.0", path = "../foobar" }
 mock-macro = { version = "0.1.0", path = "../../crates/mock-macro" }
 context = { version = "0.1.0", path = "../../crates/context" }

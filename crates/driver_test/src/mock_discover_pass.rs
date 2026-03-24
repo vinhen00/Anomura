@@ -31,14 +31,14 @@ pub struct DiscoverPluginArgs {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum CallBackMessage {
-    NewMocks(String),
+    NewMocks(String, Vec<String>),
     Done,
 }
 
 #[non_exhaustive]
 pub struct DiscoverPlugin {
     channel_name: String,
-    listener_handle: Option<JoinHandle<Vec<String>>>,
+    listener_handle: Option<JoinHandle<(Vec<String>, Vec<String>)>>,
 }
 impl DiscoverPlugin {
     pub fn new() -> Self {
@@ -79,8 +79,9 @@ impl DiscoverPlugin {
             x => x.unwrap(),
         };
 
-        let listener_handle: JoinHandle<Vec<String>> = thread::spawn(move || {
+        let listener_handle: JoinHandle<(Vec<String>, Vec<String>)> = thread::spawn(move || {
             let mut all_mocked_fns = Vec::new();
+            let mut crate_list = Vec::new();
             // listener
             //     .set_nonblocking(local_socket::ListenerNonblockingMode::Accept)
             //     .ok();
@@ -91,19 +92,20 @@ impl DiscoverPlugin {
                     && let Ok(deserial) = serde_json::from_str::<CallBackMessage>(&buffer)
                 {
                     match deserial {
-                        CallBackMessage::NewMocks(text) => {
+                        CallBackMessage::NewMocks(text, crates) => {
                             all_mocked_fns.push(text);
+                            crate_list.extend(crates.iter().cloned());
                         }
                         CallBackMessage::Done => {
                             println!("got message done");
-                            return all_mocked_fns;
+                            return (all_mocked_fns, crate_list);
                         }
                     }
                 }
                 //i think this just potentially messes thins up
                 //std::thread::sleep(std::time::Duration::from_millis(10));
             }
-            all_mocked_fns
+            (all_mocked_fns, crate_list)
         });
         DiscoverPlugin {
             channel_name: name_string,
@@ -120,6 +122,7 @@ impl Default for DiscoverPlugin {
 #[derive(Debug)]
 pub struct DiscoverClientReturn {
     pub mocked_fns: String,
+    pub crate_list: Vec<String>,
 }
 
 impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
@@ -197,11 +200,13 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
             RustcPluginError::ClientReturnError(format!("listener process returned : {:?}", e))
         })?;
 
-        let program = mocked_fns.join("");
+        let program = mocked_fns.0.join("");
+        let crate_list = mocked_fns.1;
 
-        println!("After_execution: Found {} mocks", mocked_fns.len());
+        println!("After_execution: Found {} mocks", mocked_fns.0.len());
         Ok(DiscoverClientReturn {
             mocked_fns: program,
+            crate_list,
         })
     }
 }
@@ -216,7 +221,11 @@ pub fn compile_maccalls(program: &str) -> CompileMocks {
 }
 
 pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
-    let inline_result = CallBackMessage::NewMocks(parse_mocks.get_program());
+    let cratelist = parse_mocks.get_crates();
+    let mocks = parse_mocks.get_program();
+
+    let inline_result = CallBackMessage::NewMocks(mocks, cratelist);
+
 
     let name_str = std::env::var(DISCOVER_TMP)
         .expect("there should be a discover tmp env var created in the main cargo command");

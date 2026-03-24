@@ -120,8 +120,8 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[mocked( #path )]
         fn #name(#(#params),*) -> #ret_type {
-            use std::println;
-            println!("Mocked version of function {} was used", #name_str);
+            
+            std::println!("Mocked version of function {} was used", #name_str);
             #ret_val
         }
     };
@@ -129,30 +129,48 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     expanded
 }
 
+enum SelfReceiver {
+    None,
+    Ref,
+    RefMut,
+}
+
 struct MockMethod {
     struct_name: Path,
     name: Path,
     path: Path,
+    self_receiver: SelfReceiver,
     input_types: Vec<Type>,
     input_ident: Vec<Ident>,
     ret_type: Type,
     ret_val: Expr,
 }
 
+
+
 impl Parse for MockMethod {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let struct_name = parse_struct_field_value::<Path>("struct_name", &input, true)?;
         let name = parse_struct_field_value::<Path>("name", &input, true)?;
         let path = parse_struct_field_value::<Path>("path", &input, true)?;
+        let self_receiver_ident = parse_struct_field_value::<Path>("self_receiver", &input, true)?;
+        let self_receiver = match self_receiver_ident.segments.last().map(|s| s.ident.to_string()).as_deref() {
+            Some("Ref") => SelfReceiver::Ref,
+            Some("RefMut") => SelfReceiver::RefMut,
+            _ => SelfReceiver::None,
+        };
         let input_types = parse_struct_field_value_array("input_types", &input, true)?;
         let input_ident = parse_struct_field_value_array("input_ident", &input, true)?;
         let ret_type = parse_struct_field_value("ret_type", &input, true)?;
         let ret_val = parse_struct_field_value("ret_val", &input, false)?;
 
+        
+
         Ok(MockMethod {
             struct_name,
             name,
             path,
+            self_receiver,
             input_types,
             input_ident,
             ret_type,
@@ -176,6 +194,12 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     let ret_type = mock.ret_type;
     let ret_val = mock.ret_val;
 
+    let receiver = match mock.self_receiver {
+        SelfReceiver::Ref    => quote! { &self, },
+        SelfReceiver::RefMut => quote! { &mut self, },
+        SelfReceiver::None   => quote! {},
+    };
+
     let params = mock
         .input_ident
         .iter()
@@ -185,7 +209,7 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         impl #struct_name {
             #[mocked( #path )]
-            fn #name(&mut self, #(#params),*) -> #ret_type {
+            fn #name(#receiver #(#params),*) -> #ret_type {
                 println!("Mocked version of method {} was used", #name_str);
                 #ret_val
             }
