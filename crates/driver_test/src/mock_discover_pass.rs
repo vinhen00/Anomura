@@ -40,6 +40,33 @@ pub struct DiscoverPlugin {
     channel_name: String,
     listener_handle: Option<JoinHandle<Vec<String>>>,
 }
+
+pub const DISCOVER_BUILD_NORMALY: &[&str] = &[
+    "context",
+    // we needto build all transitive dependencies of context.
+    // we probably want to add version check as a condition aswell,
+    // we also don't want to mock any of these
+    //derive_more dependencies
+    "derive_more",
+    "derive_more_impl",
+    "convert_case",
+    "unicode_segmentation",
+    "proc_macro2",
+    "unicode_ident",
+    "quote",
+    "syn",
+    "unicode_ident",
+    "unicode_xid",
+    //petgraph dependencies
+    "petgraph",
+    "fixedbitset",
+    "hashbrown",
+    "foldhash",
+    "indexmap",
+    "equivalent",
+    "rustc_version",
+    "semver",
+];
 impl DiscoverPlugin {
     pub fn new() -> Self {
         let tmp_dir = std::env::temp_dir();
@@ -140,9 +167,12 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
             args: Some(args),
             filter: CrateFilter::OnlyWorkspace,
             wrapper_type: RustcWrapperType::RustcWrapper,
-            rustc_enabled_for_non_filtered: RustcEnabledForNonFiltered::Only(vec![
-                "context".into(),
-            ]),
+            rustc_enabled_for_non_filtered: RustcEnabledForNonFiltered::Only(
+                DISCOVER_BUILD_NORMALY
+                    .iter()
+                    .map(|s| String::from(*s))
+                    .collect(),
+            ),
             default_build_command: Some(DefaultBuildCommand::Override(CargoBuildCommand::Build)),
         }
     }

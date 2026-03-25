@@ -1,7 +1,6 @@
 use mock_macro::mock_fn;
-use rand;
 
-mock_fn!(
+/*mock_fn!(
     name: random_bool,
     path: rand,
     input_types: [f64],
@@ -12,11 +11,31 @@ mock_fn!(
         context::context();
         true
     }
+);*/
+
+mock_fn!(
+    rand,
+    fn random_bool(prob: f64) -> bool {
+        default_return({
+            println!("greetings from context: {}", context::CONTEXT_CONST);
+            context::context();
+            true
+        });
+        expect(|prob| prob < 0.5).once().with_return({
+            println!("set return value false for first expect");
+            false
+        });
+        expect(|prob| prob > 0.9).once();
+    }
 );
 
 fn main() {
-    let random = rand::random_bool(0.0);
-    println!("random returned {random}");
+    let fst = rand::random_bool(0.0);
+    println!("fst return val {fst}");
+    if !fst {
+        let snd = rand::random_bool(4.0);
+        println!("second return val {snd}");
+    }
     let test = std::fs::read_to_string("test.txt");
     if let Ok(text) = test {
         println!("Test file inlcuded string {}", text);
