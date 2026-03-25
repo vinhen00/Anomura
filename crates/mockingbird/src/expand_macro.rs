@@ -1,11 +1,10 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    bracketed,
+    Expr, Ident, Path, Token, Type, bracketed,
     parse::{Parse, ParseStream},
     parse2,
     punctuated::Punctuated,
-    Expr, Ident, Path, Token, Type,
 };
 
 struct MockFun {
@@ -86,6 +85,8 @@ impl Parse for MockFun {
         let input_ident = parse_struct_field_value_array("input_ident", &input, true)?;
         let ret_type = parse_struct_field_value("ret_type", &input, true)?;
         let ret_val = parse_struct_field_value("ret_val", &input, false)?;
+
+        //let path = input.parse::<()
 
         Ok(MockFun {
             name,

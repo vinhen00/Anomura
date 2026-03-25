@@ -1,8 +1,7 @@
-use flate2::read;
-use mock_macro::{mock_fn, mock_method};
+use mock_macro::mock_fn;
 use rand;
 
-mock_fn! {
+mock_fn!(
     name: random_bool,
     path: rand,
     input_types: [f64],
@@ -13,7 +12,7 @@ mock_fn! {
         context::context();
         true
     }
-}
+);
 
 fn main() {
     let random = rand::random_bool(0.0);

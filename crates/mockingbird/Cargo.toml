@@ -9,8 +9,8 @@ quote = "1"
 syn = { version = "2", features = ["full"] }
 proc-macro2 = "1"
 serde = "1.0.228"
-rustc_plugin = { git = "https://github.com/EldritchEli/rustc_plugin.git", version = "0.14.3-nightly-2025-08-20" }
-#rustc_plugin = { version = "0.14.3-nightly-2025-08-20", path = "../../../rustc_plugin/crates/rustc_plugin" }
+#rustc_plugin = { git = "https://github.com/EldritchEli/rustc_plugin.git", version = "0.14.3-nightly-2025-08-20" }
+rustc_plugin = { version = "0.14.3-nightly-2025-08-20", path = "../../../rustc_plugin/crates/rustc_plugin" }
 
 
 [package.metadata.rust-analyzer]
