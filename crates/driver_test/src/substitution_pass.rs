@@ -103,6 +103,7 @@ impl RustcPlugin for SubstitutePlugin {
         compiler_args: Vec<String>,
         plugin_args: &Vec<String>,
     ) -> rustc_interface::interface::Result<()> {
+        println!("Test");
         let program = std::env::var(SUBSTITUTION_MOCK_PATHS)
             .expect("should always be available at this point");
         let mut mock_map = mock_map_from_program(program);

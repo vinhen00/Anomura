@@ -156,26 +156,26 @@ impl rustc_driver::Callbacks for ParseMocks {
 }
 
 fn extract_path_value(mac_call: &rustc_ast::MacCall) -> Option<Symbol> {
-    let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
 
-    for i in 0..tokens.len().saturating_sub(2) {
-        // Match: Ident("path")
-        let TokenTree::Token(key_tok, _) = tokens[i] else { continue };
-        let TokenKind::Ident(sym, _) = key_tok.kind else { continue };
-        if sym.as_str() != "path" { continue }
-
-        // Match: Colon
-        let TokenTree::Token(colon_tok, _) = tokens[i + 1] else { continue };
-        if !matches!(colon_tok.kind, TokenKind::Colon) { continue }
-
-        // Match: Ident(value)
-        let TokenTree::Token(val_tok, _) = tokens[i + 2] else { continue };
-        let TokenKind::Ident(value, _) = val_tok.kind else { continue };
-
-        return Some(value);
+    if let Some(path) = mac_call.path.segments.last() {
+        match path.ident.name.as_str() {
+            "mock_fn" => { 
+                let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
+                let TokenTree::Token(val_tok, _) = tokens[0] else { return None};
+                let TokenKind::Ident(value, _) = val_tok.kind else {return None}; 
+                return Some(value)
+            }
+            "mock_method" => { 
+                let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
+                let TokenTree::Token(val_tok, _) = tokens[0] else { return None};
+                let TokenKind::Ident(value, _) = val_tok.kind else {return None}; 
+                return Some(value)
+            }
+            _ => { return None }
+        }
+    } else {
+        return None;
     }
-
-    None
 }
 
 impl<'a> Visitor<'a> for ParseMocks {
@@ -186,7 +186,6 @@ impl<'a> Visitor<'a> for ParseMocks {
         if let Some(path) = extract_path_value(node){
             self.crates.push(path.as_str().to_string());
         }
-        
         self.handle_maccall(node);
     }
 }

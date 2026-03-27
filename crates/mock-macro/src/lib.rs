@@ -154,7 +154,6 @@ struct MockFnData {
 
 #[proc_macro]
 pub fn mock_fn(item: TokenStream) -> TokenStream {
-    //do we need to generate items here? would not TokenStream::new() suffice?
     let MockFnData = parse_macro_input!(item as MockFnData);
     TokenStream::new()
 }
