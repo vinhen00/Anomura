@@ -10,3 +10,8 @@ impl Food {
         self.inner = n;
     }
 }
+
+
+pub fn mut_string(str: &mut String) {
+
+}

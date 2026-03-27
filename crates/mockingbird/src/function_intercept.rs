@@ -77,7 +77,7 @@ impl FunctionIntercept {
                 //println!("Mocking method {}", mock.get_name());
                 mock.resolve_names();
                 //println!("{:#?}", mock.get_body());
-                //fn_data.sig.decl = mock.get_sig().decl;
+                meth.sig.decl = mock.get_sig().decl;
                 meth.body = Some(mock.get_body());
             }
         }

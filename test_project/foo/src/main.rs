@@ -6,12 +6,10 @@ use mock_macro::{end_mock_setup, mock_fn, start_mock_setup};
     name: random_bool,
     path: rand,
     input_types: [f64],
-    input_ident: [prob],
+    input_ident: [a],
     ret_type: bool,
     ret_val: {
-        println!("greetings from context: {}",context::CONTEXT_CONST);
-        context::context();
-        true
+        false
     }
 );*/
 
