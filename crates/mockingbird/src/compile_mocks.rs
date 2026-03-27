@@ -24,10 +24,6 @@ impl rustc_span::source_map::FileLoader for MockDefsLoader {
     fn read_binary_file(&self, _path: &Path) -> io::Result<Arc<[u8]>> {
         Err(io::Error::other("oops"))
     }
-
-    // fn current_directory(&self) -> Result<std::path::PathBuf, std::io::Error> {
-    //     Ok(std::path::PathBuf::from("."))
-    // }
 }
 
 pub fn extract_struct_name_from_impl(imp: rustc_ast::Impl) -> Option<String> {
@@ -95,10 +91,10 @@ impl CompileMocks {
                         self.handle_fn(fn_data, path);
                     }
                     rustc_ast::ItemKind::Impl(impl_data) => {
-                        self.handle_impl(&impl_data);
+                        self.handle_impl(impl_data);
                     }
                     rustc_ast::ItemKind::Mod(_, _, mod_data) => {
-                        self.handle_mod(&mod_data);
+                        self.handle_mod(mod_data);
                     }
                     _ => {}
                 }
@@ -109,19 +105,19 @@ impl CompileMocks {
 
 fn extract_attribute_name(atr: rustc_ast::Attribute) -> String {
     let mut path = "".to_string();
-    if let rustc_ast::AttrKind::Normal(norm) = atr.kind {
-        if let rustc_ast::AttrArgs::Delimited(del_args) = norm.item.args {
-            for token in del_args.tokens.iter() {
-                if let rustc_ast::tokenstream::TokenTree::Token(tok, _) = token {
-                    if let rustc_ast::token::TokenKind::Ident(name, _) = tok.kind {
-                        if path != "" {
-                            path = format!("{}::{}", path, name.as_str());
-                        } else {
-                            path = name.as_str().to_string()
-                        }
-                        //println!("TOK: {:#?}", path);
-                    }
+    if let rustc_ast::AttrKind::Normal(norm) = atr.kind
+        && let rustc_ast::AttrArgs::Delimited(del_args) = norm.item.args
+    {
+        for token in del_args.tokens.iter() {
+            if let rustc_ast::tokenstream::TokenTree::Token(tok, _) = token
+                && let rustc_ast::token::TokenKind::Ident(name, _) = tok.kind
+            {
+                if !path.is_empty() {
+                    path = format!("{}::{}", path, name.as_str());
+                } else {
+                    path = name.as_str().to_string()
                 }
+                //println!("TOK: {:#?}", path);
             }
         }
     }
