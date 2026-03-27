@@ -163,16 +163,16 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         args.iter()
             .for_each(|a| log::debug!("discover arg: {:?}", a));
 
+        let only = DISCOVER_BUILD_NORMALY
+            .iter()
+            .map(|s| String::from(*s))
+            .collect();
+        log::debug!("rustc discover context  only: {:?}", only);
         RustcPluginArgs {
             args: Some(args),
             filter: CrateFilter::OnlyWorkspace,
             wrapper_type: RustcWrapperType::RustcWrapper,
-            rustc_enabled_for_non_filtered: RustcEnabledForNonFiltered::Only(
-                DISCOVER_BUILD_NORMALY
-                    .iter()
-                    .map(|s| String::from(*s))
-                    .collect(),
-            ),
+            rustc_enabled_for_non_filtered: RustcEnabledForNonFiltered::Only(only),
             default_build_command: Some(DefaultBuildCommand::Override(CargoBuildCommand::Build)),
         }
     }
