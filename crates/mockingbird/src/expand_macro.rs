@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    Expr, FnArg, Ident, Path, Receiver, Token, Type, bracketed, parse::{Parse, ParseStream}, parse_quote, parse2, punctuated::Punctuated, spanned::Spanned
+    Expr, Fields, FnArg, Ident, Path, Receiver, Token, Type, bracketed, parse::{Parse, ParseStream}, parse_quote, parse2, punctuated::Punctuated, spanned::Spanned, token::Token
 };
 
 struct MockFun {
@@ -354,6 +354,137 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
                 println!("Mocked version of method {} was used", #name_str);
                 #ret_val
             }
+        }
+    };
+
+    expanded
+}
+
+
+
+struct MockStruct {
+    name: Ident,
+    path: Path,
+    field_types: Vec<Type>,
+    field_ident: Vec<Ident>,
+    constructor: MockMethod,
+    methods: Vec<MockMethod>,
+}
+
+
+
+impl Parse for MockStruct {
+    fn parse(input: ParseStream) -> syn::Result<Self> {     
+        let path = input.parse::<Path>()?;
+        input.parse::<Token![,]>()?;
+
+        let input2: syn::DeriveInput = input.parse()?;
+
+        let data = match input2.data {
+            syn::Data::Struct(data_struct) => data_struct,
+            _ => return Err(syn::Error::new_spanned(input2.ident, "expected a struct")),
+        };
+
+        let name = input2.ident;
+        
+        let mut field_ident = Vec::new();
+        let mut field_types = Vec::new();
+
+        match(data.fields) {
+            syn::Fields::Named(fields) => {
+                for field in fields.named.iter() {
+                    if let Some(ident) = &field.ident {
+                        field_ident.push(ident.clone());
+                        field_types.push(field.ty.clone());
+                    } 
+                    
+                }
+            }
+            syn::Fields::Unnamed(fields) => {todo!()}
+            syn::Fields::Unit => {todo!()}
+        }
+
+        let constructor: MockMethod = input.parse()?;
+        
+        let methods: Vec<MockMethod> = {
+            let methods_terminated: Punctuated<MockMethod, Token![,]> =
+                input.parse_terminated(MockMethod::parse, syn::Token![,])?;
+            methods_terminated.into_iter().collect()
+        };
+        
+
+
+        Ok(MockStruct {
+            name,
+            path,
+            field_types,
+            field_ident,
+            constructor,
+            methods,
+        })
+    }
+}
+
+//Can only mock
+pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
+    //println!("Inside syn {}", input);
+    let mock = match parse2::<MockStruct>(input) {
+        Ok(m) => m,
+        Err(e) => panic!("invalid mock_def! input: {}", e),
+    };
+
+    let name = mock.name;
+    let name_str = quote! {#name}.to_string();
+    let path = mock.path;
+
+    let constructor = quote_method(mock.constructor);
+
+    let methods: Vec<TokenStream> = mock.methods.into_iter().map(quote_method).collect();
+
+
+    let fields = mock
+        .field_ident
+        .iter()
+        .zip(mock.field_types.iter())
+        .map(|(ident, ty)| quote! { #ident: #ty });
+
+    let expanded = quote! {        
+        struct #name { #(#fields),* }
+        impl #name {
+            #constructor,
+            #(#methods),*
+        }
+    };
+
+    expanded
+}
+
+
+fn quote_method(mock: MockMethod) -> TokenStream {
+    let struct_name = mock.struct_name.segments.last();
+    let name = mock.name;
+    let name_str = quote! {#name}.to_string();
+    let path = mock.path;
+    let ret_type = mock.ret_type;
+    let ret_val = mock.ret_val;
+
+    let receiver = match mock.self_receiver {
+        SelfReceiver::Ref    => quote! { &self, },
+        SelfReceiver::RefMut => quote! { &mut self, },
+        SelfReceiver::None   => quote! {},
+    };
+
+    let params = mock
+        .input_ident
+        .iter()
+        .zip(mock.input_types.iter())
+        .map(|(ident, ty)| quote! { #ident: #ty });
+
+    let expanded = quote! {
+        #[mocked( #path )]
+        fn #name(#receiver #(#params),*) -> #ret_type {
+            println!("Mocked version of method {} was used", #name_str);
+            #ret_val
         }
     };
 
