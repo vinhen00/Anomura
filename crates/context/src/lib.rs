@@ -1,10 +1,8 @@
 use std::{
-    any::Any,
     collections::HashMap,
     hash::Hash,
     result,
     sync::{Mutex, OnceLock},
-    usize,
 };
 
 use derive_more::{AsMut, AsRef, Display, FromStr};
@@ -13,12 +11,14 @@ use petgraph::{
     graph::{DiGraph, NodeIndex},
     visit::EdgeRef,
 };
+use proc_macro2::TokenStream;
+use quote::quote;
 
 pub static GLOBAL_CONTEXT: OnceLock<Mutex<GlobalContext>> = OnceLock::new();
+
 pub fn context() {
     println!("context says hello");
 }
-
 pub enum SequenceState {
     Inactive,
     Active,
@@ -34,12 +34,17 @@ pub enum MockState {
 }
 pub struct MockHead {
     state: MockState,
-    return_val: Option<usize>,
+    default_return_val: Option<ReturnValDoublePointer>,
 }
 
 pub const CONTEXT_CONST: &str = "CONSTANT FROM CONTEXT";
 #[derive(Debug, Clone, Hash, FromStr, AsRef, AsMut, core::cmp::Eq, PartialEq)]
-pub struct MockId;
+pub struct MockId(String);
+impl MockId {
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+}
 pub struct GlobalContext {
     sequence_heads: Vec<SequenceHead>,
 
@@ -54,10 +59,11 @@ impl GlobalContext {
         format!("{dot:?}")
     }
 
-    pub fn run_mock<Input, ReturnVal>(&mut self, mock_id: MockId, input: Input) -> Result<ReturnVal>
-    where
-        ReturnVal: Clone,
-    {
+    pub fn run_mock<Input, ReturnVal>(
+        &mut self,
+        mock_id: MockId,
+        input: &Input,
+    ) -> Result<ReturnVal> {
         let Some(head) = self.mock_heads.get_mut(&mock_id) else {
             return Err(format!("couldn't find mock {:?} in context", mock_id).into());
         };
@@ -87,11 +93,11 @@ impl GlobalContext {
                             .into_fn::<Input>()
                             .expect("failed to dereference function pointer")
                     };
-                    let res = condition(&input);
+                    let res = condition(input);
                     if res.is_ok() {
                         Some((
                             conditional_edge.priority,
-                            conditional_edge.return_val,
+                            conditional_edge.return_val.clone(),
                             e.target(),
                         ))
                     } else {
@@ -108,14 +114,18 @@ impl GlobalContext {
             .last()
             .expect("we have already checked that edges is not empty");
 
-        let return_val_ptr = edge
-            .1
-            .unwrap_or(head.return_val.expect("no return value found"));
-        let return_val = unsafe {
-            (return_val_ptr as *mut ReturnVal)
+        let return_val_ptr = edge.1.as_ref().unwrap_or(
+            head.default_return_val
                 .as_ref()
+                .expect("no return value found"),
+        );
+        let return_closure = unsafe {
+            return_val_ptr
+                .into_fn::<ReturnVal>()
                 .expect("failed to turn return value ptr to ref")
         };
+        let return_val = return_closure();
+
         let new_node_index = edge.2;
         let Some(new_node) = self.graph.node_weight(new_node_index) else {
             return Err(format!("new node index {:?} is invalid", new_node_index).into());
@@ -127,10 +137,10 @@ impl GlobalContext {
             )
             .into());
         }
-        head.state = MockState::Locked {
-            sequence_head_index: new_node_index,
+        head.state = MockState::Unlocked {
+            mock_head_index: new_node_index,
         };
-        Ok(return_val.clone())
+        Ok(return_val)
     }
 }
 /*
@@ -149,38 +159,69 @@ pub enum EnvVal {
     Int(u32),
 }
 pub type Environment = HashMap<EnvId, EnvVal>;
-pub struct DefaultValuePtr {
-    index: usize,
-    size: usize,
-}
 pub struct MockBuilder {
     head: NodeIndex,
     start_index: NodeIndex,
-    default_return: Option<usize>,
+    default_return: Option<ReturnValDoublePointer>,
 }
 #[derive(Debug, Clone)]
-pub struct ConditionDoublePointer {
-    thin_ptr: usize,
+pub struct ReturnValDoublePointer {
+    thin_ptr: *const (),
 }
-impl ConditionDoublePointer {
-    pub fn from_fn<Input>(closure: Box<dyn Fn(&Input) -> Result<()> + 'static>) -> Self {
-        let thick_ptr = Box::leak(closure);
-        let thin_ptr = (&thick_ptr) as *const _;
-        Self {
-            thin_ptr: thin_ptr as usize,
-        }
+impl ReturnValDoublePointer {
+    pub fn from_fn<ReturnVal>(closure: Box<dyn Fn() -> ReturnVal>) -> Self {
+        let cloref = Box::leak(closure);
+        let wrapped = Box::new(cloref);
+        let wraref = Box::into_raw(wrapped);
+        let thin_ptr = wraref as *const _;
+        Self { thin_ptr }
     }
-    pub unsafe fn into_fn<Input>(&self) -> Result<&dyn Fn(&Input) -> Result<()>> {
-        let thick_ptr: *mut dyn Fn(&Input) -> Result<()> = unsafe { *(self.thin_ptr as *const _) };
-        let ptr_ref: &dyn Fn(&Input) -> Result<()> =
-            unsafe { thick_ptr.as_ref().expect("failed to cast thick_ptr to ref") };
-        Ok(ptr_ref)
+    /// Casts the a raw double pointer created with from_fn into a closure ` Result<&dyn Fn() -> ReturnVal>`
+    ///
+    ///
+    /// # Safety
+    /// You must guarantee that `ReturnVal` is the exact same Type as was used when you used `from_fn` to create the value.
+    /// .
+    pub unsafe fn into_fn<ReturnVal>(&self) -> Result<&dyn Fn() -> ReturnVal> {
+        let wraref: *mut &mut dyn Fn() -> ReturnVal = self.thin_ptr as _;
+        let cloref: &mut dyn Fn() -> ReturnVal = unsafe { *wraref };
+        Ok(cloref)
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ConditionDoublePointer {
+    thin_ptr: *const (),
+}
+impl ConditionDoublePointer {
+    pub fn from_fn<Input>(closure: Box<dyn Fn(&Input) -> Result<()> + 'static>) -> Self {
+        let cloref = Box::leak(closure);
+        let wrapped = Box::new(cloref);
+        let wraref = Box::into_raw(wrapped);
+        let thin_ptr = wraref as *const _;
+        Self { thin_ptr }
+    }
+    /// Casts the a raw double pointer created with from_fn into a closure with type `Fn(&Input) -> Result<()>`
+    ///
+    ///
+    /// # Safety
+    /// You must guarantee that `Input` is the exact same Type as was used when you used `from_fn` to create the value.
+    /// .
+    pub unsafe fn into_fn<Input>(&self) -> Result<&dyn Fn(&Input) -> Result<()>> {
+        let wraref: *mut &mut dyn Fn(&Input) -> Result<()> = self.thin_ptr as _;
+        let cloref: &mut dyn Fn(&Input) -> Result<()> = unsafe { *wraref };
+        Ok(cloref)
+    }
+}
+//Our DoublePointers will live through the remainder of the program, and they will not be modified in any way.
+unsafe impl Send for ConditionDoublePointer {}
+unsafe impl Sync for ConditionDoublePointer {}
+unsafe impl Send for ReturnValDoublePointer {}
+unsafe impl Sync for ReturnValDoublePointer {}
+
 pub struct ContextBuilder {
     mocks: HashMap<MockId, MockBuilder>,
-    graph: DiGraph<MockNode, Edge>,
+    pub(crate) graph: DiGraph<MockNode, Edge>,
 }
 
 impl ContextBuilder {
@@ -206,7 +247,7 @@ impl ContextBuilder {
                             state: MockState::Unlocked {
                                 mock_head_index: i.start_index,
                             },
-                            return_val: i.default_return,
+                            default_return_val: i.default_return,
                         },
                     )
                 })
@@ -216,19 +257,14 @@ impl ContextBuilder {
     pub fn add_mock<ReturnVal>(
         &mut self,
         mock_id: MockId,
-        default_return_val: Option<ReturnVal>,
+        default_return_val_closure: Option<Box<dyn Fn() -> ReturnVal>>,
     ) -> Result<()> {
         let index = self.graph.add_node(MockNode {
             entry: true,
             exit: false,
             id: mock_id.clone(),
         });
-        let ptr_return = default_return_val.map(|r| {
-            let boxed = Box::new(r);
-            let boxed = Box::leak(boxed);
-            let raw_ptr = boxed as *const ReturnVal;
-            raw_ptr as usize
-        });
+        let ptr_return = default_return_val_closure.map(|r| ReturnValDoublePointer::from_fn(r));
         match self.mocks.insert(
             mock_id.clone(),
             MockBuilder {
@@ -243,15 +279,16 @@ impl ContextBuilder {
     }
     pub fn add_expectation<Input, ReturnVal>(
         &mut self,
-        mock_id: MockId,
-        condition: Box<dyn Fn(&Input) -> Result<()>>,
-        return_val: Option<Box<ReturnVal>>,
+        mock_id: &MockId,
+        condition: Box<dyn Fn(&Input) -> Result<()> + 'static>,
+        return_val_closure: Option<Box<dyn Fn() -> ReturnVal>>,
         modifier: TimeModifier,
         exit: bool,
     ) -> Result<()> {
-        let return_val_as_ptr = return_val.map(|return_val| Box::into_raw(return_val) as usize);
+        let return_val_as_ptr =
+            return_val_closure.map(|closure| ReturnValDoublePointer::from_fn(closure));
         let condition_as_ptr = ConditionDoublePointer::from_fn(condition);
-        let Some(builder) = self.mocks.get_mut(&mock_id) else {
+        let Some(builder) = self.mocks.get_mut(mock_id) else {
             return Err(format!("mock with id {mock_id:?} does not exist").into());
         };
         let new_node_index = self.graph.add_node(MockNode {
@@ -259,7 +296,6 @@ impl ContextBuilder {
             exit,
             id: mock_id.clone(),
         });
-
         match modifier {
             TimeModifier::Once => {
                 // add a single edge between nodes
@@ -283,7 +319,7 @@ impl ContextBuilder {
                 let main_weight = Edge::Condition(ConditionalEdge {
                     priority: 1,
                     condition: condition_as_ptr.clone(),
-                    return_val: return_val_as_ptr,
+                    return_val: return_val_as_ptr.clone(),
                 });
                 let instant_weight = Edge::Condition(ConditionalEdge {
                     priority: 0,
@@ -311,7 +347,7 @@ impl ContextBuilder {
                 let main_weight = Edge::Condition(ConditionalEdge {
                     priority: 1,
                     condition: condition_as_ptr.clone(),
-                    return_val: return_val_as_ptr,
+                    return_val: return_val_as_ptr.clone(),
                 });
                 let instant_weight = Edge::Condition(ConditionalEdge {
                     priority: 0,
@@ -338,12 +374,12 @@ impl ContextBuilder {
                 let n_plus_one = self.graph.add_node(MockNode {
                     entry: false,
                     exit,
-                    id: mock_id,
+                    id: mock_id.clone(),
                 });
                 let main_weight = Edge::Condition(ConditionalEdge {
                     priority: 1,
                     condition: condition_as_ptr.clone(),
-                    return_val: return_val_as_ptr,
+                    return_val: return_val_as_ptr.clone(),
                 });
 
                 let instant_weight = Edge::Condition(ConditionalEdge {
@@ -375,10 +411,12 @@ impl Default for ContextBuilder {
     }
 }
 
+#[derive(Display, Debug, Clone)]
 pub enum TimesValue {
     Explicit(u32),
     Implicit(EnvId),
 }
+#[derive(Display, Debug, Clone)]
 pub enum TimeModifier {
     Once,
     AtMostOnce,
@@ -389,11 +427,26 @@ pub enum TimeModifier {
     After(EnvId),
 }
 
+impl quote::ToTokens for TimeModifier {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let append = match self {
+            TimeModifier::Once => quote! { context::TimeModifier::Once },
+            TimeModifier::AtMostOnce => quote! { context::TimeModifier::AtLeastOnce },
+            TimeModifier::Any => quote! { context::TimeModifier::Any },
+            TimeModifier::AtLeastOnce => quote! { context::TimeModifier::AtLeastOnce },
+            TimeModifier::Until(env_id) => quote! { context::TimeModifier::Until },
+            TimeModifier::Times(times_value) => quote! { context::TimeModifier::Times},
+            TimeModifier::After(env_id) => quote! { context::TimeModifier::After },
+        };
+        tokens.extend(append);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ConditionalEdge {
     priority: u8,
     condition: ConditionDoublePointer,
-    return_val: Option<usize>,
+    return_val: Option<ReturnValDoublePointer>,
 }
 
 impl ConditionalEdge {}
@@ -427,3 +480,206 @@ impl From<&str> for MockError {
 }
 
 //
+#[test]
+fn pointers1() {
+    let a: Box<dyn Fn(&u32) -> Result<()> + 'static> =
+        Box::new(|a| if *a > 2 { Ok(()) } else { Err("error".into()) });
+    let double_ptr = ConditionDoublePointer::from_fn(a);
+    match unsafe { double_ptr.into_fn::<u32>() } {
+        Ok(casted) => {
+            assert!(casted(&3).is_ok());
+            assert!(casted(&2).is_err());
+        }
+        Err(e) => panic!("failed to cast pointer with error : {:?}", e),
+    }
+}
+
+#[test]
+fn pointers2() {
+    struct TestStruct {
+        pub string: String,
+    }
+
+    let a: Box<dyn Fn() -> TestStruct + 'static> = Box::new(|| {
+        println!("this is a closure return val");
+        TestStruct {
+            string: String::from("hello pointers2"),
+        }
+    });
+    let double_ptr = ReturnValDoublePointer::from_fn(a);
+    match unsafe { double_ptr.into_fn::<TestStruct>() } {
+        Ok(casted) => {
+            assert_eq!(casted().string, "hello pointers2");
+            assert_ne!(casted().string, "goodbye pointer2");
+        }
+        Err(e) => panic!("failed to cast pointer with error : {:?}", e),
+    }
+}
+
+#[test]
+fn context1() {
+    println!("start of test");
+    struct Foo(u32);
+    struct Bar(String);
+    let mock_id_foo = MockId("foo".into());
+    let mock_id_bar = MockId("bar".into());
+    let mut context_builder = ContextBuilder::new();
+    assert!(
+        context_builder
+            .add_mock(mock_id_foo.clone(), Some(Box::new(|| Foo(42))))
+            .is_ok()
+    );
+    let expectation1: Box<dyn Fn(&u32) -> Result<()> + 'static> =
+        Box::new(|a| if *a == 7 { Ok(()) } else { Err("not 7".into()) });
+    let expectation2 = |a: &u32| -> Result<()> {
+        if *a == 42 {
+            Ok(())
+        } else {
+            Err("not 42".into())
+        }
+    };
+    let return_clos = || Foo(100);
+    assert!(
+        context_builder
+            .add_expectation::<u32, Foo>(
+                &mock_id_foo,
+                expectation1,
+                None,
+                TimeModifier::Once,
+                false
+            )
+            .is_ok()
+    );
+    assert!(
+        context_builder
+            .add_expectation(
+                &mock_id_foo,
+                Box::new(expectation2),
+                Some(Box::new(return_clos)),
+                TimeModifier::Once,
+                true
+            )
+            .is_ok()
+    );
+
+    let mut global_context = context_builder.finish();
+    println!("here");
+    let Ok(result) = global_context.run_mock::<u32, Foo>(mock_id_foo.clone(), &7) else {
+        panic!("failed first run");
+    };
+    let Ok(result) = global_context.run_mock::<u32, Foo>(mock_id_foo.clone(), &result.0) else {
+        panic!("failed first run");
+    };
+}
+
+#[test]
+fn context2() {
+    println!("start of test");
+    struct Foo(u32);
+    struct Bar(String);
+    let mock_id_foo = MockId("foo".into());
+    let mock_id_bar = MockId("bar".into());
+    let mut context_builder = ContextBuilder::new();
+    assert!(
+        context_builder
+            .add_mock(mock_id_foo.clone(), Some(Box::new(|| Foo(42))))
+            .is_ok()
+    );
+    assert!(
+        context_builder
+            .add_mock(mock_id_bar.clone(), Some(Box::new(|| Bar("getget".into()))))
+            .is_ok()
+    );
+
+    let expectation1: Box<dyn Fn(&u32) -> Result<()> + 'static> =
+        Box::new(|a| if *a == 7 { Ok(()) } else { Err("not 7".into()) });
+    let expectation2 = |a: &u32| -> Result<()> {
+        if *a == 42 {
+            Ok(())
+        } else {
+            Err("not 42".into())
+        }
+    };
+    let bar_expectation1: Box<dyn Fn(&Bar) -> Result<()> + 'static> = Box::new(|a| {
+        if a.0 == "hello" {
+            Ok(())
+        } else {
+            Err("not hello".into())
+        }
+    });
+    let bar_expectation2 = |a: &Bar| -> Result<()> {
+        if a.0 == "goodbye" {
+            Ok(())
+        } else {
+            Err("bar not goodbye".into())
+        }
+    };
+    let bar_ret1 = Box::new(|| Bar("goodbye".into()));
+
+    let return_clos = || Foo(100);
+
+    assert!(
+        context_builder
+            .add_expectation::<u32, Foo>(
+                &mock_id_foo,
+                expectation1,
+                None,
+                TimeModifier::Once,
+                false
+            )
+            .is_ok()
+    );
+    assert!(
+        context_builder
+            .add_expectation(
+                &mock_id_foo,
+                Box::new(expectation2),
+                Some(Box::new(return_clos)),
+                TimeModifier::Once,
+                true
+            )
+            .is_ok()
+    );
+    assert!(
+        context_builder
+            .add_expectation::<Bar, Bar>(
+                &mock_id_bar,
+                Box::new(bar_expectation1),
+                Some(bar_ret1),
+                TimeModifier::Once,
+                false
+            )
+            .is_ok()
+    );
+    assert!(
+        context_builder
+            .add_expectation::<Bar, Bar>(
+                &mock_id_bar,
+                Box::new(bar_expectation2),
+                None,
+                TimeModifier::Once,
+                true
+            )
+            .is_ok()
+    );
+
+    let mut global_context = context_builder.finish();
+    println!("here");
+    let Ok(result) = global_context.run_mock::<u32, Foo>(mock_id_foo.clone(), &7) else {
+        panic!("failed first run");
+    };
+
+    let Ok(result) = global_context.run_mock::<u32, Foo>(mock_id_foo.clone(), &result.0) else {
+        panic!("failed second run");
+    };
+
+    let Ok(goodbye) =
+        global_context.run_mock::<Bar, Bar>(mock_id_bar.clone(), &Bar("hello".into()))
+    else {
+        panic!("failed third run ");
+    };
+
+    let Ok(result) = global_context.run_mock::<Bar, Bar>(mock_id_bar.clone(), &goodbye) else {
+        panic!("failed fourth run");
+    };
+}

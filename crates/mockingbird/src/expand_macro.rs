@@ -1,7 +1,11 @@
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{
-    Expr, FnArg, Ident, Path, Receiver, Token, Type, bracketed, parse::{Parse, ParseStream}, parse_quote, parse2, punctuated::Punctuated, spanned::Spanned
+    Expr, FnArg, Ident, Path, Receiver, Token, Type, bracketed,
+    parse::{Parse, ParseStream},
+    parse_quote, parse2,
+    punctuated::Punctuated,
+    spanned::Spanned,
 };
 
 struct MockFun {
@@ -159,6 +163,18 @@ impl Parse for MockFun {
     }
 }
 
+fn combine_path_and_ident(path: &syn::Path, ident: &Ident) -> Ident {
+    let mut parts: Vec<String> = path
+        .segments
+        .iter()
+        .map(|seg| seg.ident.to_string())
+        .collect();
+
+    parts.push(ident.to_string());
+
+    let combined_name = parts.join("_");
+    format_ident!("{}", combined_name, span = ident.span())
+}
 pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     //println!("Inside syn {}", input);
     let mock = match parse2::<MockFun>(input.clone()) {
@@ -171,19 +187,36 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     let name_str = quote! {#name}.to_string();
     let ret_type = mock.ret_type;
     let ret_val = mock.ret_val;
+    let mock_id = combine_path_and_ident(&path, &name);
+    let mock_id_ident = format_ident!("{}_mock_id", mock_id);
+    let input_types = mock.input_types;
+    let input_idents = mock.input_ident;
+    let input_ident_tuple = quote! { (#(#input_idents),*) };
+    let input_type_tuple = quote! { (#(#input_types),*) };
 
-    let params = mock
-        .input_ident
+    let params = input_idents
         .iter()
-        .zip(mock.input_types.iter())
+        .zip(input_types.iter())
         .map(|(ident, ty)| quote! { #ident: #ty });
 
     let expanded = quote! {
+
         #[mocked( #path )]
         fn #name(#(#params),*) -> #ret_type {
-            
+
             std::println!("Mocked version of function {} was used", #name_str);
-            #ret_val
+            let #mock_id_ident = context::MockId::new(stringify!(#mock_id));
+            let ctx = context::GLOBAL_CONTEXT
+                .get()
+                .expect(" couldn't fetch context");
+            let mut guard = ctx.lock().expect("failed to fetch guard");
+
+            match guard.run_mock::<#input_type_tuple, #ret_type>(#mock_id_ident, &#input_ident_tuple) {
+                Ok(res) -> res,
+                Err(e) -> panic!("{:?}",e);
+            }
+
+            //#ret_val
         }
     };
 
@@ -207,91 +240,26 @@ struct MockMethod {
     ret_val: Expr,
 }
 
-
-
 impl Parse for MockMethod {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        // let struct_name = parse_struct_field_value::<Path>("struct_name", &input, true)?;
-        // let name = parse_struct_field_value::<Path>("name", &input, true)?;
-        // let path = parse_struct_field_value::<Path>("path", &input, true)?;
-        // let self_receiver_ident = parse_struct_field_value::<Path>("self_receiver", &input, true)?;
-        // let self_receiver = match self_receiver_ident.segments.last().map(|s| s.ident.to_string()).as_deref() {
-        //     Some("Ref") => SelfReceiver::Ref,
-        //     Some("RefMut") => SelfReceiver::RefMut,
-        //     _ => SelfReceiver::None,
-        // };
-        // let input_types = parse_struct_field_value_array("input_types", &input, true)?;
-        // let input_ident = parse_struct_field_value_array("input_ident", &input, true)?;
-        // let ret_type = parse_struct_field_value("ret_type", &input, true)?;
-        // let ret_val = parse_struct_field_value("ret_val", &input, false)?;
-
-        
-        let path = input.parse::<Path>()?;
-        input.parse::<Token![,]>()?;
-        let struct_name = input.parse::<Path>()?;
-        input.parse::<Token![,]>()?;
-        let fn_body: syn::ItemFn = input.parse()?;
-        let Some(default_return_val) = fn_body.block.stmts.iter().find_map(|d| {
-            let syn::Stmt::Expr(expr, _) = d else {
-                log::debug!("expected stmtexpr found {:?}", quote! {d});
-                return None;
-            };
-
-            let Expr::Call(expr_call) = expr else {
-                log::debug!("expect expr call found {:?}", quote! {expr});
-                return None;
-            };
-            let maybe_expr_lit = *expr_call.func.clone();
-            let Expr::Path(expr_path) = maybe_expr_lit else {
-                log::debug!("expected expr_path found {:?}", quote! {maybe_expr_lit});
-                return None;
-            };
-            let Some(ident) = expr_path.path.get_ident() else {
-                log::debug!("could not get ident from path");
-                return None;
-            };
-            /*let syn::Lit::Str(str) = expr_lit.lit else {
-                log::debug!("expected lit_str found {:?}", quote! {expr_lit.lit});
-                return None;
-            };*/
-            if ident == "default_return" {
-                let e = expr_call.args.first();
-                if e.is_none() {
-                    log::debug!("first arg for default_return not found");
-                }
-                e
-            } else {
-                log::debug!("expected id default_return, found {:?}", ident);
-                None
-            }
-        }) else {
-            return Err(syn::Error::new(
-                fn_body.span(),
-                "no default return value found",
-            ));
+        let struct_name = parse_struct_field_value::<Path>("struct_name", &input, true)?;
+        let name = parse_struct_field_value::<Path>("name", &input, true)?;
+        let path = parse_struct_field_value::<Path>("path", &input, true)?;
+        let self_receiver_ident = parse_struct_field_value::<Path>("self_receiver", &input, true)?;
+        let self_receiver = match self_receiver_ident
+            .segments
+            .last()
+            .map(|s| s.ident.to_string())
+            .as_deref()
+        {
+            Some("Ref") => SelfReceiver::Ref,
+            Some("RefMut") => SelfReceiver::RefMut,
+            _ => SelfReceiver::None,
         };
-
-        let mut self_receiver = SelfReceiver::None;
-        let mut input_types = Vec::new();
-        let mut input_ident = Vec::new();
-
-        for i in fn_body.sig.inputs.iter() {
-            match i {
-                syn::FnArg::Receiver(receiver) => {
-                    if let Some(_) = receiver.mutability { self_receiver = SelfReceiver::RefMut }
-                    else { self_receiver = SelfReceiver::Ref }
-                }
-                syn::FnArg::Typed(pat_type) => {
-                    input_types.push(*pat_type.ty.clone());
-                    match *pat_type.pat.clone() {
-                        syn::Pat::Ident(pat_ident) => input_ident.push(pat_ident.ident),
-                        _ => {}
-                    }
-                },
-
-            }
-
-        }
+        let input_types = parse_struct_field_value_array("input_types", &input, true)?;
+        let input_ident = parse_struct_field_value_array("input_ident", &input, true)?;
+        let ret_type = parse_struct_field_value("ret_type", &input, true)?;
+        let ret_val = parse_struct_field_value("ret_val", &input, false)?;
 
         Ok(MockMethod {
             struct_name,
@@ -336,9 +304,9 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     let ret_val = mock.ret_val;
 
     let receiver = match mock.self_receiver {
-        SelfReceiver::Ref    => quote! { &self, },
+        SelfReceiver::Ref => quote! { &self, },
         SelfReceiver::RefMut => quote! { &mut self, },
-        SelfReceiver::None   => quote! {},
+        SelfReceiver::None => quote! {},
     };
 
     let params = mock
