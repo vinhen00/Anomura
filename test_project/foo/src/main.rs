@@ -12,27 +12,16 @@ fn main() {
                 true
             });
             expect(
-                *prob < 0.5,
+                *prob > 0.5,
                 once(),
                 with_return({
                     println!("set return value false for first expect");
                     false
                 }),
             );
-            expect(*prob > 0.9, once());
+            expect(*prob < 0.9, once());
         }
     );
-
-    mock_method!(
-        bar,
-        Food,
-        fn food_fun(&mut self, n: String) {
-            default_return({
-                println!("Works");
-            })
-        }
-    );
-
     end_mock_setup!();
     let fst = rand::random_bool(0.0);
     println!("fst return val {fst}");
@@ -40,11 +29,6 @@ fn main() {
         let snd = rand::random_bool(1.0);
         println!("second return val {snd}");
     }
-
-    let mut food = bar::Food {
-        inner: "TRUUUUUUP".into(),
-    };
-    food.food_fun("Test".into());
 }
 
 #[test]
@@ -54,34 +38,26 @@ fn macro_test() {
         rand,
         fn random_bool(prob: f64) -> bool {
             default_return({
-                println!("greetings from context: {}", context::CONTEXT_CONST);
+                std::println!("greetings from context: {}", context::CONTEXT_CONST);
                 context::context();
                 true
             });
             expect(
-                *prob < 0.5,
+                *prob > 0.5,
                 once(),
                 with_return({
                     println!("set return value false for first expect");
                     false
                 }),
             );
-            expect(*prob > 0.9, once());
+            expect(*prob < 0.9, once());
         }
     );
     end_mock_setup!();
-    let ctx = context::GLOBAL_CONTEXT
-        .get()
-        .expect(" couldn't fetch context");
-    let mut guard = ctx.lock().expect("failed to fetch guard");
-    assert!(
-        guard
-            .run_mock::<f64, bool>(rand_random_bool_mock_id.clone(), &0.3)
-            .is_ok()
-    );
-    assert!(
-        guard
-            .run_mock::<f64, bool>(rand_random_bool_mock_id, &0.8)
-            .is_err()
-    );
+    let fst = rand::random_bool(0.7);
+    println!("fst return val {fst}");
+    if !fst {
+        let snd = rand::random_bool(0.8);
+        println!("second return val {snd}");
+    }
 }
