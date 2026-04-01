@@ -45,12 +45,27 @@ impl MockId {
         Self(id.into())
     }
 }
+
+pub trait MaybeDisplay {
+    fn maybe_display(&self) -> String {
+        "".to_string()
+    }
+}
+
+impl<A> MaybeDisplay for A {}
+
 pub struct GlobalContext {
     sequence_heads: Vec<SequenceHead>,
 
     graph: DiGraph<MockNode, Edge>,
 
     mock_heads: HashMap<MockId, MockHead>,
+}
+pub struct EdgeTransitionInfo {
+    priority: u8,
+    return_val: Option<ReturnValDoublePointer>,
+    target_node: NodeIndex,
+    consumed_input: bool,
 }
 
 impl GlobalContext {
@@ -64,83 +79,109 @@ impl GlobalContext {
         mock_id: MockId,
         input: &Input,
     ) -> Result<ReturnVal> {
-        let Some(head) = self.mock_heads.get_mut(&mock_id) else {
-            return Err(format!("couldn't find mock {:?} in context", mock_id).into());
-        };
-        let index = match head.state {
-            MockState::Locked { .. } => todo!(),
-            MockState::Unlocked { mock_head_index } => mock_head_index,
-        };
-        let Some(res) = self.graph.node_weight(index) else {
-            return Err("node not found".into());
-        };
-        if res.id != mock_id {
-            return Err(format!(
-                "node with index {:?} expected {:?} but received {:?}",
-                index, mock_id, res.id
-            )
-            .into());
-        };
-        let mut edges: Vec<_> = self
-            .graph
-            .edges_directed(index, petgraph::Direction::Outgoing)
-            .filter_map(|e| match e.weight() {
-                Edge::Instant { priority } => Some((*priority, None, e.target())),
-                Edge::Condition(conditional_edge) => {
-                    let condition = unsafe {
-                        conditional_edge
-                            .condition
-                            .into_fn::<Input>()
-                            .expect("failed to dereference function pointer")
-                    };
-                    let res = condition(input);
-                    if res.is_ok() {
-                        Some((
-                            conditional_edge.priority,
-                            conditional_edge.return_val.clone(),
-                            e.target(),
-                        ))
-                    } else {
-                        None
+        let mut recieved_return: Option<ReturnVal> = None;
+
+        //traverses graph until
+        while recieved_return.is_none() {
+            let Some(head) = self.mock_heads.get_mut(&mock_id) else {
+                return Err(format!("couldn't find mock {:?} in context", mock_id).into());
+            };
+            let index = match head.state {
+                MockState::Locked { .. } => todo!(),
+                MockState::Unlocked { mock_head_index } => mock_head_index,
+            };
+            let Some(res) = self.graph.node_weight(index) else {
+                return Err("node not found".into());
+            };
+            if res.id != mock_id {
+                return Err(format!(
+                    "node with index {:?} expected {:?} but received {:?}",
+                    index, mock_id, res.id
+                )
+                .into());
+            };
+            let mut edges: Vec<_> = vec![];
+            let mut errs: Vec<MockError> = vec![];
+            self.graph
+                .edges_directed(index, petgraph::Direction::Outgoing)
+                .for_each(|e| match e.weight() {
+                    Edge::Instant { priority } => {
+                        println!("found instant edge");
+                        edges.push(EdgeTransitionInfo {
+                            priority: *priority,
+                            return_val: None,
+                            target_node: e.target(),
+                            consumed_input: false,
+                        })
                     }
-                }
-            })
-            .collect();
-        if edges.is_empty() {
-            return Err("test failed, no valid conditions for input".into());
-        };
-        edges.sort_by(|e, f| e.0.cmp(&f.0));
-        let edge = edges
-            .last()
-            .expect("we have already checked that edges is not empty");
-
-        let return_val_ptr = edge.1.as_ref().unwrap_or(
-            head.default_return_val
-                .as_ref()
-                .expect("no return value found"),
-        );
-        let return_closure = unsafe {
-            return_val_ptr
-                .into_fn::<ReturnVal>()
-                .expect("failed to turn return value ptr to ref")
-        };
-        let return_val = return_closure();
-
-        let new_node_index = edge.2;
-        let Some(new_node) = self.graph.node_weight(new_node_index) else {
-            return Err(format!("new node index {:?} is invalid", new_node_index).into());
-        };
-        if new_node.id != mock_id {
-            return Err(format!(
-                "new node with index {:?} expected mockid {:?}, but got {:?}",
-                new_node_index, mock_id, new_node.id
-            )
-            .into());
+                    Edge::Condition(conditional_edge) => {
+                        let condition = unsafe {
+                            conditional_edge
+                                .condition
+                                .into_fn::<Input>()
+                                .expect("failed to dereference function pointer")
+                        };
+                        let res = condition(input);
+                        match res {
+                            Ok(_) => edges.push(EdgeTransitionInfo {
+                                priority: conditional_edge.priority,
+                                return_val: conditional_edge.return_val.clone(),
+                                target_node: e.target(),
+                                consumed_input: true,
+                            }),
+                            Err(e) => {
+                                errs.push(e);
+                            }
+                        }
+                    }
+                });
+            //failed to find any valid conditions
+            if edges.is_empty() {
+                let joined = errs
+                    .into_iter()
+                    .map(|e| e.0)
+                    .collect::<Vec<_>>()
+                    .join(",\n");
+                return Err(format!(
+                    "No matching condition found for input tried the following:  {}",
+                    joined
+                )
+                .into());
+            };
+            //if valid conditions were found, pick the edge with the highest priority
+            edges.sort_by(|e, f| e.priority.cmp(&f.priority));
+            let edge = edges
+                .last()
+                .expect("we have already checked that edges is not empty");
+            if edge.consumed_input {
+                let return_val_ptr = edge.return_val.as_ref().unwrap_or(
+                    head.default_return_val
+                        .as_ref()
+                        .expect("no return value found"),
+                );
+                let return_closure = unsafe {
+                    return_val_ptr
+                        .into_fn::<ReturnVal>()
+                        .expect("failed to turn return value ptr to ref")
+                };
+                recieved_return = Some(return_closure());
+            }
+            let new_node_index = edge.target_node;
+            let Some(new_node) = self.graph.node_weight(new_node_index) else {
+                return Err(format!("new node index {:?} is invalid", new_node_index).into());
+            };
+            if new_node.id != mock_id {
+                return Err(format!(
+                    "new node with index {:?} expected mockid {:?}, but got {:?}",
+                    new_node_index, mock_id, new_node.id
+                )
+                .into());
+            }
+            head.state = MockState::Unlocked {
+                mock_head_index: new_node_index,
+            };
         }
-        head.state = MockState::Unlocked {
-            mock_head_index: new_node_index,
-        };
-        Ok(return_val)
+        Ok(recieved_return.expect("logic broken"))
     }
 }
 /*
@@ -298,6 +339,7 @@ impl ContextBuilder {
         });
         match modifier {
             TimeModifier::Once => {
+                println!("buidling once");
                 // add a single edge between nodes
                 //       condition
                 // (1) ---------------> (2)
@@ -313,7 +355,8 @@ impl ContextBuilder {
                 Ok(())
             }
             TimeModifier::AtMostOnce => {
-                //add two edges to new node, one with always ( lowest priority, one with condition)
+                println!("building at most once");
+                //add two edges to new node, one with always,  one with condition)
                 //      epsilon || condition
                 // (1) ----------------------> (2)
                 let main_weight = Edge::Condition(ConditionalEdge {
@@ -321,11 +364,7 @@ impl ContextBuilder {
                     condition: condition_as_ptr.clone(),
                     return_val: return_val_as_ptr.clone(),
                 });
-                let instant_weight = Edge::Condition(ConditionalEdge {
-                    priority: 0,
-                    condition: condition_as_ptr,
-                    return_val: return_val_as_ptr,
-                });
+                let instant_weight = Edge::Instant { priority: 0 };
                 //consume input edge
                 self.graph
                     .add_edge(builder.head, new_node_index, main_weight);
@@ -337,23 +376,20 @@ impl ContextBuilder {
             }
 
             TimeModifier::Any => {
+                println!("building any");
                 //add two edges, one from Node n to n and one instant edge to edge n+1
                 //
                 //    condition
-                //       /   \
+                //      /   \
                 //      |    |
-                //       \  /         epsilon
-                //        (1) ------------------> (2)
+                //      \   /         epsilon
+                //       (1) ------------------> (2)
                 let main_weight = Edge::Condition(ConditionalEdge {
                     priority: 1,
                     condition: condition_as_ptr.clone(),
                     return_val: return_val_as_ptr.clone(),
                 });
-                let instant_weight = Edge::Condition(ConditionalEdge {
-                    priority: 0,
-                    condition: condition_as_ptr,
-                    return_val: return_val_as_ptr,
-                });
+                let instant_weight = Edge::Instant { priority: 0 };
                 //consume input edge
                 self.graph.add_edge(builder.head, builder.head, main_weight);
                 //epsilon edge
@@ -363,6 +399,7 @@ impl ContextBuilder {
                 Ok(())
             }
             TimeModifier::AtLeastOnce => {
+                println!("building at least once");
                 //add two edges, one from Node n to n and one instant edge to edge n+1
                 //
                 //                 condition
@@ -382,11 +419,7 @@ impl ContextBuilder {
                     return_val: return_val_as_ptr.clone(),
                 });
 
-                let instant_weight = Edge::Condition(ConditionalEdge {
-                    priority: 0,
-                    condition: condition_as_ptr,
-                    return_val: return_val_as_ptr,
-                });
+                let instant_weight = Edge::Instant { priority: 0 };
                 //once
                 self.graph
                     .add_edge(builder.head, n_plus_one, main_weight.clone());
@@ -396,6 +429,7 @@ impl ContextBuilder {
                 //epsilon edge
                 self.graph
                     .add_edge(n_plus_one, new_node_index, instant_weight);
+                builder.head = new_node_index;
                 Ok(())
             }
             TimeModifier::Until(env_id) => todo!(),
@@ -431,7 +465,7 @@ impl quote::ToTokens for TimeModifier {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let append = match self {
             TimeModifier::Once => quote! { context::TimeModifier::Once },
-            TimeModifier::AtMostOnce => quote! { context::TimeModifier::AtLeastOnce },
+            TimeModifier::AtMostOnce => quote! { context::TimeModifier::AtMostOnce },
             TimeModifier::Any => quote! { context::TimeModifier::Any },
             TimeModifier::AtLeastOnce => quote! { context::TimeModifier::AtLeastOnce },
             TimeModifier::Until(env_id) => quote! { context::TimeModifier::Until },
@@ -676,7 +710,7 @@ fn context2() {
     let Ok(goodbye) =
         global_context.run_mock::<Bar, Bar>(mock_id_bar.clone(), &Bar("hello".into()))
     else {
-        panic!("failed third run ");
+        panic!("failed third run");
     };
 
     let Ok(result) = global_context.run_mock::<Bar, Bar>(mock_id_bar.clone(), &goodbye) else {

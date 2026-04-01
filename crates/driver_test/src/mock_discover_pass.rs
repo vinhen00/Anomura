@@ -66,6 +66,16 @@ pub const DISCOVER_BUILD_NORMALY: &[&str] = &[
     "equivalent",
     "rustc_version",
     "semver",
+    //dashmap
+    "cfg_if",
+    "crossbeam-utils",
+    "hashbrown",
+    "lock_api",
+    "scopeguard",
+    "once_cell",
+    "parking_lot_core",
+    "libc",
+    "smallvec",
 ];
 impl DiscoverPlugin {
     pub fn new() -> Self {
@@ -255,7 +265,6 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
     let mocks = parse_mocks.get_program();
 
     let inline_result = CallBackMessage::NewMocks(mocks, cratelist);
-
 
     let name_str = std::env::var(DISCOVER_TMP)
         .expect("there should be a discover tmp env var created in the main cargo command");
