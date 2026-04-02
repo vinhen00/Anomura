@@ -374,7 +374,8 @@ struct MockStruct {
 
 
 impl Parse for MockStruct {
-    fn parse(input: ParseStream) -> syn::Result<Self> {     
+    fn parse(input: ParseStream) -> syn::Result<Self> {    
+ 
         let path = input.parse::<Path>()?;
         input.parse::<Token![,]>()?;
 
@@ -403,15 +404,20 @@ impl Parse for MockStruct {
             syn::Fields::Unnamed(fields) => {todo!()}
             syn::Fields::Unit => {todo!()}
         }
+        input.parse::<Token![,]>()?;
+
 
         let constructor: MockMethod = input.parse()?;
-        
+        input.parse::<Token![,]>()?;
+
         let methods: Vec<MockMethod> = {
+            let content;
+            syn::bracketed!(content in input);
             let methods_terminated: Punctuated<MockMethod, Token![,]> =
-                input.parse_terminated(MockMethod::parse, syn::Token![,])?;
+                content.parse_terminated(MockMethod::parse, syn::Token![,])?;
             methods_terminated.into_iter().collect()
         };
-        
+
 
 
         Ok(MockStruct {

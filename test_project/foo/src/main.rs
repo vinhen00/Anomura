@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use mock_macro::{end_mock_setup, mock_fn, start_mock_setup, mock_method};
+use mock_macro::{end_mock_setup, mock_fn, start_mock_setup, mock_method, mock_struct};
 
 /*mock_fn!(
     name: random_bool,
@@ -15,28 +15,21 @@ use mock_macro::{end_mock_setup, mock_fn, start_mock_setup, mock_method};
 
 fn main() {
     start_mock_setup!();
-    mock_fn!(
-        rand,
-        fn random_bool(prob: f64) -> bool {
-            default_return({
-                std::println!("greetings from context: {}", context::CONTEXT_CONST);
-                context::context();
-                true
-            });
-        }
-    );
 
-    mock_method!(
+    mock_struct!(
+        bar,
+        struct Food {
+            inner: String,
+        },
         bar,
         Food,
         fn food_fun(&mut self, n: String) {
             default_return({
                 println!("Works");
             })
-        }
+        },
+        []
     );
-
-    
     end_mock_setup!();
 
     let fst: bool = rand::random_bool(0.0);

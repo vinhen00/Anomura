@@ -202,6 +202,11 @@ impl MutVisitor for SymbolFixer {
     }
 }
 
+
+pub enum MockObject {
+    Function(MockedFun),
+    Struct(MockedStruct),
+}
 // MockedFun is a struct representing a single mocked function and all the information needed to transfer it
 // Symbols is a list of all symbols encountered in order, Idents is a list of all identifiers
 //
@@ -216,6 +221,16 @@ pub struct MockedFun {
     symbols: Vec<String>,
     idents: Vec<String>,
 }
+
+struct MockedStruct {
+    name: String,
+    path: String,
+    fields: rustc_ast::VariantData,
+    implementation: Option<rustc_ast::Impl>,
+    symbols: Vec<String>,
+    idents: Vec<String>,
+}
+
 
 //encodes using pretty printing, this kinda sucks but it might work out idfk
 impl MockedFun {
@@ -272,7 +287,6 @@ impl MockedFun {
     // This fn creates a visitor that visits the mocked function and resolves all the symbols and identifiers
     // It is meant to be called when in the second compilation context
 
-    //???? how does this work? you don't
     pub fn resolve_names(&mut self) {
         let mut visitor = SymbolFixer {
             symbols: self.symbols.clone(),
@@ -283,5 +297,75 @@ impl MockedFun {
         visitor.visit_block(&mut self.body);
     }
 
+
+}
+
+impl MockedStruct {
+        pub fn new(strukt: rustc_ast::ItemKind, path: String) -> MockedStruct {
+        //println!("{:#?}", fun);
+        if let rustc_ast::ItemKind::Struct(name,_,fields) = strukt {
+            MockedStruct { 
+                name: name.as_str().to_string(), 
+                path, 
+                fields, 
+                implementation: None,
+                symbols: Vec::new(),
+                idents: Vec::new(),
+            }
+        }
+        else {panic!("MockedStruct constructor should always get a struct ast as input")}
+
+    }
+
+    pub fn set_name(&mut self, new_name: String) {
+        self.name = new_name;
+    }
+
+    pub fn get_path(&self) -> String {
+        self.path.clone()
+    }
+
+    pub fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn get_fields(&self) -> rustc_ast::VariantData {
+        self.fields.clone()
+    }
+
+    pub fn set_implementation(&mut self, imp: rustc_ast::Impl) {
+        self.implementation = Some(imp);
+    }
+
+    pub fn get_implementation(&self) -> Option<rustc_ast::Impl> {
+        self.implementation.clone()
+    }
+
+    // This fn creates a visitor that visits the mock function and collects all symbols and identifiers
+    pub fn collect_names(&mut self) {
+        let mut visitor = SymbolFinder {
+            symbols: Vec::new(),
+            idents: Vec::new(),
+        };
+        visitor.visit_variant_data(&mut self.fields);
+        if let Some(imp) = self.implementation {
+            todo!("visit the items or something");
+        }
+        self.symbols = visitor.symbols;
+        self.idents = visitor.idents;
+    }
+
+    // This fn creates a visitor that visits the mocked function and resolves all the symbols and identifiers
+    // It is meant to be called when in the second compilation context
+
+    pub fn resolve_names(&mut self) {
+        let mut visitor = SymbolFixer {
+            symbols: self.symbols.clone(),
+            idents: self.idents.clone(),
+            dict: HashMap::new(),
+        };
+        visitor.visit_fn_decl(&mut self.sig.decl);
+        visitor.visit_block(&mut self.body);
+    }
 
 }
