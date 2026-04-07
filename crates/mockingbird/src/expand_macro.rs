@@ -183,15 +183,16 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     };
 
     let name = mock.name;
+    let original_name = format_ident!("{name}_original");
     let path = mock.path;
     let name_str = quote! {#name}.to_string();
     let ret_type = mock.ret_type;
-    let ret_val = mock.ret_val;
     let mock_id = combine_path_and_ident(&path, &name);
     let mock_id_ident = format_ident!("{}_mock_id", mock_id);
     let input_types = mock.input_types;
     let input_idents = mock.input_ident;
     let input_ident_tuple = quote! { (#(#input_idents),*) };
+    let input_idents_no_tuple = quote! { #(#input_idents),* };
     let input_type_tuple = quote! { (#(#input_types),*) };
 
     let params = input_idents
@@ -206,20 +207,29 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
 
             std::println!("Mocked version of function {} was used", #name_str);
             let #mock_id_ident = context::MockId::new(stringify!(#mock_id));
-            let ctx = context::GLOBAL_CONTEXT
+            let Some(ctx) = context::GLOBAL_CONTEXT
                 .get()
-                .expect(" couldn't fetch context");
+                else {
+                    println!("ctx not initialized");
+                    return #original_name(#input_idents_no_tuple);
+                };
             let mut guard = ctx.lock().expect("failed to fetch guard");
 
             match guard.run_mock::<#input_type_tuple, #ret_type>(#mock_id_ident, &#input_ident_tuple) {
                 Ok(res) => res,
-                Err(e) => panic!("{:?}",e)
+                Err(e) => match e {
+                    context::MockError::Other(e) => panic!("unexpected Error: {:?}",e),
+                    context::MockError::PredicateError(e) => panic!("{:?}", e.0),
+                    context::MockError::NoMatchingId => {
+                        println!("failed to find mock id");
+                        return #original_name(#input_idents_no_tuple);
+                    }
+                }
             }
 
             //#ret_val
         }
     };
-
     expanded
 }
 

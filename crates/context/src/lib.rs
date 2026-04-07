@@ -16,9 +16,6 @@ use quote::quote;
 
 pub static GLOBAL_CONTEXT: OnceLock<Mutex<GlobalContext>> = OnceLock::new();
 
-pub fn context() {
-    println!("context says hello");
-}
 pub enum SequenceState {
     Inactive,
     Active,
@@ -45,14 +42,6 @@ impl MockId {
         Self(id.into())
     }
 }
-
-pub trait MaybeDisplay {
-    fn maybe_display(&self) -> String {
-        "".to_string()
-    }
-}
-
-impl<A> MaybeDisplay for A {}
 
 pub struct GlobalContext {
     sequence_heads: Vec<SequenceHead>,
@@ -101,7 +90,7 @@ impl GlobalContext {
                 .into());
             };
             let mut edges: Vec<_> = vec![];
-            let mut errs: Vec<MockError> = vec![];
+            let mut errs: Vec<PredicateError> = vec![];
             self.graph
                 .edges_directed(index, petgraph::Direction::Outgoing)
                 .for_each(|e| match e.weight() {
@@ -115,12 +104,7 @@ impl GlobalContext {
                         })
                     }
                     Edge::Condition(conditional_edge) => {
-                        let condition = unsafe {
-                            conditional_edge
-                                .condition
-                                .into_fn::<Input>()
-                                .expect("failed to dereference function pointer")
-                        };
+                        let condition = unsafe { conditional_edge.condition.into_fn::<Input>() };
                         let res = condition(input);
                         match res {
                             Ok(_) => edges.push(EdgeTransitionInfo {
@@ -159,11 +143,7 @@ impl GlobalContext {
                         .as_ref()
                         .expect("no return value found"),
                 );
-                let return_closure = unsafe {
-                    return_val_ptr
-                        .into_fn::<ReturnVal>()
-                        .expect("failed to turn return value ptr to ref")
-                };
+                let return_closure = unsafe { return_val_ptr.into_fn::<ReturnVal>() };
                 recieved_return = Some(return_closure());
             }
             let new_node_index = edge.target_node;
@@ -218,15 +198,12 @@ impl ReturnValDoublePointer {
         Self { thin_ptr }
     }
     /// Casts the a raw double pointer created with from_fn into a closure ` Result<&dyn Fn() -> ReturnVal>`
-    ///
-    ///
     /// # Safety
     /// You must guarantee that `ReturnVal` is the exact same Type as was used when you used `from_fn` to create the value.
-    /// .
-    pub unsafe fn into_fn<ReturnVal>(&self) -> Result<&dyn Fn() -> ReturnVal> {
+    pub unsafe fn into_fn<ReturnVal>(&self) -> &dyn Fn() -> ReturnVal {
         let wraref: *mut &mut dyn Fn() -> ReturnVal = self.thin_ptr as _;
         let cloref: &mut dyn Fn() -> ReturnVal = unsafe { *wraref };
-        Ok(cloref)
+        cloref
     }
 }
 
@@ -235,7 +212,7 @@ pub struct ConditionDoublePointer {
     thin_ptr: *const (),
 }
 impl ConditionDoublePointer {
-    pub fn from_fn<Input>(closure: Box<dyn Fn(&Input) -> Result<()> + 'static>) -> Self {
+    pub fn from_fn<Input>(closure: Box<dyn Fn(&Input) -> PredicateResult<()> + 'static>) -> Self {
         let cloref = Box::leak(closure);
         let wrapped = Box::new(cloref);
         let wraref = Box::into_raw(wrapped);
@@ -243,15 +220,12 @@ impl ConditionDoublePointer {
         Self { thin_ptr }
     }
     /// Casts the a raw double pointer created with from_fn into a closure with type `Fn(&Input) -> Result<()>`
-    ///
-    ///
     /// # Safety
     /// You must guarantee that `Input` is the exact same Type as was used when you used `from_fn` to create the value.
-    /// .
-    pub unsafe fn into_fn<Input>(&self) -> Result<&dyn Fn(&Input) -> Result<()>> {
-        let wraref: *mut &mut dyn Fn(&Input) -> Result<()> = self.thin_ptr as _;
-        let cloref: &mut dyn Fn(&Input) -> Result<()> = unsafe { *wraref };
-        Ok(cloref)
+    pub unsafe fn into_fn<Input>(&self) -> &dyn Fn(&Input) -> PredicateResult<()> {
+        let wraref: *mut &mut dyn Fn(&Input) -> PredicateResult<()> = self.thin_ptr as _;
+        let cloref: &mut dyn Fn(&Input) -> PredicateResult<()> = unsafe { *wraref };
+        cloref
     }
 }
 //Our DoublePointers will live through the remainder of the program, and they will not be modified in any way.
@@ -321,7 +295,7 @@ impl ContextBuilder {
     pub fn add_expectation<Input, ReturnVal>(
         &mut self,
         mock_id: &MockId,
-        condition: Box<dyn Fn(&Input) -> Result<()> + 'static>,
+        condition: Box<dyn Fn(&Input) -> PredicateResult<()> + 'static>,
         return_val_closure: Option<Box<dyn Fn() -> ReturnVal>>,
         modifier: TimeModifier,
         exit: bool,
@@ -496,36 +470,48 @@ pub struct MockNode {
     exit: bool,
     id: MockId,
 }
+#[derive(Clone, Debug, Display)]
+pub struct PredicateError(pub String);
+impl From<&str> for PredicateError {
+    fn from(value: &str) -> Self {
+        Self(value.into())
+    }
+}
+impl From<String> for PredicateError {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+pub type PredicateResult<T> = result::Result<T, PredicateError>;
 
 pub type Result<T> = result::Result<T, MockError>;
-
-#[derive(Debug, Clone, Display, FromStr)]
-pub struct MockError(String);
+#[derive(Debug, Clone, Display)]
+pub enum MockError {
+    NoMatchingId,
+    PredicateError(PredicateError),
+    Other(String),
+}
 
 impl From<String> for MockError {
     fn from(value: String) -> Self {
-        MockError(value)
+        MockError::Other(value)
     }
 }
 impl From<&str> for MockError {
     fn from(value: &str) -> Self {
-        Self(value.to_string())
+        MockError::Other(value.into())
     }
 }
 
 //
 #[test]
 fn pointers1() {
-    let a: Box<dyn Fn(&u32) -> Result<()> + 'static> =
+    let a: Box<dyn Fn(&u32) -> PredicateResult<()> + 'static> =
         Box::new(|a| if *a > 2 { Ok(()) } else { Err("error".into()) });
     let double_ptr = ConditionDoublePointer::from_fn(a);
-    match unsafe { double_ptr.into_fn::<u32>() } {
-        Ok(casted) => {
-            assert!(casted(&3).is_ok());
-            assert!(casted(&2).is_err());
-        }
-        Err(e) => panic!("failed to cast pointer with error : {:?}", e),
-    }
+    let casted = unsafe { double_ptr.into_fn::<u32>() };
+    assert!(casted(&3).is_ok());
+    assert!(casted(&2).is_err());
 }
 
 #[test]
@@ -541,13 +527,9 @@ fn pointers2() {
         }
     });
     let double_ptr = ReturnValDoublePointer::from_fn(a);
-    match unsafe { double_ptr.into_fn::<TestStruct>() } {
-        Ok(casted) => {
-            assert_eq!(casted().string, "hello pointers2");
-            assert_ne!(casted().string, "goodbye pointer2");
-        }
-        Err(e) => panic!("failed to cast pointer with error : {:?}", e),
-    }
+    let casted = unsafe { double_ptr.into_fn::<TestStruct>() };
+    assert_eq!(casted().string, "hello pointers2");
+    assert_ne!(casted().string, "goodbye pointer2");
 }
 
 #[test]
@@ -563,9 +545,9 @@ fn context1() {
             .add_mock(mock_id_foo.clone(), Some(Box::new(|| Foo(42))))
             .is_ok()
     );
-    let expectation1: Box<dyn Fn(&u32) -> Result<()> + 'static> =
+    let expectation1: Box<dyn Fn(&u32) -> PredicateResult<()> + 'static> =
         Box::new(|a| if *a == 7 { Ok(()) } else { Err("not 7".into()) });
-    let expectation2 = |a: &u32| -> Result<()> {
+    let expectation2 = |a: &u32| -> PredicateResult<()> {
         if *a == 42 {
             Ok(())
         } else {
@@ -625,23 +607,23 @@ fn context2() {
             .is_ok()
     );
 
-    let expectation1: Box<dyn Fn(&u32) -> Result<()> + 'static> =
+    let expectation1: Box<dyn Fn(&u32) -> PredicateResult<()> + 'static> =
         Box::new(|a| if *a == 7 { Ok(()) } else { Err("not 7".into()) });
-    let expectation2 = |a: &u32| -> Result<()> {
+    let expectation2 = |a: &u32| -> PredicateResult<()> {
         if *a == 42 {
             Ok(())
         } else {
             Err("not 42".into())
         }
     };
-    let bar_expectation1: Box<dyn Fn(&Bar) -> Result<()> + 'static> = Box::new(|a| {
+    let bar_expectation1: Box<dyn Fn(&Bar) -> PredicateResult<()> + 'static> = Box::new(|a| {
         if a.0 == "hello" {
             Ok(())
         } else {
             Err("not hello".into())
         }
     });
-    let bar_expectation2 = |a: &Bar| -> Result<()> {
+    let bar_expectation2 = |a: &Bar| -> PredicateResult<()> {
         if a.0 == "goodbye" {
             Ok(())
         } else {
