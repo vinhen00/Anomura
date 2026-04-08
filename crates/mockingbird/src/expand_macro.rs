@@ -233,7 +233,6 @@ impl Parse for MockMethod {
         input.parse::<Token![,]>()?;
 
         let fn_body: syn::ItemFn = input.parse()?;
-        println!("Fello");
 
         let Some(default_return_val) = fn_body.block.stmts.iter().find_map(|d| {
             let syn::Stmt::Expr(expr, _) = d else {
@@ -461,7 +460,8 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
         .zip(mock.field_types.iter())
         .map(|(ident, ty)| quote! { #ident: #ty });
 
-    let expanded = quote! {        
+    let expanded = quote! { 
+        #[mocked( #path )]       
         struct #name { #(#fields),* }
         impl #name {
             #constructor
@@ -494,6 +494,7 @@ fn quote_method(mock: MockMethod) -> TokenStream {
         .map(|(ident, ty)| quote! { #ident: #ty });
 
     let expanded = quote! {
+        #[mocked( #path )]
         fn #name(#receiver #(#params),*) -> #ret_type {
             println!("Mocked version of method {} was used", #name_str);
             #ret_val

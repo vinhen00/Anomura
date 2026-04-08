@@ -5,6 +5,7 @@ pub fn foo(a: u32) -> u32 {
 pub struct Food {
     pub inner: String,
 }
+
 impl Food {
     pub fn new(n: String) -> Self {
         Food{ inner: n }

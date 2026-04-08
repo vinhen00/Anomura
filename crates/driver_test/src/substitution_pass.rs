@@ -45,7 +45,6 @@ pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockObject>
 
     let mut crate_mock_map: HashMap<String, Vec<MockObject>> = HashMap::new();
     for mock in &callbacks.get_mocks() {
-        println!("Mock path: {}", mock.get_path());
         crate_mock_map
             .entry(mock.get_path())
             .and_modify(|v| v.push(mock.clone()))
