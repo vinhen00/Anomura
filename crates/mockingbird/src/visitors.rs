@@ -202,10 +202,25 @@ impl MutVisitor for SymbolFixer {
     }
 }
 
+#[derive(Debug, Clone)]
 
 pub enum MockObject {
     Function(MockedFun),
     Struct(MockedStruct),
+}
+
+impl MockObject {
+    pub fn get_path(&self) -> String {
+        println!("In get path");
+        match self {
+            MockObject::Function(fun) => {             
+                println!("In self for fun");
+                fun.get_path() }
+            MockObject::Struct(stro) => { 
+                println!("In self for struct");
+                stro.get_path() }
+        }
+    }
 }
 // MockedFun is a struct representing a single mocked function and all the information needed to transfer it
 // Symbols is a list of all symbols encountered in order, Idents is a list of all identifiers
@@ -222,14 +237,7 @@ pub struct MockedFun {
     idents: Vec<String>,
 }
 
-struct MockedStruct {
-    name: String,
-    path: String,
-    fields: rustc_ast::VariantData,
-    implementation: Option<rustc_ast::Impl>,
-    symbols: Vec<String>,
-    idents: Vec<String>,
-}
+
 
 
 //encodes using pretty printing, this kinda sucks but it might work out idfk
@@ -300,20 +308,25 @@ impl MockedFun {
 
 }
 
+#[derive(Clone, Debug)]
+pub struct MockedStruct {
+    name: String,
+    path: String,
+    fields: rustc_ast::VariantData,
+    symbols: Vec<String>,
+    idents: Vec<String>,
+}
+
 impl MockedStruct {
-        pub fn new(strukt: rustc_ast::ItemKind, path: String) -> MockedStruct {
+        pub fn new(name: String, fields: rustc_ast::VariantData, path: String) -> MockedStruct {
         //println!("{:#?}", fun);
-        if let rustc_ast::ItemKind::Struct(name,_,fields) = strukt {
-            MockedStruct { 
-                name: name.as_str().to_string(), 
-                path, 
-                fields, 
-                implementation: None,
-                symbols: Vec::new(),
-                idents: Vec::new(),
-            }
+        MockedStruct { 
+            name, 
+            path, 
+            fields, 
+            symbols: Vec::new(),
+            idents: Vec::new(),
         }
-        else {panic!("MockedStruct constructor should always get a struct ast as input")}
 
     }
 
@@ -333,13 +346,6 @@ impl MockedStruct {
         self.fields.clone()
     }
 
-    pub fn set_implementation(&mut self, imp: rustc_ast::Impl) {
-        self.implementation = Some(imp);
-    }
-
-    pub fn get_implementation(&self) -> Option<rustc_ast::Impl> {
-        self.implementation.clone()
-    }
 
     // This fn creates a visitor that visits the mock function and collects all symbols and identifiers
     pub fn collect_names(&mut self) {
@@ -348,9 +354,7 @@ impl MockedStruct {
             idents: Vec::new(),
         };
         visitor.visit_variant_data(&mut self.fields);
-        if let Some(imp) = self.implementation {
-            todo!("visit the items or something");
-        }
+
         self.symbols = visitor.symbols;
         self.idents = visitor.idents;
     }
@@ -364,8 +368,7 @@ impl MockedStruct {
             idents: self.idents.clone(),
             dict: HashMap::new(),
         };
-        visitor.visit_fn_decl(&mut self.sig.decl);
-        visitor.visit_block(&mut self.body);
+        visitor.visit_variant_data(&mut self.fields);
     }
 
 }

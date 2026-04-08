@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    Expr, Fields, FnArg, Ident, Path, Receiver, Token, Type, bracketed, parse::{Parse, ParseStream}, parse_quote, parse2, punctuated::Punctuated, spanned::Spanned, token::Token
+    Expr, Fields, FnArg, Ident, Path, QSelf, Receiver, Token, Type, bracketed, parse::{Parse, ParseStream}, parse_quote, parse2, punctuated::Punctuated, spanned::Spanned, token::Token
 };
 
 struct MockFun {
@@ -163,7 +163,7 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     //println!("Inside syn {}", input);
     let mock = match parse2::<MockFun>(input.clone()) {
         Ok(m) => m,
-        Err(e) => panic!("invalid mock_def! input: {} with error:  {e} ", &input),
+        Err(e) => panic!("invalid mock_def! input for function: {} with error:  {e} ", &input),
     };
 
     let name = mock.name;
@@ -228,9 +228,13 @@ impl Parse for MockMethod {
         
         let path = input.parse::<Path>()?;
         input.parse::<Token![,]>()?;
+
         let struct_name = input.parse::<Path>()?;
         input.parse::<Token![,]>()?;
+
         let fn_body: syn::ItemFn = input.parse()?;
+        println!("Fello");
+
         let Some(default_return_val) = fn_body.block.stmts.iter().find_map(|d| {
             let syn::Stmt::Expr(expr, _) = d else {
                 log::debug!("expected stmtexpr found {:?}", quote! {d});
@@ -241,11 +245,13 @@ impl Parse for MockMethod {
                 log::debug!("expect expr call found {:?}", quote! {expr});
                 return None;
             };
+
             let maybe_expr_lit = *expr_call.func.clone();
             let Expr::Path(expr_path) = maybe_expr_lit else {
                 log::debug!("expected expr_path found {:?}", quote! {maybe_expr_lit});
                 return None;
             };
+
             let Some(ident) = expr_path.path.get_ident() else {
                 log::debug!("could not get ident from path");
                 return None;
@@ -293,6 +299,7 @@ impl Parse for MockMethod {
 
         }
 
+
         Ok(MockMethod {
             struct_name,
             name: fn_body.sig.ident,
@@ -325,7 +332,7 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     //println!("Inside syn {}", input);
     let mock = match parse2::<MockMethod>(input) {
         Ok(m) => m,
-        Err(e) => panic!("invalid mock_def! input: {}", e),
+        Err(e) => panic!("invalid mock_def! input for method: {}", e),
     };
 
     let struct_name = mock.struct_name.segments.last();
@@ -408,8 +415,8 @@ impl Parse for MockStruct {
 
 
         let constructor: MockMethod = input.parse()?;
-        input.parse::<Token![,]>()?;
 
+        input.parse::<Token![,]>()?;
         let methods: Vec<MockMethod> = {
             let content;
             syn::bracketed!(content in input);
@@ -436,7 +443,7 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
     //println!("Inside syn {}", input);
     let mock = match parse2::<MockStruct>(input) {
         Ok(m) => m,
-        Err(e) => panic!("invalid mock_def! input: {}", e),
+        Err(e) => panic!("invalid mock_def! input for struct: {}", e),
     };
 
     let name = mock.name;
@@ -457,8 +464,8 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
     let expanded = quote! {        
         struct #name { #(#fields),* }
         impl #name {
-            #constructor,
-            #(#methods),*
+            #constructor
+            #(#methods)*
         }
     };
 
@@ -487,7 +494,6 @@ fn quote_method(mock: MockMethod) -> TokenStream {
         .map(|(ident, ty)| quote! { #ident: #ty });
 
     let expanded = quote! {
-        #[mocked( #path )]
         fn #name(#receiver #(#params),*) -> #ret_type {
             println!("Mocked version of method {} was used", #name_str);
             #ret_val

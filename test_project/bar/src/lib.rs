@@ -6,6 +6,9 @@ pub struct Food {
     pub inner: String,
 }
 impl Food {
+    pub fn new(n: String) -> Self {
+        Food{ inner: n }
+    }
     pub fn food_fun(&mut self, n: String) {
         self.inner = n;
     }

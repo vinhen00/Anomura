@@ -151,7 +151,7 @@ impl rustc_driver::Callbacks for ParseMocks {
                 _ => {}
             }
         }
-
+        println!("{}", self.program);
         Compilation::Stop
     }
 }
