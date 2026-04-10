@@ -1,12 +1,18 @@
 use bar::{TestStruct1, TestStruct2, handler1, handler2};
 use mock_macro::{end_mock_setup, mock_fn, start_mock_setup};
 use std::sync::Mutex;
+
+fn gab() -> TestStruct2 {
+    println!("hello gab");
+    TestStruct2 { n: 4, m: 5 }
+}
+
 fn main() {
     start_mock_setup!();
     mock_fn!(
         bar,
         fn handler1(input: TestStruct1) -> TestStruct2 {
-            default_return({ TestStruct2 { n: 42, m: 7 } });
+            default_return(gab());
             expect(
                 input.text.starts_with("hello"),
                 Once,

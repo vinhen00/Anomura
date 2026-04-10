@@ -24,7 +24,6 @@ fn main() {
         fn random_bool(prob: f64) -> bool {
             default_return({
                 std::println!("greetings from context: {}", context::CONTEXT_CONST);
-                context::context();
                 true
             });
             expect(
