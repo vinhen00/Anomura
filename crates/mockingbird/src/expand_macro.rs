@@ -1,7 +1,13 @@
+use core::panic;
+
 use proc_macro2::TokenStream;
 use quote::quote;
+
 use syn::{
-    Expr, Fields, FnArg, Ident, Path, QSelf, Receiver, Token, Type, bracketed, parse::{Parse, ParseStream}, parse_quote, parse2, punctuated::Punctuated, spanned::Spanned, token::Token
+    Expr, Fields, FnArg, Ident, Path, QSelf, Receiver, Token, 
+    Type, bracketed, parse::{Parse, ParseStream}, parse_quote, 
+    parse2, punctuated::Punctuated, spanned::Spanned, token::Token,
+    visit_mut::{VisitMut, visit_expr_mut},
 };
 
 struct MockFun {
@@ -449,9 +455,9 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
     let name_str = quote! {#name}.to_string();
     let path = mock.path;
 
-    let constructor = quote_method(mock.constructor);
+    let constructor = quote_method(mock.constructor, true);
 
-    let methods: Vec<TokenStream> = mock.methods.into_iter().map(quote_method).collect();
+    let methods: Vec<TokenStream> = mock.methods.into_iter().map(|m| quote_method(m, false)).collect();
 
 
     let fields = mock
@@ -462,7 +468,7 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
 
     let expanded = quote! { 
         #[mocked( #path )]       
-        struct #name { #(#fields),* }
+        struct #name { #(#fields),* , mock_hash: String }
         impl #name {
             #constructor
             #(#methods)*
@@ -473,13 +479,21 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
 }
 
 
-fn quote_method(mock: MockMethod) -> TokenStream {
+fn quote_method(mock: MockMethod, is_constructor: bool) -> TokenStream {
     let struct_name = mock.struct_name.segments.last();
     let name = mock.name;
     let name_str = quote! {#name}.to_string();
     let path = mock.path;
     let ret_type = mock.ret_type;
-    let ret_val = mock.ret_val;
+    let mut ret_val;
+    if (is_constructor) {
+        let mut visitor = RetvalFinder {name: "test".into()};
+        ret_val = mock.ret_val.clone();
+        visitor.visit_expr_mut(&mut ret_val);
+    }
+    else {
+        ret_val = mock.ret_val;
+    }
 
     let receiver = match mock.self_receiver {
         SelfReceiver::Ref    => quote! { &self, },
@@ -502,4 +516,18 @@ fn quote_method(mock: MockMethod) -> TokenStream {
     };
 
     expanded
+}
+
+struct RetvalFinder {
+    name: String
+}
+
+impl VisitMut for RetvalFinder {
+    fn visit_expr_mut(&mut self, node: &mut Expr) {
+        if let Expr::Struct(inner) = node {
+            let hashval = syn::parse_str(format!("mock_hash: {}", self.name).as_str()).unwrap();
+            inner.fields.push(hashval)
+        }
+        visit_expr_mut(self, node)
+    }
 }

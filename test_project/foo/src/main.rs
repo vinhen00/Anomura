@@ -22,9 +22,21 @@ fn main() {
         },
         []
     );
+
+    mock_method!(
+        bar,
+        Food,
+        fn food_fn (&mut self, n: string) {
+            default_return({
+                //let hash = self.mockhash;
+                println!("hello");
+            })
+        }
+    );
     end_mock_setup!();
 
     let mut food = bar::Food::new("hello".into());
+
 
 }
 
