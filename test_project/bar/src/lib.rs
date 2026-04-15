@@ -15,7 +15,7 @@ impl Food {
     }
 
     fn drink(&self) {
-        
+        println!{"Drinkning glug glug glug"};
     }
 }
 

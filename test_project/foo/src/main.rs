@@ -21,9 +21,14 @@ fn main() {
         [
             fn food_fun (&mut self, n: String) {
                 default_return({
-                    let hash = self.mock_hash.clone();
-                    println!("Object with id {} called function food_fun", hash);
+                    println!("Changing inner from {} to {}", self.inner, n);
+                    self.drink();
+                    self.inner = n;
+
                 })
+            },
+            fn drink (&self) {
+                default_return(());
             }
         ]
     );

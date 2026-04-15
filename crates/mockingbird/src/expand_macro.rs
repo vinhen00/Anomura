@@ -573,7 +573,7 @@ fn quote_method(mock: MockMethod2, struct_string: String, path: Path, is_constru
     }
     else {
         ret_val = mock.ret_val;
-        hash_id_getter = quote! {};
+        hash_id_getter = quote! { println!{"{} object with id {} called function {}", #struct_string, self.mock_hash, #name_str } };
     }
 
     let receiver = match mock.self_receiver {
