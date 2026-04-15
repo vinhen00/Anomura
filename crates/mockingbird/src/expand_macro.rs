@@ -4,9 +4,9 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 use syn::{
-    Expr, Fields, FnArg, Ident, Path, QSelf, Receiver, Token, 
+    Expr, Ident, Path, Token, 
     Type, bracketed, parse::{Parse, ParseStream}, parse_quote, 
-    parse2, punctuated::Punctuated, spanned::Spanned, token::Token,
+    parse2, punctuated::Punctuated, spanned::Spanned,
     visit_mut::{VisitMut, visit_expr_mut},
 };
 
@@ -19,7 +19,7 @@ struct MockFun {
     ret_val: Expr,
 }
 
-pub fn parse_struct_field_value<P: Parse>(
+pub fn _parse_struct_field_value<P: Parse>(
     field_name: &str,
     input: &ParseStream,
     postfix_comma: bool,
@@ -45,7 +45,7 @@ pub fn parse_struct_field_value<P: Parse>(
     }
     Ok(res)
 }
-pub fn parse_struct_field_value_array<P: Parse>(
+pub fn _parse_struct_field_value_array<P: Parse>(
     field_name: &str,
     input: &ParseStream,
     postfix_comma: bool,
@@ -139,7 +139,7 @@ impl Parse for MockFun {
                 .inputs
                 .iter()
                 .map(|a| match a {
-                    syn::FnArg::Receiver(receiver) => todo!(),
+                    syn::FnArg::Receiver(_receiver) => todo!(),
                     syn::FnArg::Typed(pat_type) => *pat_type.ty.clone(),
                 })
                 .collect(),
@@ -149,7 +149,7 @@ impl Parse for MockFun {
                 .inputs
                 .iter()
                 .map(|a| match a {
-                    syn::FnArg::Receiver(receiver) => todo!(),
+                    syn::FnArg::Receiver(_receiver) => todo!(),
                     syn::FnArg::Typed(pat_type) => match *pat_type.pat.clone() {
                         syn::Pat::Ident(pat_ident) => pat_ident.ident,
                         _ => todo!(),
@@ -471,7 +471,7 @@ impl Parse for MockStruct {
         let mut field_ident = Vec::new();
         let mut field_types = Vec::new();
 
-        match(data.fields) {
+        match data.fields {
             syn::Fields::Named(fields) => {
                 for field in fields.named.iter() {
                     if let Some(ident) = &field.ident {
@@ -481,7 +481,7 @@ impl Parse for MockStruct {
                     
                 }
             }
-            syn::Fields::Unnamed(fields) => {todo!()}
+            syn::Fields::Unnamed(_fields) => {todo!()}
             syn::Fields::Unit => {todo!()}
         }
         input.parse::<Token![,]>()?;
@@ -553,9 +553,9 @@ fn quote_method(mock: MockMethod2, struct_string: String, path: Path, is_constru
     let name_str = quote! {#name}.to_string();
     let ret_type = mock.ret_type;
     let mut ret_val;
-    let mut hash_id_getter;
-    if (is_constructor) {
-        let mut visitor = RetvalFinder {name: "test".into()};
+    let hash_id_getter;
+    if is_constructor {
+        let mut visitor = RetvalFinder;
         ret_val = mock.ret_val.clone();
         visitor.visit_expr_mut(&mut ret_val);
 
@@ -599,9 +599,7 @@ fn quote_method(mock: MockMethod2, struct_string: String, path: Path, is_constru
     expanded
 }
 
-struct RetvalFinder {
-    name: String
-}
+struct RetvalFinder;
 
 impl VisitMut for RetvalFinder {
     fn visit_expr_mut(&mut self, node: &mut Expr) {

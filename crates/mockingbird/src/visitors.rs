@@ -31,7 +31,6 @@ impl SymbolFinder {
                 rustc_ast::tokenstream::TokenTree::Delimited(_,_,_, inner_tokenstream) => {
                     self.visit_token_stream(inner_tokenstream);
                 }
-                _ => {}
             }
         }
     }
@@ -135,7 +134,6 @@ impl SymbolFixer {
                     *inner_tokenstream = rustc_ast::tokenstream::TokenStream::new(inner_trees);
 
                 }
-                _ => {}
             }
         }
     }

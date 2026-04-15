@@ -1,5 +1,3 @@
-use core::panic;
-
 use rustc_driver::Compilation;
 use rustc_interface::interface::{Compiler};
 
@@ -116,7 +114,6 @@ impl FunctionIntercept {
         for mock in &mut self.mockfun {
             let method_name =
                 format!("{}.{}", imp_name, meth.ident.name.as_str());
-            println!("Replacing method {} compared to {}", method_name, mock.get_name());
 
             if method_name == mock.get_name().as_str() {
                 // println!("Mocking method {}", mock.get_name());
@@ -178,7 +175,7 @@ impl FunctionIntercept {
                     rustc_ast::ItemKind::Fn(fn_data) => {
                         self.replace_fun(fn_data);
                     }
-                    rustc_ast::ItemKind::Impl(a) => {
+                    rustc_ast::ItemKind::Impl(_) => {
                         self.handle_impl(item);
                     }
                     rustc_ast::ItemKind::Mod(_, _, module) => {
@@ -194,8 +191,8 @@ impl FunctionIntercept {
     }
 
     fn handle_struct(&mut self, item: &mut rustc_ast::Item) {
-        if let rustc_ast::ItemKind::Struct(name, gens, fields) = item.clone().kind {
-            for mut mock in &mut self.mockobj {
+        if let rustc_ast::ItemKind::Struct(name, gens, _) = item.clone().kind {
+            for mock in &mut self.mockobj {
                 if mock.get_name() == name.as_str().to_string() {
                     mock.resolve_names();
                     // println!("{:#?}", mock.get_fields());
@@ -255,7 +252,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                 rustc_ast::ItemKind::Fn(fn_data) => {
                     self.replace_fun(fn_data);
                 }
-                rustc_ast::ItemKind::Impl(imp) => {
+                rustc_ast::ItemKind::Impl(_) => {
                     self.handle_impl(item);
                 }
                 rustc_ast::ItemKind::Mod(_,_,module) => {
