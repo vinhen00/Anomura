@@ -15,6 +15,24 @@ impl Food {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TestStruct1 {
+    pub text: String,
+}
+impl std::fmt::Display for TestStruct1 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.text)
+    }
+}
+pub struct TestStruct2 {
+    pub n: u32,
+    pub m: u32,
+}
+impl std::fmt::Display for TestStruct2 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.n, self.m)
+    }
+}
 
 // pub fn mut_string(str: &mut String) {
 
