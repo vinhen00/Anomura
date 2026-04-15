@@ -13,6 +13,10 @@ impl Food {
     pub fn food_fun(&mut self, n: String) {
         self.inner = n;
     }
+
+    fn drink(&self) {
+        
+    }
 }
 
 

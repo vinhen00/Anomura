@@ -11,8 +11,6 @@ fn main() {
             inner: String,
             outer: String,
         },
-        bar,
-        Food,
         fn new(n: String) -> Food {
             default_return( { 
                 Food{ 
@@ -20,23 +18,21 @@ fn main() {
                     outer: "YOOOOOOO".into() } 
             } )
         },
-        []
-    );
-
-    mock_method!(
-        bar,
-        Food,
-        fn food_fun (&mut self, n: String) {
-            default_return({
-                let hash = self.mock_hash.clone();
-                println!("{}", hash);
-            })
-        }
+        [
+            fn food_fun (&mut self, n: String) {
+                default_return({
+                    let hash = self.mock_hash.clone();
+                    println!("Object with id {} called function food_fun", hash);
+                })
+            }
+        ]
     );
     end_mock_setup!();
 
     let mut food = bar::Food::new("hello".into());
+    let mut mood = bar::Food::new("mellow".into());
     food.food_fun("rom".into());
+    mood.food_fun("YAAAOOOIIII!!!".into());
 
 }
 

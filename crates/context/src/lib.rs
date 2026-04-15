@@ -46,12 +46,20 @@ pub struct GlobalContext {
     graph: DiGraph<MockNode, Edge>,
 
     mock_heads: HashMap<MockId, MockHead>,
+
+    id_count: u32,
 }
 
 impl GlobalContext {
     pub fn get_dot(&self) -> String {
         let dot = petgraph::dot::Dot::new(&self.graph);
         format!("{dot:?}")
+    }
+
+    pub fn get_incr_id(&mut self) -> u32 {
+        let x = self.id_count;
+        self.id_count+= 1;
+        x
     }
 
     pub fn run_mock<Input, ReturnVal>(&mut self, mock_id: MockId, input: Input) -> Result<ReturnVal>
@@ -211,6 +219,7 @@ impl ContextBuilder {
                     )
                 })
                 .collect(),
+            id_count: 0,
         }
     }
     pub fn add_mock<ReturnVal>(

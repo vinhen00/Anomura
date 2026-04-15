@@ -80,6 +80,7 @@ impl FunctionIntercept {
 
     fn replace_fun(&mut self, fun: &mut rustc_ast::Fn) {
         for mock in &mut self.mockfun {
+            //println!("Mocking {}", mock.get_name());
             if fun.ident.name.as_str() == mock.get_name().as_str() {
                 //println!("Mocking {}", mock.get_name());
                 mock.resolve_names();
@@ -115,7 +116,7 @@ impl FunctionIntercept {
         for mock in &mut self.mockfun {
             let method_name =
                 format!("{}.{}", imp_name, meth.ident.name.as_str());
-            // println!("Replacing method {} compared to {}", method_name, mock.get_name());
+            println!("Replacing method {} compared to {}", method_name, mock.get_name());
 
             if method_name == mock.get_name().as_str() {
                 // println!("Mocking method {}", mock.get_name());
