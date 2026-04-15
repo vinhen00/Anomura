@@ -251,6 +251,11 @@ pub fn mock_method(_item: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
+pub fn mock_struct(_item: TokenStream) -> TokenStream {
+    TokenStream::new()
+}
+
+#[proc_macro]
 pub fn start_mock_setup(_item: TokenStream) -> TokenStream {
     quote! {
         let mut context_builder = context::ContextBuilder::new();
