@@ -1,7 +1,9 @@
 use core::panic;
 
 use rustc_driver::Compilation;
-use rustc_interface::interface::Compiler;
+use rustc_interface::interface::{Compiler};
+
+//use rustc_plugin::{CrateFilter, PluginResult, RustcPlugin, RustcPluginArgs, RustcWrapperType};
 
 use crate::compile_mocks;
 use crate::visitors::{MockObject, MockedFun, MockedStruct};
@@ -66,14 +68,14 @@ impl FunctionIntercept {
 
     fn copy_fun(&self, item: Box<rustc_ast::Item>) -> Box<rustc_ast::Item> {
         // clone original function and give at new identifier
-        let mut original_function = item.clone();
-        let rustc_ast::ItemKind::Fn(fn_data) = &mut original_function.kind else {
-            unreachable!("original_function can impossibly have another kind");
-        };
-        let new_name = format!("{}_original", fn_data.ident.name.as_str());
-        fn_data.ident.name = rustc_span::Symbol::intern(&new_name);
+            let mut original_function = item.clone();
+            let rustc_ast::ItemKind::Fn(fn_data) = &mut original_function.kind else {
+                unreachable!("original_function can impossibly have another kind");
+            };
+            let new_name = format!("{}_original", fn_data.ident.name.as_str());
+            fn_data.ident.name = rustc_span::Symbol::intern(&new_name);
 
-        original_function
+            original_function
     }
 
     fn replace_fun(&mut self, fun: &mut rustc_ast::Fn) {
@@ -89,29 +91,32 @@ impl FunctionIntercept {
         }
     }
 
-    fn copy_method(
-        &self,
-        item: &mut Box<rustc_ast::AssocItem>,
-        imp_name: String,
-    ) -> Option<rustc_ast::AssocItem> {
+    fn _copy_method(&self, item: &mut Box<rustc_ast::AssocItem>, imp_name: String) -> Option<rustc_ast::AssocItem> {
         let rustc_ast::AssocItemKind::Fn(fn_data) = &item.kind else {
-            return None;
+            return None
         };
-        let method_name = format!("{}.{}", imp_name, fn_data.ident.name.as_str());
-        if self.check_name(method_name) {
+        let method_name =
+            format!("{}.{}", imp_name, fn_data.ident.name.as_str());
+        if self.check_name_fun(method_name) {
             let mut original_function = item.clone();
-            if let rustc_ast::AssocItemKind::Fn(fn_data) = &mut original_function.kind {
-                let new_name = format!("{}_original", fn_data.ident.name.as_str());
+            if let rustc_ast::AssocItemKind::Fn(fn_data) =
+                &mut original_function.kind
+            {
+                let new_name =
+                    format!("{}_original", fn_data.ident.name.as_str());
                 fn_data.ident.name = rustc_span::Symbol::intern(&new_name);
             }
-            return Some(*original_function);
+            return Some(*original_function)
         }
-        return None;
+        return None
     }
 
     fn replace_method(&mut self, meth: &mut rustc_ast::Fn, imp_name: String) {
-        for mock in &mut self.mocks {
-            let method_name = format!("{}.{}", imp_name, meth.ident.name.as_str());
+        for mock in &mut self.mockfun {
+            let method_name =
+                format!("{}.{}", imp_name, meth.ident.name.as_str());
+            // println!("Replacing method {} compared to {}", method_name, mock.get_name());
+
             if method_name == mock.get_name().as_str() {
                 // println!("Mocking method {}", mock.get_name());
                 mock.resolve_names();
@@ -216,6 +221,7 @@ impl FunctionIntercept {
 
 //Function_intercept is a compiler setting that compiles the target file and replaces the function body of the functions that have a mocked variant
 impl rustc_driver::Callbacks for FunctionIntercept {
+
     fn after_crate_root_parsing(
         &mut self,
         _compiler: &Compiler,
@@ -251,7 +257,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                 rustc_ast::ItemKind::Impl(imp) => {
                     self.handle_impl(item);
                 }
-                rustc_ast::ItemKind::Mod(_, _, module) => {
+                rustc_ast::ItemKind::Mod(_,_,module) => {
                     self.handle_mod(module);
                 }
                 rustc_ast::ItemKind::Struct(_, _, _) => {
@@ -259,6 +265,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                 }
                 _ => {}
             }
+
         }
         for func in function_originals {
             krate.items.push(func);

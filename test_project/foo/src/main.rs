@@ -1,5 +1,3 @@
-use bar::{TestStruct1, TestStruct2};
-use mock_macro::{end_mock_setup, mock_fn, start_mock_setup};
 use std::sync::Mutex;
 
 use mock_macro::{end_mock_setup, mock_fn, start_mock_setup, mock_method, mock_struct};

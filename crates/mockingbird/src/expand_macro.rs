@@ -165,18 +165,6 @@ impl Parse for MockFun {
     }
 }
 
-fn combine_path_and_ident(path: &syn::Path, ident: &Ident) -> Ident {
-    let mut parts: Vec<String> = path
-        .segments
-        .iter()
-        .map(|seg| seg.ident.to_string())
-        .collect();
-
-    parts.push(ident.to_string());
-
-    let combined_name = parts.join("_");
-    format_ident!("{}", combined_name, span = ident.span())
-}
 pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     //println!("Inside syn {}", input);
     let mock = match parse2::<MockFun>(input.clone()) {
@@ -185,53 +173,26 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     };
 
     let name = mock.name;
-    let original_name = format_ident!("{name}_original");
     let path = mock.path;
     let name_str = quote! {#name}.to_string();
     let ret_type = mock.ret_type;
-    let mock_id = combine_path_and_ident(&path, &name);
-    let mock_id_ident = format_ident!("{}_mock_id", mock_id);
-    let input_types = mock.input_types;
-    let input_idents = mock.input_ident;
-    let input_ident_tuple = quote! { (#(#input_idents),*) };
-    let input_idents_no_tuple = quote! { #(#input_idents),* };
-    let input_type_tuple = quote! { (#(#input_types),*) };
+    let ret_val = mock.ret_val;
 
-    let params = input_idents
+    let params = mock
+        .input_ident
         .iter()
-        .zip(input_types.iter())
+        .zip(mock.input_types.iter())
         .map(|(ident, ty)| quote! { #ident: #ty });
 
     let expanded = quote! {
-
         #[mocked( #path )]
         fn #name(#(#params),*) -> #ret_type {
-
+            
             std::println!("Mocked version of function {} was used", #name_str);
-            let #mock_id_ident = context::MockId::new(stringify!(#mock_id));
-            let Some(ctx) = context::GLOBAL_CONTEXT
-                .get()
-                else {
-                    println!("ctx not initialized");
-                    return #original_name(#input_idents_no_tuple);
-                };
-            let mut guard = ctx.lock().expect("failed to fetch guard");
-
-            match guard.run_mock::<#input_type_tuple, #ret_type>(#mock_id_ident, &#input_ident_tuple) {
-                Ok(res) => res,
-                Err(e) => match e {
-                    context::MockError::Other(e) => panic!("unexpected Error: {:?}",e),
-                    context::MockError::PredicateError(e) => panic!("{:?}", e.0),
-                    context::MockError::NoMatchingId => {
-                        println!("failed to find mock id");
-                        return #original_name(#input_idents_no_tuple);
-                    }
-                }
-            }
-
-            //#ret_val
+            #ret_val
         }
     };
+
     expanded
 }
 
@@ -252,6 +213,8 @@ struct MockMethod {
     ret_val: Expr,
 }
 
+
+
 impl Parse for MockMethod {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         // let struct_name = parse_struct_field_value::<Path>("struct_name", &input, true)?;
@@ -268,6 +231,7 @@ impl Parse for MockMethod {
         // let ret_type = parse_struct_field_value("ret_type", &input, true)?;
         // let ret_val = parse_struct_field_value("ret_val", &input, false)?;
 
+        
         let path = input.parse::<Path>()?;
         input.parse::<Token![,]>()?;
 
@@ -325,11 +289,8 @@ impl Parse for MockMethod {
         for i in fn_body.sig.inputs.iter() {
             match i {
                 syn::FnArg::Receiver(receiver) => {
-                    if let Some(_) = receiver.mutability {
-                        self_receiver = SelfReceiver::RefMut
-                    } else {
-                        self_receiver = SelfReceiver::Ref
-                    }
+                    if let Some(_) = receiver.mutability { self_receiver = SelfReceiver::RefMut }
+                    else { self_receiver = SelfReceiver::Ref }
                 }
                 syn::FnArg::Typed(pat_type) => {
                     input_types.push(*pat_type.ty.clone());
@@ -337,8 +298,10 @@ impl Parse for MockMethod {
                         syn::Pat::Ident(pat_ident) => input_ident.push(pat_ident.ident),
                         _ => {}
                     }
-                }
+                },
+
             }
+
         }
 
 
@@ -385,9 +348,9 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     let ret_val = mock.ret_val;
 
     let receiver = match mock.self_receiver {
-        SelfReceiver::Ref => quote! { &self, },
+        SelfReceiver::Ref    => quote! { &self, },
         SelfReceiver::RefMut => quote! { &mut self, },
-        SelfReceiver::None => quote! {},
+        SelfReceiver::None   => quote! {},
     };
 
     let params = mock
