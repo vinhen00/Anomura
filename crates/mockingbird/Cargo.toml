@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-mock-macro = { path = "../mock-macro" }
+#mock-macro = { path = "../mock-macro" }
 quote = "1"
-syn = { version = "2", features = ["full", "visit-mut"] }
+syn = { version = "2", features = ["full"] }
 proc-macro2 = "1"
 serde = "1.0.228"
-rustc_plugin = { git = "https://github.com/EldritchEli/rustc_plugin.git", version = "0.14.3-nightly-2025-08-20" }
+#rustc_plugin = { git = "https://github.com/EldritchEli/rustc_plugin.git", version = "0.14.3-nightly-2025-08-20" }
 #rustc_plugin = { version = "0.14.3-nightly-2025-08-20", path = "../../../rustc_plugin/crates/rustc_plugin" }
 log = "0.4.29"
 

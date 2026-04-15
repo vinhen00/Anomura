@@ -7,7 +7,11 @@ use std::{
 
 use crate::{SUBSTITUTION_MOCK_PATHS, Utf8Path};
 
+<<<<<<< HEAD
 use mockingbird::{MockObject, compile_mocks::CompileMocks};
+=======
+use mockingbird::{MockedFun, compile_mocks::CompileMocks};
+>>>>>>> context2
 
 use itertools::Itertools;
 use mockingbird::function_intercept::FunctionIntercept;
@@ -29,7 +33,7 @@ pub struct SubstitutePlugin {
     crate_list: Vec<String>,
 }
 
-pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockObject>> {
+pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockedFun>> {
     let mut callbacks = CompileMocks::new(Vec::new(), program.clone(), true);
     rustc_driver::run_compiler(
         &[
@@ -43,18 +47,17 @@ pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockObject>
         &mut callbacks,
     );
 
-    let mut crate_mock_map: HashMap<String, Vec<MockObject>> = HashMap::new();
-    for mock in &callbacks.get_mocks() {
+    let mut crate_mock_map: HashMap<String, Vec<MockedFun>> = HashMap::new();
+    for mock_fn in &callbacks.get_mocks() {
+        println!("mock fn path : {:?}", mock_fn.get_path());
         crate_mock_map
-            .entry(mock.get_path())
-            .and_modify(|v| v.push(mock.clone()))
-            .or_insert(vec![mock.clone()]);
+            .entry(mock_fn.get_path())
+            .and_modify(|v| v.push(mock_fn.clone()))
+            .or_insert(vec![mock_fn.clone()]);
     }
     println!("mock map keys: {:?}", crate_mock_map.keys());
     crate_mock_map
 }
-
-
 
 impl SubstitutePlugin {
     pub fn new(program: String, crate_list: Vec<String>) -> Self {
@@ -106,7 +109,6 @@ impl RustcPlugin for SubstitutePlugin {
         let program = std::env::var(SUBSTITUTION_MOCK_PATHS)
             .expect("should always be available at this point");
         let mut mock_map = mock_map_from_program(program);
-        println!("Removing {}", crate_name);
         let mocks = mock_map.remove(&crate_name).expect("should exist");
         let mut callbacks = FunctionIntercept::new(mocks);
         println!("runnin sugstitution plugin for crate {crate_name}");

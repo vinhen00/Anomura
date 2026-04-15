@@ -5,13 +5,13 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 use syn::{
-    Expr, Ident, Path, Token, 
-    Type, bracketed, parse::{Parse, ParseStream}, parse_quote, 
-    parse2, punctuated::Punctuated, spanned::Spanned,
+    Expr, Ident, Path, Token, Type, bracketed,
+    parse::{Parse, ParseStream},
+    parse_quote, parse2,
+    punctuated::Punctuated,
+    spanned::Spanned,
     visit_mut::{VisitMut, visit_expr_mut},
 };
-
-
 
 //Don't know if these are used, gives warning about non use, so might delete in future
 pub fn _parse_struct_field_value<P: Parse>(
@@ -77,7 +77,6 @@ pub fn _parse_struct_field_value_array<P: Parse>(
     Ok(res)
 }
 
-
 struct MockFun {
     name: Ident,
     path: Path,
@@ -86,9 +85,6 @@ struct MockFun {
     ret_type: Type,
     ret_val: Expr,
 }
-
-
-
 
 // mock_fn mocks a function, write more stuff
 //
@@ -177,7 +173,10 @@ impl Parse for MockFun {
 pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     let mock = match parse2::<MockFun>(input.clone()) {
         Ok(m) => m,
-        Err(e) => panic!("invalid mock_def! input for function: {} with error:  {e} ", &input),
+        Err(e) => panic!(
+            "invalid mock_def! input for function: {} with error:  {e} ",
+            &input
+        ),
     };
 
     let name = mock.name;
@@ -195,7 +194,7 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[mocked( #path )]
         fn #name(#(#params),*) -> #ret_type {
-            
+
             std::println!("Mocked version of function {} was used", #name_str);
             #ret_val
         }
@@ -220,8 +219,6 @@ struct MockMethod {
     ret_type: Type,
     ret_val: Expr,
 }
-
-
 
 // MockMethod works very similiar to mockfun. Use the macro to define how you want to mock the method
 // it will replace the method in the implementation
@@ -284,13 +281,16 @@ impl Parse for MockMethod {
         let mut self_receiver = SelfReceiver::None;
         let mut input_types = Vec::new();
         let mut input_ident = Vec::new();
-        
+
         for i in fn_body.sig.inputs.iter() {
             match i {
                 //If there is a reciever (&self or &mut self) then set it correctly, otherwise stays as none
                 syn::FnArg::Receiver(receiver) => {
-                    if let Some(_) = receiver.mutability { self_receiver = SelfReceiver::RefMut }
-                    else { self_receiver = SelfReceiver::Ref }
+                    if let Some(_) = receiver.mutability {
+                        self_receiver = SelfReceiver::RefMut
+                    } else {
+                        self_receiver = SelfReceiver::Ref
+                    }
                 }
                 syn::FnArg::Typed(pat_type) => {
                     input_types.push(*pat_type.ty.clone());
@@ -298,12 +298,9 @@ impl Parse for MockMethod {
                         syn::Pat::Ident(pat_ident) => input_ident.push(pat_ident.ident),
                         _ => {}
                     }
-                },
-
+                }
             }
-
         }
-
 
         Ok(MockMethod {
             struct_name,
@@ -335,9 +332,9 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     let ret_val = mock.ret_val;
 
     let receiver = match mock.self_receiver {
-        SelfReceiver::Ref    => quote! { &self, },
+        SelfReceiver::Ref => quote! { &self, },
         SelfReceiver::RefMut => quote! { &mut self, },
-        SelfReceiver::None   => quote! {},
+        SelfReceiver::None => quote! {},
     };
 
     let params = mock
@@ -358,7 +355,6 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
 
     expanded
 }
-
 
 // MockMethod2 is methods defined in a mock struct. They need be a seperate struct in order to parse without needing path and struct name included
 struct MockMethod2 {
@@ -420,8 +416,11 @@ impl Parse for MockMethod2 {
         for i in fn_body.sig.inputs.iter() {
             match i {
                 syn::FnArg::Receiver(receiver) => {
-                    if let Some(_) = receiver.mutability { self_receiver = SelfReceiver::RefMut }
-                    else { self_receiver = SelfReceiver::Ref }
+                    if let Some(_) = receiver.mutability {
+                        self_receiver = SelfReceiver::RefMut
+                    } else {
+                        self_receiver = SelfReceiver::Ref
+                    }
                 }
                 syn::FnArg::Typed(pat_type) => {
                     input_types.push(*pat_type.ty.clone());
@@ -429,12 +428,9 @@ impl Parse for MockMethod2 {
                         syn::Pat::Ident(pat_ident) => input_ident.push(pat_ident.ident),
                         _ => {}
                     }
-                },
-
+                }
             }
-
         }
-
 
         Ok(MockMethod2 {
             name: fn_body.sig.ident,
@@ -450,7 +446,6 @@ impl Parse for MockMethod2 {
     }
 }
 
-
 //Mock struct, because of our requirements it requires a constructor method to be included first in the mock definition.
 //Constructor method is a method that returns an instance of its parent struct.
 //Methods field is a list of the other methods that the user wants to mock.
@@ -462,7 +457,6 @@ struct MockStruct {
     constructor: MockMethod2,
     methods: Vec<MockMethod2>,
 }
-
 
 //Parse function for structs, example of how to use:
 // mock_struct!(
@@ -487,8 +481,7 @@ struct MockStruct {
 //     ]
 // );
 impl Parse for MockStruct {
-    fn parse(input: ParseStream) -> syn::Result<Self> {    
- 
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         let path = input.parse::<Path>()?;
         input.parse::<Token![,]>()?;
 
@@ -500,7 +493,7 @@ impl Parse for MockStruct {
         };
 
         let name = input2.ident;
-        
+
         let mut field_ident = Vec::new();
         let mut field_types = Vec::new();
 
@@ -510,14 +503,16 @@ impl Parse for MockStruct {
                     if let Some(ident) = &field.ident {
                         field_ident.push(ident.clone());
                         field_types.push(field.ty.clone());
-                    } 
-                    
+                    }
                 }
             }
-            syn::Fields::Unnamed(_fields) => {todo!()}
-            syn::Fields::Unit => {todo!()}
+            syn::Fields::Unnamed(_fields) => {
+                todo!()
+            }
+            syn::Fields::Unit => {
+                todo!()
+            }
         }
-
 
         let constructor: MockMethod2 = input.parse()?;
 
@@ -529,8 +524,6 @@ impl Parse for MockStruct {
             methods_terminated.into_iter().collect()
         };
 
-
-
         Ok(MockStruct {
             name,
             path,
@@ -541,8 +534,6 @@ impl Parse for MockStruct {
         })
     }
 }
-
-
 
 pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
     //println!("Inside syn {}", input);
@@ -557,8 +548,11 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
 
     let constructor = quote_method(mock.constructor, name_str.clone(), path.clone(), true);
 
-    let methods: Vec<TokenStream> = mock.methods.into_iter().map(|m| quote_method(m, name_str.clone(), path.clone(), false)).collect();
-
+    let methods: Vec<TokenStream> = mock
+        .methods
+        .into_iter()
+        .map(|m| quote_method(m, name_str.clone(), path.clone(), false))
+        .collect();
 
     let fields = mock
         .field_ident
@@ -566,8 +560,8 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
         .zip(mock.field_types.iter())
         .map(|(ident, ty)| quote! { #ident: #ty });
 
-    let expanded = quote! { 
-        #[mocked( #path )]       
+    let expanded = quote! {
+        #[mocked( #path )]
         struct #name { #(#fields),* , mock_hash: String }
         impl #name {
             #constructor
@@ -579,7 +573,12 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
 }
 
 //Expands methods within a struct mock
-fn quote_method(mock: MockMethod2, struct_string: String, path: Path, is_constructor: bool) -> TokenStream {
+fn quote_method(
+    mock: MockMethod2,
+    struct_string: String,
+    path: Path,
+    is_constructor: bool,
+) -> TokenStream {
     let name = mock.name;
     let name_str = quote! {#name}.to_string();
     let ret_type = mock.ret_type;
@@ -593,7 +592,7 @@ fn quote_method(mock: MockMethod2, struct_string: String, path: Path, is_constru
         visitor.visit_expr_mut(&mut ret_val);
 
         //Get the context to assign a mock_hash id
-        hash_id_getter = quote!{
+        hash_id_getter = quote! {
             let Some(ctx) = context::GLOBAL_CONTEXT
                 .get()
                 else {
@@ -606,8 +605,7 @@ fn quote_method(mock: MockMethod2, struct_string: String, path: Path, is_constru
             //Currently just a print, but should be some form of logging in context
             println!{"New instance of {} initialized with id {}", #struct_string, mock_hash};
         };
-    }
-    else {
+    } else {
         ret_val = mock.ret_val;
 
         //Currently just a print but should be some form of logging in context
@@ -615,9 +613,9 @@ fn quote_method(mock: MockMethod2, struct_string: String, path: Path, is_constru
     }
 
     let receiver = match mock.self_receiver {
-        SelfReceiver::Ref    => quote! { &self, },
+        SelfReceiver::Ref => quote! { &self, },
         SelfReceiver::RefMut => quote! { &mut self, },
-        SelfReceiver::None   => quote! {},
+        SelfReceiver::None => quote! {},
     };
 
     let params = mock
@@ -636,7 +634,6 @@ fn quote_method(mock: MockMethod2, struct_string: String, path: Path, is_constru
 
     expanded
 }
-
 
 struct RetvalFinder;
 
