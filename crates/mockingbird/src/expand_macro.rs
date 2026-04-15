@@ -525,7 +525,7 @@ struct RetvalFinder {
 impl VisitMut for RetvalFinder {
     fn visit_expr_mut(&mut self, node: &mut Expr) {
         if let Expr::Struct(inner) = node {
-            let hashval = syn::parse_str(format!("mock_hash: {}", self.name).as_str()).unwrap();
+            let hashval = syn::parse_str(format!("mock_hash: \"{}\".into()", self.name).as_str()).unwrap();
             inner.fields.push(hashval)
         }
         visit_expr_mut(self, node)

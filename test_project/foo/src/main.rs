@@ -26,17 +26,17 @@ fn main() {
     mock_method!(
         bar,
         Food,
-        fn food_fn (&mut self, n: string) {
+        fn food_fun (&mut self, n: String) {
             default_return({
-                //let hash = self.mockhash;
-                println!("hello");
+                let hash = self.mock_hash.clone();
+                println!("{}", hash);
             })
         }
     );
     end_mock_setup!();
 
     let mut food = bar::Food::new("hello".into());
-
+    food.food_fun("rom".into());
 
 }
 

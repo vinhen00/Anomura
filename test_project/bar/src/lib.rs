@@ -16,6 +16,6 @@ impl Food {
 }
 
 
-pub fn mut_string(str: &mut String) {
+// pub fn mut_string(str: &mut String) {
 
-}
+// }

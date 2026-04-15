@@ -115,10 +115,12 @@ impl FunctionIntercept {
         for mock in &mut self.mockfun {
             let method_name =
                 format!("{}.{}", imp_name, meth.ident.name.as_str());
+            // println!("Replacing method {} compared to {}", method_name, mock.get_name());
+
             if method_name == mock.get_name().as_str() {
-                //println!("Mocking method {}", mock.get_name());
+                // println!("Mocking method {}", mock.get_name());
                 mock.resolve_names();
-                //println!("{:#?}", mock.get_body());
+                // println!("{:#?}", mock.get_body());
                 meth.sig.decl = mock.get_sig().decl;
                 meth.body = Some(mock.get_body());
             }
@@ -195,7 +197,7 @@ impl FunctionIntercept {
             for mut mock in &mut self.mockobj {
                 if mock.get_name() == name.as_str().to_string() {
                     mock.resolve_names();
-
+                    // println!("{:#?}", mock.get_fields());
                     item.kind = rustc_ast::ItemKind::Struct(name, gens.clone(), mock.get_fields());
                 }
             }
