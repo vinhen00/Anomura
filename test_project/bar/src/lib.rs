@@ -14,8 +14,9 @@ impl Food {
         self.inner = n;
     }
 
-    fn drink(&self) {
+    pub fn drink(&self, i: i32) -> i32 {
         println!{"Drinkning glug glug glug"};
+        i * 2
     }
 }
 

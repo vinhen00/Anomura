@@ -90,12 +90,26 @@ impl FunctionIntercept {
         }
     }
 
-    fn _copy_method(&self, item: &mut Box<rustc_ast::AssocItem>, imp_name: String) -> Option<rustc_ast::AssocItem> {
+    fn copy_method(&self, item: &mut Box<rustc_ast::AssocItem>, imp_name: String) -> Option<rustc_ast::AssocItem> {
         let rustc_ast::AssocItemKind::Fn(fn_data) = &item.kind else {
             return None
         };
         let method_name =
             format!("{}.{}", imp_name, fn_data.ident.name.as_str());
+        //Dont copy constructors of the class
+        if let rustc_ast::FnRetTy::Ty(ty) = &fn_data.sig.decl.output{
+            match &ty.kind {
+                rustc_ast::TyKind::ImplicitSelf => { return None }
+                rustc_ast::TyKind::Path(_, path) => {
+                    let name = path.segments.last().unwrap().ident.name.as_str();
+                    println!("Type of {} is {}", fn_data.ident.name.as_str(), name);
+                    if name == "Self" || name == imp_name.as_str() { return None }
+                }
+                _ => {} // Do nothing
+            }
+        }
+
+        //Check that function exists in list of mocks
         if self.check_name_fun(method_name) {
             let mut original_function = item.clone();
             if let rustc_ast::AssocItemKind::Fn(fn_data) =
@@ -126,18 +140,19 @@ impl FunctionIntercept {
     }
 
     fn handle_impl(&mut self, item: &mut rustc_ast::Item) {
-        //let mut method_originals = Vec::new();
+        let mut method_originals = Vec::new();
 
+        // Item will always be impl
         if let rustc_ast::ItemKind::Impl(imp) = &mut item.kind {
             let imp_name = compile_mocks::extract_struct_name_from_impl(imp.clone())
                 .expect("expected struct name in {:?imp}");
 
-            // Save original methods
-            // for item in imp.items.iter_mut() {
-            //     if let Some(method_copy) = self.copy_method(item, imp_name.clone()) {
-            //         method_originals.push(method_copy);
-            //     }
-            // }
+            //Save original methods
+            for item in imp.items.iter_mut() {
+                if let Some(method_copy) = self.copy_method(item, imp_name.clone()) {
+                    method_originals.push(method_copy);
+                }
+            }
 
             // Replace methods
             for imp_item in imp.items.iter_mut() {
@@ -146,10 +161,10 @@ impl FunctionIntercept {
                 }
             }
 
-            // Push originals back
-            // for i in method_originals {
-            //     imp.items.push(Box::new(i));
-            // }
+            //Push originals back
+            for i in method_originals {
+                imp.items.push(Box::new(i));
+            }
         }
     }
 

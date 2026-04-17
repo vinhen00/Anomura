@@ -10,25 +10,25 @@ fn main() {
         struct Food {
             inner: String,
             outer: String,
-        },
+        }
         fn new(n: String) -> Food {
             default_return( { 
                 Food{ 
                     inner: n, 
                     outer: "YOOOOOOO".into() } 
             } )
-        },
+        }
         [
             fn food_fun (&mut self, n: String) {
                 default_return({
                     println!("Changing inner from {} to {}", self.inner, n);
-                    self.drink();
+                    self.drink(5);
                     self.inner = n;
 
                 })
             },
-            fn drink (&self) {
-                default_return(());
+            fn drink (&self, i: i32) -> i32 {
+                default_return(self.drink_original(i));
             }
         ]
     );
