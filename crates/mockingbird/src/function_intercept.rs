@@ -206,12 +206,25 @@ impl FunctionIntercept {
     }
 
     fn handle_struct(&mut self, item: &mut rustc_ast::Item) {
-        if let rustc_ast::ItemKind::Struct(name, gens, _) = item.clone().kind {
+        if let rustc_ast::ItemKind::Struct(name, gens, old_fields) = item.clone().kind {
             for mock in &mut self.mockobj {
                 if mock.get_name() == name.as_str().to_string() {
                     mock.resolve_names();
-                    // println!("{:#?}", mock.get_fields());
-                    item.kind = rustc_ast::ItemKind::Struct(name, gens.clone(), mock.get_fields());
+                    
+                    let mut combined_fields = old_fields.clone();
+                    let rustc_ast::VariantData::Struct{fields: combined, ..} = &mut combined_fields else{ panic!("variant data should always be a struct"); };
+                    let rustc_ast::VariantData::Struct{fields: incoming, ..} = &mut mock.get_fields() else{ panic!("variant data should always be a struct"); };
+
+
+                    for incoming_field in incoming {
+                        let mut exists = true;
+                        for cur_field in &mut *combined {
+                            if incoming_field.ident.unwrap().name == cur_field.ident.unwrap().name { exists = false }
+                        }
+                        if exists { combined.push(incoming_field.clone()) }
+                    }
+
+                    item.kind = rustc_ast::ItemKind::Struct(name, gens.clone(), combined_fields);
                 }
             }
         }

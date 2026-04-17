@@ -8,7 +8,6 @@ fn main() {
     mock_struct!(
         bar,
         struct Food {
-            inner: String,
             outer: String,
         }
         fn new(n: String) -> Food {
@@ -32,6 +31,8 @@ fn main() {
             }
         ]
     );
+
+
     end_mock_setup!();
 
     let mut food = bar::Food::new("hello".into());
@@ -40,6 +41,7 @@ fn main() {
     mood.food_fun("YAAAOOOIIII!!!".into());
 
 }
+
 
 #[test]
 fn macro_test() {}
