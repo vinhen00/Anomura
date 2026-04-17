@@ -6,7 +6,7 @@ use rustc_driver::Compilation;
 use rustc_interface::interface::{Compiler, Config};
 use rustc_session::config::CrateType;
 
-use crate::visitors::{MockObject, MockedFun, MockedStruct};
+use crate::visitors::MockedFun;
 
 pub struct MockDefsLoader {
     pub mockdefs: String,
@@ -36,12 +36,12 @@ pub fn extract_struct_name_from_impl(imp: rustc_ast::Impl) -> Option<String> {
 #[derive(Debug)]
 pub struct CompileMocks {
     used_in_plugin: bool,
-    mocks: Vec<MockObject>,
+    mocks: Vec<MockedFun>,
     program: String,
 }
 
 impl CompileMocks {
-    pub fn new(mocks: Vec<MockObject>, program: String, used_in_plugin: bool) -> Self {
+    pub fn new(mocks: Vec<MockedFun>, program: String, used_in_plugin: bool) -> Self {
         CompileMocks {
             mocks,
             program,
@@ -49,7 +49,7 @@ impl CompileMocks {
         }
     }
 
-    pub fn get_mocks(&self) -> Vec<MockObject> {
+    pub fn get_mocks(&self) -> Vec<MockedFun> {
         self.mocks.clone()
     }
 
@@ -58,7 +58,7 @@ impl CompileMocks {
             let mut mocked_fn = MockedFun::new(fn_data.clone(), path);
             mocked_fn.collect_names();
 
-            self.mocks.push(MockObject::Function(mocked_fn));
+            self.mocks.push(mocked_fn);
         }
     }
 
@@ -74,7 +74,7 @@ impl CompileMocks {
                 let mut mocked_fn = MockedFun::new(*fn_data.clone(), path);
                 mocked_fn.collect_names();
                 mocked_fn.set_name(format!("{}.{}", imp_name, mocked_fn.get_name()));
-                self.mocks.push(MockObject::Function(mocked_fn));
+                self.mocks.push(mocked_fn);
             }
         }
     }
@@ -96,21 +96,10 @@ impl CompileMocks {
                     rustc_ast::ItemKind::Mod(_, _, mod_data) => {
                         self.handle_mod(mod_data);
                     }
-                    rustc_ast::ItemKind::Struct(name, _, fields) => {
-                        self.handle_struct(name.as_str().into(), fields.clone(), path);
-                    }
                     _ => {}
                 }
             }
         }
-    }
-
-    fn handle_struct(&mut self, name: String, fields: rustc_ast::VariantData, path: String) {
-        let mut mock_struct = MockedStruct::new(name, fields, path);
-        mock_struct.collect_names();
-
-        self.mocks.push(MockObject::Struct(mock_struct));
-
     }
 }
 
@@ -175,9 +164,6 @@ impl rustc_driver::Callbacks for CompileMocks {
                 }
                 rustc_ast::ItemKind::Mod(_, _, mod_data) => {
                     self.handle_mod(mod_data);
-                }
-                rustc_ast::ItemKind::Struct(name, _, fields) => {
-                    self.handle_struct(name.as_str().into(), fields.clone(), path)
                 }
                 _ => {}
             }

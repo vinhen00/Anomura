@@ -57,12 +57,6 @@ impl MutVisitor for SymbolFinder {
         rustc_ast::mut_visit::walk_expr(self, expr);
     }
 
-    fn visit_expr_field(&mut self, field: &mut rustc_ast::ExprField) {
-        self.idents.push(field.ident.name.as_str().to_string());
-
-        rustc_ast::mut_visit::walk_expr_field(self, field);
-    }
-
     //Mac calls not stricly necessary, but nice for debug to be able to print in mock functions
     fn visit_mac_call(&mut self, node: &mut rustc_ast::MacCall) {
         self.visit_path(&mut node.path);
@@ -82,15 +76,6 @@ impl MutVisitor for SymbolFinder {
             self.idents.push(ident.name.as_str().to_string())
         }
         rustc_ast::mut_visit::walk_pat(self, pat);
-    }
-
-    fn visit_field_def(&mut self, data: &mut rustc_ast::FieldDef) {
-        if let Some(id) = data.ident {
-            self.idents.push(id.name.as_str().to_string());
-        }
-
-
-        rustc_ast::mut_visit::walk_field_def(self, data);
     }
 }
 
@@ -154,7 +139,7 @@ impl MutVisitor for SymbolFixer {
                 literal.symbol = rustc_span::Symbol::intern(&string); //Create new symbol in registry
             }
             rustc_ast::ExprKind::Field(_, id) => {
-                let ident: String = self.idents.remove(0);
+                let ident = self.idents.remove(0);
                 match self.dict.get(&ident) {
                     Some(symb) => {
                         id.name = *symb;
@@ -169,22 +154,6 @@ impl MutVisitor for SymbolFixer {
             _ => {}
         }
         rustc_ast::mut_visit::walk_expr(self, expr);
-    }
-
-    fn visit_expr_field(&mut self, field: &mut rustc_ast::ExprField) {
-        let ident: String = self.idents.remove(0);
-        match self.dict.get(&ident) {
-            Some(symb) => {
-                field.ident.name = *symb;
-            }
-            None => {
-                let symb = rustc_span::Symbol::intern(ident.as_str());
-                self.dict.insert(ident, symb);
-                field.ident.name = symb;
-            }
-        }
-
-        rustc_ast::mut_visit::walk_expr_field(self, field);
     }
 
     //Reconstructing MacCalls is a headache as the tokenstream only has private fields and non mutable methods
@@ -231,43 +200,8 @@ impl MutVisitor for SymbolFixer {
         }
         rustc_ast::mut_visit::walk_pat(self, pat);
     }
-
-    fn visit_field_def(&mut self, data: &mut rustc_ast::FieldDef) {
-        if let Some(id) = &mut data.ident {
-            let name = self.idents.remove(0);
-            match self.dict.get(&name) {
-                Some(symb) => {
-                    id.name = *symb;
-                }
-                None => {
-                    let symb = rustc_span::Symbol::intern(name.as_str());
-                    self.dict.insert(name, symb);
-                    id.name = symb;
-                }
-            }
-        }
-
-        rustc_ast::mut_visit::walk_field_def(self, data);
-    }
 }
 
-#[derive(Debug, Clone)]
-
-pub enum MockObject {
-    Function(MockedFun),
-    Struct(MockedStruct),
-}
-
-impl MockObject {
-    pub fn get_path(&self) -> String {
-        match self {
-            MockObject::Function(fun) => {             
-                fun.get_path() }
-            MockObject::Struct(stro) => { 
-                stro.get_path() }
-        }
-    }
-}
 // MockedFun is a struct representing a single mocked function and all the information needed to transfer it
 // Symbols is a list of all symbols encountered in order, Idents is a list of all identifiers
 //
@@ -282,9 +216,6 @@ pub struct MockedFun {
     symbols: Vec<String>,
     idents: Vec<String>,
 }
-
-
-
 
 //encodes using pretty printing, this kinda sucks but it might work out idfk
 impl MockedFun {
@@ -341,6 +272,7 @@ impl MockedFun {
     // This fn creates a visitor that visits the mocked function and resolves all the symbols and identifiers
     // It is meant to be called when in the second compilation context
 
+    //???? how does this work? you don't
     pub fn resolve_names(&mut self) {
         let mut visitor = SymbolFixer {
             symbols: self.symbols.clone(),
@@ -351,70 +283,5 @@ impl MockedFun {
         visitor.visit_block(&mut self.body);
     }
 
-
-}
-
-#[derive(Clone, Debug)]
-pub struct MockedStruct {
-    name: String,
-    path: String,
-    fields: rustc_ast::VariantData,
-    symbols: Vec<String>,
-    idents: Vec<String>,
-}
-
-impl MockedStruct {
-        pub fn new(name: String, fields: rustc_ast::VariantData, path: String) -> MockedStruct {
-        //println!("{:#?}", fun);
-        MockedStruct { 
-            name, 
-            path, 
-            fields, 
-            symbols: Vec::new(),
-            idents: Vec::new(),
-        }
-
-    }
-
-    pub fn set_name(&mut self, new_name: String) {
-        self.name = new_name;
-    }
-
-    pub fn get_path(&self) -> String {
-        self.path.clone()
-    }
-
-    pub fn get_name(&self) -> String {
-        self.name.clone()
-    }
-
-    pub fn get_fields(&self) -> rustc_ast::VariantData {
-        self.fields.clone()
-    }
-
-
-    // This fn creates a visitor that visits the mock function and collects all symbols and identifiers
-    pub fn collect_names(&mut self) {
-        let mut visitor = SymbolFinder {
-            symbols: Vec::new(),
-            idents: Vec::new(),
-        };
-        visitor.visit_variant_data(&mut self.fields);
-
-        self.symbols = visitor.symbols;
-        self.idents = visitor.idents;
-    }
-
-    // This fn creates a visitor that visits the mocked function and resolves all the symbols and identifiers
-    // It is meant to be called when in the second compilation context
-
-    pub fn resolve_names(&mut self) {
-        let mut visitor = SymbolFixer {
-            symbols: self.symbols.clone(),
-            idents: self.idents.clone(),
-            dict: HashMap::new(),
-        };
-        visitor.visit_variant_data(&mut self.fields);
-    }
 
 }
