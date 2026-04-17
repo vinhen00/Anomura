@@ -11,7 +11,7 @@ impl Food {
     }
 
     pub fn drink(&self, i: i32) -> i32 {
-        println!{"Drinkning glug glug glug"};
+        println! {"Drinkning glug glug glug"};
         i * 2
     }
 }

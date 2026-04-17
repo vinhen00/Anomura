@@ -394,3 +394,20 @@ pub fn expect(item: TokenStream) -> TokenStream {
 pub fn mock_method(_item: TokenStream) -> TokenStream {
     TokenStream::new()
 }
+
+#[proc_macro]
+pub fn start_mock_setup(_item: TokenStream) -> TokenStream {
+    quote! {
+        let mut context_builder = context::ContextBuilder::new();
+    }
+    .into()
+}
+
+#[proc_macro]
+pub fn end_mock_setup(_item: TokenStream) -> TokenStream {
+    quote! {  ;
+        let binding = context::GLOBAL_CONTEXT.get_or_init(|| Mutex::new(context_builder.finish()));
+        drop(binding);
+    }
+    .into()
+}

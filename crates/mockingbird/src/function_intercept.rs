@@ -44,26 +44,15 @@ impl FunctionIntercept {
 
         FunctionIntercept { mockfun, mockobj }
     }
-    // checks if name is included in the list of mocked function
-    fn check_name_fun(&self, name: String) -> bool {
-        for mock in &self.mockfun {
+    // checks if name is included in the list of mocks
+    fn check_name(&self, name: String) -> bool {
+        for mock in &self.mocks {
             if name == mock.get_name() {
                 return true;
             }
         }
         false
     }
-
-    // checks if name is included in the list of mocked structs
-    // fn check_name_stro(&self, name: String) -> bool {
-    //     for mock in &self.mockobj {
-    //         if name == mock.get_name() {
-    //             return true;
-    //         }
-    //     }
-    //     false
-    // }
-
     fn copy_fun(&self, item: Box<rustc_ast::Item>) -> Box<rustc_ast::Item> {
         // clone original function and give at new identifier
         let mut original_function = item.clone();
@@ -131,9 +120,9 @@ impl FunctionIntercept {
             let method_name = format!("{}.{}", imp_name, meth.ident.name.as_str());
 
             if method_name == mock.get_name().as_str() {
-                // println!("Mocking method {}", mock.get_name());
+                //println!("Mocking method {}", mock.get_name());
                 mock.resolve_names();
-                // println!("{:#?}", mock.get_body());
+                //println!("{:#?}", mock.get_body());
                 meth.sig.decl = mock.get_sig().decl;
                 meth.body = Some(mock.get_body());
             }
@@ -198,9 +187,6 @@ impl FunctionIntercept {
                     }
                     rustc_ast::ItemKind::Mod(_, _, module) => {
                         self.handle_mod(module);
-                    }
-                    rustc_ast::ItemKind::Struct(_, _, _) => {
-                        self.handle_struct(item);
                     }
                     _ => {}
                 }
@@ -267,7 +253,6 @@ impl rustc_driver::Callbacks for FunctionIntercept {
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
         println!("Started compilation");
-
         //println!("Have Krate {:#?}", krate);
 
         //First create copies of all functions that will be mocked
@@ -299,9 +284,6 @@ impl rustc_driver::Callbacks for FunctionIntercept {
                 }
                 rustc_ast::ItemKind::Mod(_, _, module) => {
                     self.handle_mod(module);
-                }
-                rustc_ast::ItemKind::Struct(_, _, _) => {
-                    self.handle_struct(item);
                 }
                 _ => {}
             }

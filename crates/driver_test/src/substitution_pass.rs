@@ -8,10 +8,14 @@ use std::{
 use crate::{SUBSTITUTION_MOCK_PATHS, Utf8Path};
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 use mockingbird::{MockObject, compile_mocks::CompileMocks};
 =======
 use mockingbird::{MockedFun, compile_mocks::CompileMocks};
 >>>>>>> context2
+=======
+use mockingbird::{MockedFun, compile_mocks::CompileMocks};
+>>>>>>> 487b996 (Revert "Merge branch 'struct_mock' into context2")
 
 use itertools::Itertools;
 use mockingbird::function_intercept::FunctionIntercept;

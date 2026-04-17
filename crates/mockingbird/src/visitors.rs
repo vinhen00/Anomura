@@ -293,3 +293,65 @@ impl MockedFun {
         visitor.visit_block(&mut self.body);
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct MockedStruct {
+    name: String,
+    path: String,
+    fields: rustc_ast::VariantData,
+    symbols: Vec<String>,
+    idents: Vec<String>,
+}
+
+impl MockedStruct {
+    pub fn new(name: String, fields: rustc_ast::VariantData, path: String) -> MockedStruct {
+        //println!("{:#?}", fun);
+        MockedStruct {
+            name,
+            path,
+            fields,
+            symbols: Vec::new(),
+            idents: Vec::new(),
+        }
+    }
+
+    pub fn set_name(&mut self, new_name: String) {
+        self.name = new_name;
+    }
+
+    pub fn get_path(&self) -> String {
+        self.path.clone()
+    }
+
+    pub fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn get_fields(&self) -> rustc_ast::VariantData {
+        self.fields.clone()
+    }
+
+    // This fn creates a visitor that visits the mock function and collects all symbols and identifiers
+    pub fn collect_names(&mut self) {
+        let mut visitor = SymbolFinder {
+            symbols: Vec::new(),
+            idents: Vec::new(),
+        };
+        visitor.visit_variant_data(&mut self.fields);
+
+        self.symbols = visitor.symbols;
+        self.idents = visitor.idents;
+    }
+
+    // This fn creates a visitor that visits the mocked function and resolves all the symbols and identifiers
+    // It is meant to be called when in the second compilation context
+
+    pub fn resolve_names(&mut self) {
+        let mut visitor = SymbolFixer {
+            symbols: self.symbols.clone(),
+            idents: self.idents.clone(),
+            dict: HashMap::new(),
+        };
+        visitor.visit_variant_data(&mut self.fields);
+    }
+}

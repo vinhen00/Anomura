@@ -2,8 +2,7 @@ use core::panic;
 
 use mock_macro::{mock_method, mock_struct};
 use proc_macro2::TokenStream;
-use quote::quote;
-
+use quote::{format_ident, quote};
 use syn::{
     Expr, Ident, Path, Token, Type, bracketed,
     parse::{Parse, ParseStream},
@@ -234,12 +233,9 @@ impl Parse for MockMethod {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let path = input.parse::<Path>()?;
         input.parse::<Token![,]>()?;
-
         let struct_name = input.parse::<Path>()?;
         input.parse::<Token![,]>()?;
-
         let fn_body: syn::ItemFn = input.parse()?;
-
         let Some(default_return_val) = fn_body.block.stmts.iter().find_map(|d| {
             let syn::Stmt::Expr(expr, _) = d else {
                 log::debug!("expected stmtexpr found {:?}", quote! {d});
@@ -250,13 +246,11 @@ impl Parse for MockMethod {
                 log::debug!("expect expr call found {:?}", quote! {expr});
                 return None;
             };
-
             let maybe_expr_lit = *expr_call.func.clone();
             let Expr::Path(expr_path) = maybe_expr_lit else {
                 log::debug!("expected expr_path found {:?}", quote! {maybe_expr_lit});
                 return None;
             };
-
             let Some(ident) = expr_path.path.get_ident() else {
                 log::debug!("could not get ident from path");
                 return None;
@@ -321,7 +315,7 @@ impl Parse for MockMethod {
 pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     let mock = match parse2::<MockMethod>(input) {
         Ok(m) => m,
-        Err(e) => panic!("invalid mock_def! input for method: {}", e),
+        Err(e) => panic!("invalid mock_def! input: {}", e),
     };
 
     let struct_name = mock.struct_name.segments.last();
