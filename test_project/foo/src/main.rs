@@ -1,55 +1,47 @@
 use std::sync::Mutex;
 
-use mock_macro::{end_mock_setup, mock_fn, start_mock_setup, mock_method};
-
-/*mock_fn!(
-    name: random_bool,
-    path: rand,
-    input_types: [f64],
-    input_ident: [a],
-    ret_type: bool,
-    ret_val: {
-        false
-    }
-);*/
+use mock_macro::{end_mock_setup, mock_fn, start_mock_setup, mock_method, mock_struct};
 
 fn main() {
     start_mock_setup!();
-    mock_fn!(
-        rand,
-        fn random_bool(prob: f64) -> bool {
-            default_return({
-                std::println!("greetings from context: {}", context::CONTEXT_CONST);
-                context::context();
-                true
-            });
-        }
-    );
 
-    mock_method!(
+    mock_struct!(
         bar,
-        Food,
-        fn food_fun(&mut self, n: String) {
-            default_return({
-                println!("Works");
-            })
+        struct Food {
+            outer: String,
         }
+        fn new(n: String) -> Food {
+            default_return( { 
+                Food{ 
+                    inner: n, 
+                    outer: "YOOOOOOO".into() } 
+            } )
+        }
+        [
+            fn food_fun (&mut self, n: String) {
+                default_return({
+                    println!("Changing inner from {} to {}", self.inner, n);
+                    self.drink(5);
+                    self.inner = n;
+
+                })
+            },
+            fn drink (&self, i: i32) -> i32 {
+                default_return(self.drink_original(i));
+            }
+        ]
     );
 
-    
+
     end_mock_setup!();
 
-    let fst: bool = rand::random_bool(0.0);
-    println!("fst return val {fst}");
-    if !fst {
-        let snd = rand::random_bool(4.0);
-        println!("second return val {snd}");
-    }
-
-    let mut food = bar::Food{ inner: "TRUUUUUUP".into()};
-    food.food_fun("Test".into());
+    let mut food = bar::Food::new("hello".into());
+    let mut mood = bar::Food::new("mellow".into());
+    food.food_fun("rom".into());
+    mood.food_fun("YAAAOOOIIII!!!".into());
 
 }
+
 
 #[test]
 fn macro_test() {}
