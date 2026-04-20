@@ -1,47 +1,9 @@
 use crate::errors::PredicateResult;
-use std::{any::Any, collections::HashMap};
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct EnvId(String);
-pub enum EnvValue {
-    NotInitialized,
-    Initialized(Box<dyn Any>),
-    Consumed
-}
-pub struct Env {
-    map: HashMap<EnvId, Box<dyn Any>>,
-}
-impl Env {
-    pub fn new() -> Self {
-        Self { map: [].into() }
-    }
-    pub fn add<Value: Any + 'static>(&mut self, ident: impl Into<String>, value: Value) {
-        self.map.insert(EnvId(ident.into()), Box::new(value));
-    }
-    pub fn remove<Value: Any + 'static>(&mut self, ident: &EnvId) -> Option<Box<Value>> {
-        let value = self.map.remove(ident)?;
-        value.downcast().ok()
-    }
-    pub fn get_ref<Value: Any + 'static>(&mut self, ident: &EnvId) -> Option<&Value> {
-        let value = self.map.get(ident)?;
-        value.downcast_ref()
-    }
-    pub fn get_mut<Value: Any + 'static>(&mut self, ident: &EnvId) -> Option<&mut Value> {
-        let value = self.map.get_mut(ident)?;
-        value.downcast_mut()
-    }
-}
-
-pub enum ReturnValPointerKind {
-    Return,
-    ReturnAndModify,
-    Modify,
-}
 #[derive(Debug, Clone)]
 pub struct ReturnValDoublePointer {
     thin_ptr: *const (),
 }
-
 impl ReturnValDoublePointer {
     pub fn from_fn<Input, ReturnVal>(closure: Box<dyn Fn(Input) -> ReturnVal>) -> Self {
         let cloref = Box::leak(closure);

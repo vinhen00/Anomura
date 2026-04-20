@@ -1,16 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    ConditionDoublePointer, GlobalContext, ReturnValDoublePointer,
+    ConditionDoublePointer, ConditionalEdge, Edge, GlobalContext, MockHead, MockId, MockState,
+    Node, NodeIndex, Nodes, ReturnValDoublePointer, SequenceHead, SequenceHeadIndex, SequenceState,
+    Slices,
     errors::{PredicateResult, Result},
     time_mod::TimeModifier,
-    types::{
-        edges::{ConditionalEdge, Edge, EdgeIndex},
-        mock::{MockHead, MockId, MockState},
-        nodes::{Node, NodeIndex, NodeKind, Nodes},
-        sequences::{SequenceHeads, SequenceIndex},
-        slices::Slices,
-    },
 };
 
 pub struct MockBuilder {
@@ -18,37 +13,41 @@ pub struct MockBuilder {
     start_index: NodeIndex,
     default_return: Option<ReturnValDoublePointer>,
 }
+pub struct SequenceBuilder {
+    seq_head_index: SequenceHeadIndex,
+    effected_mocks: Vec<MockId>,
+    enter_sequence: NodeIndex,
+    current_index: NodeIndex,
+}
+impl SequenceBuilder {
+    pub fn to_sequence_head(self) -> SequenceHead {
+        SequenceHead {
+            seq_head_index: self.seq_head_index,
+            effected_mocks: self.effected_mocks,
+            sequence_state: SequenceState::Inactive,
+            node_index: self.enter_sequence,
+            enter_sequence: self.enter_sequence,
+            exit_sequence: self.current_index,
+        }
+    }
+}
+pub struct SliceRef(usize);
 pub struct ContextBuilder {
     slices: Slices,
-    sequences: SequenceHeads,
+    sequences: Vec<SequenceBuilder>,
     mocks: HashMap<MockId, MockBuilder>,
     nodes: Nodes,
+    edges: Vec<Edge>,
 }
 
 impl ContextBuilder {
-    ///checks if the sequence with the given index contains the given mock id
-    pub fn seq_contains(&mut self, sequence_index: SequenceIndex, id: &MockId) -> bool {
-        self.sequences.contains_id(sequence_index, id)
-    }
-
-    pub fn add_node(&mut self, node: Node) -> NodeIndex {
-        self.nodes.add(node)
-    }
-    pub fn get_node_mut(&mut self, node_index: NodeIndex) -> Option<&mut Node> {
-        self.nodes.get_node_mut(node_index)
-    }
-    pub fn get_node_ref(&mut self, node_index: NodeIndex) -> Option<&Node> {
-        self.nodes.get_node_ref(node_index)
-    }
-    pub fn add_edge(&mut self, node_index: NodeIndex, edge: Edge) -> Option<EdgeIndex> {
-        self.get_node_mut(node_index).map(|n| n.add_edge(edge))
-    }
     pub fn new() -> Self {
         Self {
             slices: Slices::new(),
-            sequences: SequenceHeads::new(),
+            sequences: vec![],
             mocks: [].into(),
             nodes: Nodes::new(),
+            edges: [].into(),
         }
     }
 
@@ -70,23 +69,24 @@ impl ContextBuilder {
                 })
                 .collect(),
             slices: self.slices,
-            sequences: self.sequences,
+            sequences: self
+                .sequences
+                .into_iter()
+                .map(|s| s.to_sequence_head())
+                .collect(),
             nodes: self.nodes,
+            edges: self.edges,
         }
     }
-    /// adds the given mock id to the node with the given index, returns true if successful and false if the node does not exist
-    pub fn add_id_to_node(&mut self, node_index: NodeIndex, mock_id: MockId) -> bool {
-        self.get_node_mut(node_index)
-            .map(|n| n.add_id(mock_id))
-            .unwrap_or(false)
-    }
-
     pub fn add_mock<Input, ReturnVal>(
         &mut self,
         mock_id: MockId,
         default_return_val_closure: Option<Box<dyn Fn(Input) -> ReturnVal>>,
     ) -> Result<()> {
-        let index = self.add_node(Node::new(NodeKind::Mock));
+        let index = self.graph.add_node(Node {
+            ids: [mock_id.clone()].into(),
+            node_kind: crate::NodeKind::Mock,
+        });
         let ptr_return = default_return_val_closure.map(|r| ReturnValDoublePointer::from_fn(r));
         match self.mocks.insert(
             mock_id.clone(),
@@ -102,28 +102,8 @@ impl ContextBuilder {
     }
     pub fn add_expectation<Input, ReturnVal>(
         &mut self,
-        mock_id: &MockId,
-        condition: Box<dyn Fn(&Input) -> PredicateResult<()> + 'static>,
-        return_val_closure: Option<Box<dyn Fn(Input) -> ReturnVal>>,
-        modifier: TimeModifier,
-    ) -> Result<()> {
-        let starting_point = self.mocks.get(mock_id).unwrap().head;
-
-        let new_index = self.add_expectation_to_starting_point(
-            starting_point,
-            mock_id,
-            condition,
-            return_val_closure,
-            modifier,
-        )?;
-        self.mocks
-            .entry(mock_id.clone())
-            .and_modify(|m| m.head = new_index);
-        Ok(())
-    }
-    pub fn add_expectation_to_starting_point<Input, ReturnVal>(
-        &mut self,
-        starting_point: NodeIndex,
+        slice_start: NodeIndex,
+        slice_end: NodeIndex,
         mock_id: &MockId,
         condition: Box<dyn Fn(&Input) -> PredicateResult<()> + 'static>,
         return_val_closure: Option<Box<dyn Fn(Input) -> ReturnVal>>,
@@ -132,44 +112,44 @@ impl ContextBuilder {
         let return_val_as_ptr =
             return_val_closure.map(|closure| ReturnValDoublePointer::from_fn(closure));
         let condition_as_ptr = ConditionDoublePointer::from_fn(condition);
-        let create_conditional_edge = |priority, target| {
-            Edge::Condition(ConditionalEdge {
-                priority,
-                condition: condition_as_ptr.to_owned(),
-                return_val: return_val_as_ptr.to_owned(),
-                target,
-            })
-        };
         let Some(builder) = self.mocks.get_mut(mock_id) else {
             return Err(format!("mock with id {mock_id:?} does not exist").into());
         };
-
-        let new_node_index = self.add_node(Node::new(NodeKind::Mock));
-        self.add_id_to_node(starting_point, mock_id.clone());
+        let new_node_index = self.graph.add_node(Node {
+            ids: [mock_id.clone()].into(),
+            node_kind: crate::NodeKind::Mock,
+        });
         match modifier {
             TimeModifier::Once => {
                 // add a single edge between nodes
                 //       condition
                 // (1) ---------------> (2)
-                let main_edge = create_conditional_edge(0, new_node_index);
+                let main_weight = Edge::Condition(ConditionalEdge {
+                    priority: 0,
+                    condition: condition_as_ptr,
+                    return_val: return_val_as_ptr,
+                });
                 //consume input edge
-
-                self.add_edge(starting_point, main_edge).unwrap();
+                self.graph.add_edge(slice_end, new_node_index, main_weight);
+                builder.head = new_node_index;
                 Ok(new_node_index)
             }
             TimeModifier::AtMostOnce => {
                 //add two edges to new node, one with always,  one with condition)
                 //      epsilon || condition
                 // (1) ----------------------> (2)
-                let main_edge = create_conditional_edge(1, new_node_index);
-                let instant_edge = Edge::Instant {
-                    priority: 0,
-                    target: new_node_index,
-                };
+                let main_weight = Edge::Condition(ConditionalEdge {
+                    priority: 1,
+                    condition: condition_as_ptr.clone(),
+                    return_val: return_val_as_ptr.clone(),
+                });
+                let instant_weight = Edge::Instant { priority: 0 };
                 //consume input edge
-                self.add_edge(starting_point, main_edge).unwrap();
-                self.add_edge(starting_point, instant_edge).unwrap();
+                self.graph.add_edge(slice_end, new_node_index, main_weight);
                 //epsilon edge
+                self.graph
+                    .add_edge(slice_end, new_node_index, instant_weight);
+                builder.head = new_node_index;
                 Ok(new_node_index)
             }
 
@@ -181,45 +161,50 @@ impl ContextBuilder {
                 //      |    |
                 //      \   /         epsilon
                 //       (1) ------------------> (2)
-                let main_weight = create_conditional_edge(1, starting_point);
-                let instant_edge = Edge::Instant {
-                    priority: 0,
-                    target: new_node_index,
-                };
-
+                let main_weight = Edge::Condition(ConditionalEdge {
+                    priority: 1,
+                    condition: condition_as_ptr.clone(),
+                    return_val: return_val_as_ptr.clone(),
+                });
+                let instant_weight = Edge::Instant { priority: 0 };
                 //consume input edge
-                self.add_edge(starting_point, main_weight).unwrap();
-
+                self.graph.add_edge(slice_end, slice_start, main_weight);
                 //epsilon edge
-                self.add_edge(starting_point, instant_edge);
+                self.graph
+                    .add_edge(slice_end, new_node_index, instant_weight);
+                builder.head = new_node_index;
                 Ok(new_node_index)
             }
             TimeModifier::AtLeastOnce => {
                 //add two edges, one from Node n to n and one instant edge to edge n+1
                 //
-                //                 condition2
+                //                 condition
                 //                   /  \
                 //                  |    |
-                //     condition1     \  /         epsilon
+                //     condition     \  /         epsilon
                 //  (n) ----------> (n+1) ------------------> (n+2)
 
-                let n_plus_one = self.add_node(Node::new(NodeKind::Mock));
-                assert!(self.add_id_to_node(n_plus_one, mock_id.clone()));
-                self.add_edge(n_plus_one, create_conditional_edge(1, n_plus_one))
-                    .unwrap();
-                //epsilon
-                self.add_edge(
-                    n_plus_one,
-                    Edge::Instant {
-                        priority: 0,
-                        target: new_node_index,
-                    },
-                )
-                .unwrap();
+                let n_plus_one = self.graph.add_node(Node {
+                    node_kind: crate::NodeKind::Mock,
+                    ids: [mock_id.clone()].into(),
+                });
+                let main_weight = Edge::Condition(ConditionalEdge {
+                    priority: 1,
+                    condition: condition_as_ptr.clone(),
+                    return_val: return_val_as_ptr.clone(),
+                });
 
-                //condition1
-                self.add_edge(starting_point, create_conditional_edge(1, n_plus_one));
+                let instant_weight = Edge::Instant { priority: 0 };
+                //once
+                self.graph
+                    .add_edge(slice_end, n_plus_one, main_weight.clone());
 
+                //consume input edge
+                self.graph.add_edge(n_plus_one, n_plus_one, main_weight);
+                //epsilon edge
+                self.graph
+                    .add_edge(n_plus_one, new_node_index, instant_weight);
+                builder.head = new_node_index;
                 Ok(new_node_index)
             }
             TimeModifier::Until(env_id) => todo!(),
@@ -227,197 +212,7 @@ impl ContextBuilder {
             TimeModifier::After(env_id) => todo!(),
         }
     }
-
-    pub fn add_enter_sequence(
-        &mut self,
-        sequence_index: SequenceIndex,
-        mock_id: &MockId,
-        modifier: TimeModifier,
-    ) -> Result<()> {
-        let starting_point = self.mocks.get(mock_id).unwrap().head;
-        self.add_enter_sequence_at_starting_point(
-            starting_point,
-            sequence_index,
-            mock_id,
-            modifier,
-        )?;
-        Ok(())
-    }
-    pub fn add_enter_sequence_at_starting_point(
-        &mut self,
-        starting_point: NodeIndex,
-        sequence_index: SequenceIndex,
-        mock_id: &MockId,
-        modifier: TimeModifier,
-    ) -> Result<NodeIndex> {
-        let new_node_index = self.add_node(Node::new(NodeKind::Mock));
-        if self.seq_contains(sequence_index, mock_id) {
-            return Err(format!(
-                "expected sequence with index{:?} to contain id {:?}",
-                sequence_index, mock_id
-            )
-            .into());
-        }
-        let exit_node = self
-            .sequences
-            .edge_ref(sequence_index)
-            .unwrap()
-            .exit_sequence;
-        match modifier {
-            TimeModifier::Once => {
-                self.add_edge(starting_point, Edge::SequenceEnter(sequence_index));
-                self.add_edge(
-                    exit_node,
-                    Edge::SequenceExit {
-                        id: mock_id.clone(),
-                        target: new_node_index,
-                    },
-                );
-            }
-            TimeModifier::AtMostOnce => {
-                self.add_edge(starting_point, Edge::SequenceEnter(sequence_index));
-                self.add_edge(
-                    exit_node,
-                    Edge::SequenceExit {
-                        id: mock_id.clone(),
-                        target: new_node_index,
-                    },
-                );
-                self.add_edge(
-                    starting_point,
-                    Edge::Instant {
-                        priority: 0,
-                        target: new_node_index,
-                    },
-                );
-            }
-            TimeModifier::Any => {
-                self.add_edge(starting_point, Edge::SequenceEnter(sequence_index));
-                self.add_edge(
-                    exit_node,
-                    Edge::SequenceExit {
-                        id: mock_id.clone(),
-                        target: starting_point,
-                    },
-                );
-                self.add_edge(
-                    starting_point,
-                    Edge::Instant {
-                        priority: 0,
-                        target: new_node_index,
-                    },
-                );
-            }
-            TimeModifier::AtLeastOnce => {
-                let node_plus = self.add_node(Node::new(NodeKind::Mock));
-
-                self.add_edge(starting_point, Edge::SequenceEnter(sequence_index));
-                self.add_edge(node_plus, Edge::SequenceEnter(sequence_index));
-                self.add_edge(
-                    exit_node,
-                    Edge::SequenceExit {
-                        id: mock_id.clone(),
-                        target: node_plus,
-                    },
-                );
-                self.add_edge(
-                    node_plus,
-                    Edge::Instant {
-                        priority: 0,
-                        target: new_node_index,
-                    },
-                );
-            }
-            TimeModifier::Until(env_id) => todo!(),
-            TimeModifier::Times(times_value) => todo!(),
-            TimeModifier::After(env_id) => todo!(),
-        };
-        Ok(new_node_index)
-    }
 }
-/*
-    pub fn add_slice_to_starting_point(
-        &mut self,
-        starting_point: NodeIndex,
-        slice_ref: SliceRef,
-        mock_id: &MockId,
-        modifier: TimeModifier,
-    ) -> Result<NodeIndex> {
-        let new_node_index = self.add_node(Node::new(NodeKind::Mock));
-        let slice = self.slices.get_ref_slice(slice_ref).unwrap();
-        for node in slice.clone().into_iter() {}
-        let exit_node = match modifier {
-            TimeModifier::Once => {
-                self.add_edge(starting_point, Edge::SequenceEnter(sequence_index));
-                self.add_edge(
-                    exit_node,
-                    Edge::SequenceExit {
-                        id: mock_id.clone(),
-                        target: new_node_index,
-                    },
-                );
-            }
-            TimeModifier::AtMostOnce => {
-                self.add_edge(starting_point, Edge::SequenceEnter(sequence_index));
-                self.add_edge(
-                    exit_node,
-                    Edge::SequenceExit {
-                        id: mock_id.clone(),
-                        target: new_node_index,
-                    },
-                );
-                self.add_edge(
-                    starting_point,
-                    Edge::Instant {
-                        priority: 0,
-                        target: new_node_index,
-                    },
-                );
-            }
-            TimeModifier::Any => {
-                self.add_edge(starting_point, Edge::SequenceEnter(sequence_index));
-                self.add_edge(
-                    exit_node,
-                    Edge::SequenceExit {
-                        id: mock_id.clone(),
-                        target: starting_point,
-                    },
-                );
-                self.add_edge(
-                    starting_point,
-                    Edge::Instant {
-                        priority: 0,
-                        target: new_node_index,
-                    },
-                );
-            }
-            TimeModifier::AtLeastOnce => {
-                let node_plus = self.add_node(Node::new(NodeKind::Mock));
-
-                self.add_edge(starting_point, Edge::SequenceEnter(sequence_index));
-                self.add_edge(node_plus, Edge::SequenceEnter(sequence_index));
-                self.add_edge(
-                    exit_node,
-                    Edge::SequenceExit {
-                        id: mock_id.clone(),
-                        target: node_plus,
-                    },
-                );
-                self.add_edge(
-                    node_plus,
-                    Edge::Instant {
-                        priority: 0,
-                        target: new_node_index,
-                    },
-                );
-            }
-            TimeModifier::Until(env_id) => todo!(),
-            TimeModifier::Times(times_value) => todo!(),
-            TimeModifier::After(env_id) => todo!(),
-        };
-        Ok(new_node_index)
-    }
-}*/
 
 impl Default for ContextBuilder {
     fn default() -> Self {

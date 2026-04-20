@@ -1,5 +1,6 @@
+use derive_more::Display;
 use std::result;
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Display)]
 pub struct PredicateError(pub String);
 impl From<&str> for PredicateError {
     fn from(value: &str) -> Self {
