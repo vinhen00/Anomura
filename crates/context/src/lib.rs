@@ -4,9 +4,11 @@ mod errors;
 mod time_mod;
 mod unit_tests;
 use std::{
-    collections::{HashMap, HashSet},
+    any::Any,
+    collections::HashMap,
     hash::Hash,
     sync::{Mutex, OnceLock},
+    usize,
 };
 
 use derive_more::{AsMut, AsRef, FromStr};
@@ -78,12 +80,9 @@ impl Slices {
 pub struct SequenceHeadIndex(usize);
 #[derive(Clone, Debug)]
 pub struct SequenceHead {
-    seq_head_index: SequenceHeadIndex,
     effected_mocks: Vec<MockId>,
     sequence_state: SequenceState,
-    node_index: NodeIndex,
-    enter_sequence: NodeIndex,
-    exit_sequence: NodeIndex,
+    index: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -109,7 +108,7 @@ pub enum MockState {
 }
 pub struct MockHead {
     state: MockState,
-    default_return_val: Option<ReturnValDoublePointer>,
+    return_val: Option<usize>,
 }
 
 pub const CONTEXT_CONST: &str = "CONSTANT FROM CONTEXT";
@@ -179,11 +178,11 @@ impl GlobalContext {
         let dot = petgraph::dot::Dot::new(&self.graph);
         format!("{dot:?}")
     }
-    pub fn get_sequence_head(&self, index: SequenceHeadIndex) -> &SequenceHead {
-        &self.sequence_heads[index.0]
-    }
-    pub fn mut_sequence_head(&mut self, index: SequenceHeadIndex) -> &mut SequenceHead {
-        &mut self.sequence_heads[index.0]
+
+    pub fn get_incr_id(&mut self) -> u32 {
+        let x = self.id_count;
+        self.id_count+= 1;
+        x
     }
 
     pub fn enter_sequence(&mut self, seq_head_index: SequenceHeadIndex) -> Result<()> {
@@ -322,29 +321,6 @@ impl GlobalContext {
                             }
                         }
                     }
-                    Edge::SequenceEnter(index) => sequence_head_indices.push((node_index, *index)),
-                    Edge::SequenceExit(exit_mock_id)
-                        if maybe_sequence_head
-                            .clone()
-                            .map(|head| head.effected_mocks.contains(exit_mock_id))
-                            .unwrap_or(false) =>
-                    {
-                        if *exit_mock_id == mock_id {
-                            sequence_stack_append.push(e.target())
-                        }
-                        self.mock_heads
-                            .entry(exit_mock_id.clone())
-                            .and_modify(|head| {
-                                head.state = MockState::Unlocked {
-                                    mock_head_index: e.target(),
-                                }
-                            });
-                    }
-                    _ => {}
-                });
-            for (target, seq_head) in sequence_head_indices.drain(0..) {
-                if let Ok(()) = self.enter_sequence(seq_head) {
-                    sequence_stack_append.push(target)
                 }
             }
             //if valid conditions were found, pick the edge with the highest priority
@@ -375,16 +351,9 @@ impl GlobalContext {
             node_index_stack.append(&mut sequence_stack_append);
             visited.push(node_index);
         }
-        //failed to find any valid conditions
-        let joined = failed_conditionals
-            .into_iter()
-            .map(|e| e.0)
-            .collect::<Vec<_>>()
-            .join(",\n");
-        Err(format!(
-            "No matching condition found for input tried the following:  {}",
-            joined
-        )
-        .into())
+        head.state = MockState::Locked {
+            sequence_head_index: new_node_index,
+        };
+        Ok(return_val.clone())
     }
 }

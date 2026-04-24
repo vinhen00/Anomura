@@ -66,22 +66,12 @@ pub const DISCOVER_BUILD_NORMALY: &[&str] = &[
     "equivalent",
     "rustc_version",
     "semver",
-    //dashmap
-    "cfg_if",
-    "crossbeam-utils",
-    "hashbrown",
-    "lock_api",
-    "scopeguard",
-    "once_cell",
-    "parking_lot_core",
-    "libc",
-    "smallvec",
 ];
 impl DiscoverPlugin {
     pub fn new() -> Self {
         let tmp_dir = std::env::temp_dir();
         let (name_string, name) = if GenericNamespaced::is_supported() {
-            let name_string = format!("{tmp_dir:#?}/qqtmp.sock");
+            let name_string = format!("{tmp_dir:#?}/tmp.sock");
             let name = name_string
                 .clone()
                 .to_ns_name::<GenericNamespaced>()
@@ -148,24 +138,6 @@ impl DiscoverPlugin {
             channel_name: name_string,
             listener_handle: Some(listener_handle),
         }
-    }
-    pub fn tell_channel_to_stop_listening(&mut self) -> Result<(), io::Error> {
-        let name = if GenericNamespaced::is_supported() {
-            self.channel_name
-                .clone()
-                .to_ns_name::<GenericNamespaced>()?
-        } else {
-            self.channel_name.clone().to_fs_name::<GenericFilePath>()?
-        };
-
-        //tell the server that we are done looking for messages sent from rustc_driver instances
-        println!("Sending Done");
-        let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
-        let json = serde_json::to_string(&CallBackMessage::Done).unwrap();
-        conn.write_all(json.as_bytes())?;
-        conn.write_all(b"\n")?;
-        conn.flush()?;
-        Ok(())
     }
 }
 impl Default for DiscoverPlugin {
@@ -234,7 +206,22 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
     fn before_execution(&mut self) {}
 
     fn after_execution(&mut self) -> Result<DiscoverClientReturn, RustcPluginError> {
-        self.tell_channel_to_stop_listening()?;
+        let name = if GenericNamespaced::is_supported() {
+            self.channel_name
+                .clone()
+                .to_ns_name::<GenericNamespaced>()?
+        } else {
+            self.channel_name.clone().to_fs_name::<GenericFilePath>()?
+        };
+
+        //tell the server that we are done looking for messages sent from rustc_driver instances
+        println!("Sending Done");
+        let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
+        let json = serde_json::to_string(&CallBackMessage::Done).unwrap();
+        conn.write_all(json.as_bytes())?;
+        conn.write_all(b"\n")?;
+        conn.flush()?;
+
         let listener_handle = self.listener_handle.take().expect(
             "after_execution in DiscoverPlugin should contain a listener_handle to be consumed",
         );
@@ -252,17 +239,6 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
             crate_list,
         })
     }
-    fn on_failure(&mut self) {
-        if let Some(handle) = self.listener_handle.take() {
-            if !handle.is_finished() {
-                self.tell_channel_to_stop_listening()
-                    .expect("failed to shutdown channel after failure in discover pass");
-            };
-            handle
-                .join()
-                .expect("failed to join channel in discover pass");
-        }
-    }
 }
 
 pub fn compile_maccalls(program: &str) -> CompileMocks {
@@ -279,6 +255,7 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
     let mocks = parse_mocks.get_program();
 
     let inline_result = CallBackMessage::NewMocks(mocks, cratelist);
+
 
     let name_str = std::env::var(DISCOVER_TMP)
         .expect("there should be a discover tmp env var created in the main cargo command");

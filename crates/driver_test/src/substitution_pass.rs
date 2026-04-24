@@ -7,7 +7,7 @@ use std::{
 
 use crate::{SUBSTITUTION_MOCK_PATHS, Utf8Path};
 
-use mockingbird::{MockedFun, compile_mocks::CompileMocks};
+use mockingbird::{MockObject, compile_mocks::CompileMocks};
 
 use itertools::Itertools;
 use mockingbird::function_intercept::FunctionIntercept;

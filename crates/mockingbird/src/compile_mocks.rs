@@ -121,6 +121,7 @@ fn extract_attribute_name(atr: rustc_ast::Attribute) -> String {
             }
         }
     }
+    println!("Found path {}", path);
     path
 }
 
