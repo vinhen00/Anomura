@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="EMPTY_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/crates/context/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/driver_test/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/mock-macro/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/mockingbird/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/test_project/bar/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/test_project/foo/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/test_project/foo/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/test_project/foobar/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+      <excludeFolder url="file://$MODULE_DIR$/test_project/bar/target" />
+      <excludeFolder url="file://$MODULE_DIR$/test_project/foo/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

@@ -1,6 +1,6 @@
 use crate::{
-    ConditionDoublePointer, MockId, ReturnValDoublePointer, builder::ContextBuilder,
-    errors::PredicateResult, time_mod::TimeModifier,
+    ConditionDoublePointer, ReturnValDoublePointer, builder::ContextBuilder,
+    errors::PredicateResult, time_mod::TimeModifier, types::mock::MockId,
 };
 
 #[test]
@@ -19,16 +19,16 @@ fn pointers2() {
         pub string: String,
     }
 
-    let a: Box<dyn Fn() -> TestStruct + 'static> = Box::new(|| {
+    let a: Box<dyn Fn(()) -> TestStruct + 'static> = Box::new(|()| {
         println!("this is a closure return val");
         TestStruct {
             string: String::from("hello pointers2"),
         }
     });
     let double_ptr = ReturnValDoublePointer::from_fn(a);
-    let casted = unsafe { double_ptr.into_fn::<TestStruct>() };
-    assert_eq!(casted().string, "hello pointers2");
-    assert_ne!(casted().string, "goodbye pointer2");
+    let casted = unsafe { double_ptr.into_fn::<(), TestStruct>() };
+    assert_eq!(casted(()).string, "hello pointers2");
+    assert_ne!(casted(()).string, "goodbye pointer2");
 }
 
 #[test]
@@ -36,12 +36,12 @@ fn context1() {
     println!("start of test");
     struct Foo(u32);
     struct Bar(String);
-    let mock_id_foo = MockId("foo".into());
-    let mock_id_bar = MockId("bar".into());
+    let mock_id_foo = MockId::new("foo");
+    let mock_id_bar = MockId::new("bar");
     let mut context_builder = ContextBuilder::new();
     assert!(
         context_builder
-            .add_mock(mock_id_foo.clone(), Some(Box::new(|| Foo(42))))
+            .add_mock(mock_id_foo.clone(), Some(Box::new(|a: u32| Foo(42))))
             .is_ok()
     );
     let expectation1: Box<dyn Fn(&u32) -> PredicateResult<()> + 'static> =
@@ -53,16 +53,10 @@ fn context1() {
             Err("not 42".into())
         }
     };
-    let return_clos = || Foo(100);
+    let return_clos = |a: u32| Foo(100);
     assert!(
         context_builder
-            .add_expectation::<u32, Foo>(
-                &mock_id_foo,
-                expectation1,
-                None,
-                TimeModifier::Once,
-                false
-            )
+            .add_expectation::<u32, Foo>(&mock_id_foo, expectation1, None, TimeModifier::Once,)
             .is_ok()
     );
     assert!(
@@ -72,17 +66,16 @@ fn context1() {
                 Box::new(expectation2),
                 Some(Box::new(return_clos)),
                 TimeModifier::Once,
-                true
             )
             .is_ok()
     );
 
     let mut global_context = context_builder.finish();
     println!("here");
-    let Ok(result) = global_context.run_mock::<u32, Foo>(mock_id_foo.clone(), &7) else {
+    let Ok(result) = global_context.run_mock::<u32, Foo>(mock_id_foo.clone(), 7) else {
         panic!("failed first run");
     };
-    let Ok(result) = global_context.run_mock::<u32, Foo>(mock_id_foo.clone(), &result.0) else {
+    let Ok(result) = global_context.run_mock::<u32, Foo>(mock_id_foo.clone(), result.0) else {
         panic!("failed first run");
     };
 }
@@ -91,17 +84,20 @@ fn context2() {
     println!("start of test");
     struct Foo(u32);
     struct Bar(String);
-    let mock_id_foo = MockId("foo".into());
-    let mock_id_bar = MockId("bar".into());
+    let mock_id_foo = MockId::new("foo");
+    let mock_id_bar = MockId::new("bar");
     let mut context_builder = ContextBuilder::new();
     assert!(
         context_builder
-            .add_mock(mock_id_foo.clone(), Some(Box::new(|| Foo(42))))
+            .add_mock(mock_id_foo.clone(), Some(Box::new(|a: u32| Foo(42))))
             .is_ok()
     );
     assert!(
         context_builder
-            .add_mock(mock_id_bar.clone(), Some(Box::new(|| Bar("getget".into()))))
+            .add_mock(
+                mock_id_bar.clone(),
+                Some(Box::new(|b: Bar| Bar("getget".into())))
+            )
             .is_ok()
     );
 
@@ -128,19 +124,13 @@ fn context2() {
             Err("bar not goodbye".into())
         }
     };
-    let bar_ret1 = Box::new(|| Bar("goodbye".into()));
+    let bar_ret1 = Box::new(|a: Bar| Bar("goodbye".into()));
 
-    let return_clos = || Foo(100);
+    let return_clos = |a: u32| Foo(100);
 
     assert!(
         context_builder
-            .add_expectation::<u32, Foo>(
-                &mock_id_foo,
-                expectation1,
-                None,
-                TimeModifier::Once,
-                false
-            )
+            .add_expectation::<u32, Foo>(&mock_id_foo, expectation1, None, TimeModifier::Once,)
             .is_ok()
     );
     assert!(
@@ -150,7 +140,6 @@ fn context2() {
                 Box::new(expectation2),
                 Some(Box::new(return_clos)),
                 TimeModifier::Once,
-                true
             )
             .is_ok()
     );
@@ -161,7 +150,6 @@ fn context2() {
                 Box::new(bar_expectation1),
                 Some(bar_ret1),
                 TimeModifier::Once,
-                false
             )
             .is_ok()
     );
@@ -172,28 +160,23 @@ fn context2() {
                 Box::new(bar_expectation2),
                 None,
                 TimeModifier::Once,
-                true
             )
             .is_ok()
     );
 
     let mut global_context = context_builder.finish();
     println!("here");
-    let Ok(result) = global_context.run_mock::<u32, Foo>(mock_id_foo.clone(), &7) else {
-        panic!("failed first run");
-    };
+    let result = global_context
+        .run_mock::<u32, Foo>(mock_id_foo.clone(), 7)
+        .unwrap();
 
-    let Ok(result) = global_context.run_mock::<u32, Foo>(mock_id_foo.clone(), &result.0) else {
-        panic!("failed second run");
-    };
-
-    let Ok(goodbye) =
-        global_context.run_mock::<Bar, Bar>(mock_id_bar.clone(), &Bar("hello".into()))
-    else {
-        panic!("failed third run");
-    };
-
-    let Ok(result) = global_context.run_mock::<Bar, Bar>(mock_id_bar.clone(), &goodbye) else {
-        panic!("failed fourth run");
-    };
+    let result = global_context
+        .run_mock::<u32, Foo>(mock_id_foo.clone(), result.0)
+        .unwrap();
+    let goodbye = global_context
+        .run_mock::<Bar, Bar>(mock_id_bar.clone(), Bar("hello".into()))
+        .unwrap();
+    let result = global_context
+        .run_mock::<Bar, Bar>(mock_id_bar.clone(), goodbye)
+        .unwrap();
 }

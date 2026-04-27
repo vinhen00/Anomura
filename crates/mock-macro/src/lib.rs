@@ -1,4 +1,4 @@
-use context::TimeModifier;
+use context::time_mod::TimeModifier;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
@@ -47,13 +47,13 @@ impl Expectation {
                                 .cloned()
                                 .inspect(|expr| ret = parse_quote! { Some(Box::new(|| #expr)) });
                         } else if ident == "once" {
-                            time = context::TimeModifier::Once
+                            time = context::time_mod::TimeModifier::Once
                         } else if ident == "any" {
-                            time = context::TimeModifier::Any
+                            time = context::time_mod::TimeModifier::Any
                         } else if ident == "at_least_once" {
-                            time = context::TimeModifier::AtLeastOnce
+                            time = context::time_mod::TimeModifier::AtLeastOnce
                         } else if ident == "at_most_once" {
-                            time = context::TimeModifier::AtMostOnce
+                            time = context::time_mod::TimeModifier::AtMostOnce
                         } else if ident == "exit" {
                             exit = true;
                         };
@@ -68,13 +68,13 @@ impl Expectation {
                         .map(|i| i.ident.clone())
                     {
                         if ident == "Once" {
-                            time = context::TimeModifier::Once
+                            time = context::time_mod::TimeModifier::Once
                         } else if ident == "Any" {
-                            time = context::TimeModifier::Any
+                            time = context::time_mod::TimeModifier::Any
                         } else if ident == "AtLeastOnce" {
-                            time = context::TimeModifier::AtLeastOnce
+                            time = context::time_mod::TimeModifier::AtLeastOnce
                         } else if ident == "AtMostOnce" {
-                            time = context::TimeModifier::AtMostOnce
+                            time = context::time_mod::TimeModifier::AtMostOnce
                         }
                     }
                 }
