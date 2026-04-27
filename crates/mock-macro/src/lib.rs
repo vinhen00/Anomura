@@ -1,4 +1,4 @@
-use context::TimeModifier;
+use context::time_mod::TimeModifier;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
@@ -23,23 +23,50 @@ impl Expectation {
             panic!("no expr");
         };
         for expr in exprs {
-            if let Expr::Call(expr_call) = expr
-                && let Expr::Path(expr_path) = *expr_call.func.clone()
-                && let Some(ident) = expr_path.path.get_ident()
-            {
-                if ident == "with_return" {
-                    ret = expr_call.args.first().cloned();
-                } else if ident == "once" {
-                    time = TimeModifier::Once
-                } else if ident == "any" {
-                    time = TimeModifier::Any
-                } else if ident == "at_least_once" {
-                    time = TimeModifier::AtLeastOnce
-                } else if ident == "at_most_once" {
-                    time = TimeModifier::AtMostOnce
-                } else if ident == "exit" {
-                    exit = true;
-                };
+            match expr {
+                Expr::Call(expr_call) => {
+                    if let Expr::Path(expr_path) = *expr_call.func.clone()
+                        && let Some(ident) = expr_path.path.get_ident()
+                    {
+                        if ident == "with_return" {
+                            expr_call
+                                .args
+                                .first()
+                                .cloned()
+                                .inspect(|expr| ret = parse_quote! { Some(Box::new(|| #expr)) });
+                        } else if ident == "once" {
+                            time = context::time_mod::TimeModifier::Once
+                        } else if ident == "any" {
+                            time = context::time_mod::TimeModifier::Any
+                        } else if ident == "at_least_once" {
+                            time = context::time_mod::TimeModifier::AtLeastOnce
+                        } else if ident == "at_most_once" {
+                            time = context::time_mod::TimeModifier::AtMostOnce
+                        } else if ident == "exit" {
+                            exit = true;
+                        };
+                    }
+                }
+                Expr::Path(expr_path) => {
+                    if let Some(ident) = expr_path
+                        .path
+                        .segments
+                        .iter()
+                        .last()
+                        .map(|i| i.ident.clone())
+                    {
+                        if ident == "Once" {
+                            time = context::time_mod::TimeModifier::Once
+                        } else if ident == "Any" {
+                            time = context::time_mod::TimeModifier::Any
+                        } else if ident == "AtLeastOnce" {
+                            time = context::time_mod::TimeModifier::AtLeastOnce
+                        } else if ident == "AtMostOnce" {
+                            time = context::time_mod::TimeModifier::AtMostOnce
+                        }
+                    }
+                }
+                _ => {}
             }
         }
 
