@@ -1,4 +1,4 @@
-use std::{collections::HashMap, slice::SliceIndex};
+use std::collections::HashMap;
 
 use crate::{
     ConditionDoublePointer, GlobalContext, ReturnValDoublePointer,
@@ -9,7 +9,7 @@ use crate::{
         mock::{MockHead, MockId, MockState},
         nodes::{Node, NodeIndex, NodeKind, Nodes},
         sequences::{SequenceHeads, SequenceIndex},
-        slices::{SliceRef, Slices},
+        slices::Slices,
     },
 };
 
@@ -26,6 +26,7 @@ pub struct ContextBuilder {
 }
 
 impl ContextBuilder {
+    ///checks if the sequence with the given index contains the given mock id
     pub fn seq_contains(&mut self, sequence_index: SequenceIndex, id: &MockId) -> bool {
         self.sequences.contains_id(sequence_index, id)
     }
@@ -73,11 +74,13 @@ impl ContextBuilder {
             nodes: self.nodes,
         }
     }
+    /// adds the given mock id to the node with the given index, returns true if successful and false if the node does not exist
     pub fn add_id_to_node(&mut self, node_index: NodeIndex, mock_id: MockId) -> bool {
         self.get_node_mut(node_index)
             .map(|n| n.add_id(mock_id))
             .unwrap_or(false)
     }
+    ///
     pub fn add_mock<Input, ReturnVal>(
         &mut self,
         mock_id: MockId,

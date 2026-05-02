@@ -181,9 +181,129 @@ struct MockFnData {
 
 #[proc_macro]
 pub fn mock_fn(item: TokenStream) -> TokenStream {
-    let MockFnData = parse_macro_input!(item as MockFnData);
-    TokenStream::new()
+    let mock_fn_data = parse_macro_input!(item as MockFnData);
+    let input_types = mock_fn_data.input_types;
+    let return_type = mock_fn_data.return_type;
+    let path = mock_fn_data.path;
+    let ident = mock_fn_data.ident;
+    let mock_id = combine_path_and_ident(&path, &ident);
+    let mock_id_string = format!("{}", quote! {#mock_id});
+    let mock_id_ident = format_ident!("{}_mock_id", mock_id);
+    //let return_type = quote! {#return_type};
+    let default_return_val = mock_fn_data.default_return_val;
+    let default_return: Expr = match &default_return_val {
+        Some(expr) => parse_quote! {
+            Some( Box::new(|| #default_return_val) )
+        },
+        None => parse_quote! { None },
+    };
+    //let default_return_val = quote! { #default_return_val };
+    let input_type = quote! { (#(#input_types),*) };
+    let mut setup_mock = quote! {
+        let #mock_id_ident = context::MockId::new(#mock_id_string);
+
+        if let Err(e) = context_builder.add_mock::<#return_type>(#mock_id_ident.clone(), #default_return) {
+            panic!("failed to add mock, got error {:?}", e);
+        }
+
+    };
+    mock_fn_data.expectations.into_iter().for_each(|e| {
+        let ret = e.ret;
+        let cond = e.condition;
+        let exit = e.exit;
+        let time = e.time;
+        add_expectation_to_context(
+            &mut setup_mock,
+            return_type.clone(),
+            mock_id_ident.clone(),
+            input_type.clone(),
+            ret,
+            cond,
+            exit,
+            time,
+        );
+    });
+    setup_mock.into()
 }
+
+fn add_expectation_to_context(
+    appended: &mut proc_macro2::TokenStream,
+    return_type: Type,
+    mock_id_ident: Ident,
+    input_type: proc_macro2::TokenStream,
+    ret: Expr,
+    cond: ExprClosure,
+    exit: bool,
+    time: TimeModifier,
+) {
+    let append = quote! {
+    if let Err(e) = context_builder.add_expectation::<#input_type, #return_type>(&#mock_id_ident, Box::new( #cond ), #ret, #time, #exit) {
+        panic!("failed to add mock, got error {:?}", e);
+        };
+    };
+    appended.extend(append);
+}
+
+struct SliceData {
+    name: Ident,
+    expectations: Vec<Expectation>,
+    time_mod: TimeModifier,
+}
+
+#[proc_macro]
+pub fn slice(item: TokenStream) -> TokenStream {
+    // should look like expect!(path, fnSig {expectation}, modifiers...)
+    // so similar to mock_fn but without initializing the mock
+    let fn_data = parse_macro_input!(item as MockFnData);
+    assert!(
+        fn_data.default_return_val.is_none(),
+        "default return value not allowed in expect"
+    );
+    let input_types = fn_data.input_types;
+    let input_type = quote! { (#(#input_types),*) };
+    let mock_id = combine_path_and_ident(&fn_data.path, &fn_data.ident);
+    let mock_id_string = format!("{}", quote! {#mock_id});
+    let mock_id_ident = format_ident!("{}_mock_id", mock_id);
+    let mut expects = quote! {};
+    fn_data.expectations.into_iter().for_each(|e| {
+        let ret = e.ret;
+        let cond = e.condition;
+        let exit = e.exit;
+        let time = e.time;
+        add_expectation_to_context(
+            &mut expects,
+            fn_data.return_type.clone(),
+            mock_id_ident.clone(),
+            input_type.clone(),
+            ret,
+            cond,
+            exit,
+            time,
+        );
+    });
+    expects.into()
+}
+struct SequenceData {
+    name: Ident,
+    expectations: Vec<MockFnData>,
+}
+impl Parse for SequenceData {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let name = input.parse::<Ident>()?;
+        input.parse::<Token![,]>()?;
+
+        let expectations = Punctuated::<MockFnData, Token![,]>::parse_terminated(&input)?
+            .into_iter()
+            .collect();
+        Ok(Self { name, expectations })
+    }
+}
+/*
+pub fn sequence(item: TokenStream) -> TokenStream {
+    let item = parse_macro_input!(item as SequenceData);
+
+    TokenStream::new()
+}*/
 
 #[proc_macro]
 pub fn mock_method(_item: TokenStream) -> TokenStream {

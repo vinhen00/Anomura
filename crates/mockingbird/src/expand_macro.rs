@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    Expr, FnArg, Ident, Path, Receiver, Token, Type, bracketed,
+    Expr, Ident, Path, Token, Type, bracketed,
     parse::{Parse, ParseStream},
     parse_quote, parse2,
     punctuated::Punctuated,

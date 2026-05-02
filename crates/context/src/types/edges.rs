@@ -2,11 +2,7 @@ use std::slice::{Iter, IterMut};
 
 use crate::{
     ConditionDoublePointer, ReturnValDoublePointer,
-    types::{
-        mock::MockId,
-        nodes::NodeIndex,
-        sequences::{SequenceHead, SequenceIndex},
-    },
+    types::{mock::MockId, nodes::NodeIndex, sequences::SequenceIndex},
 };
 
 pub struct EdgeTransitionInfo {
