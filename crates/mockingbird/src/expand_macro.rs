@@ -207,27 +207,19 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
 
             std::println!("Mocked version of function {} was used", #name_str);
             let #mock_id_ident = context::MockId::new(stringify!(#mock_id));
-            let Some(ctx) = context::GLOBAL_CONTEXT
-                .get()
-                else {
-                    println!("ctx not initialized");
-                    return #original_name(#input_idents_no_tuple);
-                };
-            let mut guard = ctx.lock().expect("failed to fetch guard");
-
-            match guard.run_mock::<#input_type_tuple, #ret_type>(#mock_id_ident, &#input_ident_tuple) {
-                Ok(res) => res,
-                Err(e) => match e {
-                    context::MockError::Other(e) => panic!("unexpected Error: {:?}",e),
-                    context::MockError::PredicateError(e) => panic!("{:?}", e.0),
-                    context::MockError::NoMatchingId => {
-                        println!("failed to find mock id");
-                        return #original_name(#input_idents_no_tuple);
+            if context::ctx_built_and_contains_id(&#mock_id_ident) {
+                match context::run_mock::<#input_type_tuple, #ret_type>(#mock_id_ident, #input_ident_tuple) {
+                    Ok(res) => res,
+                    Err(e) => match e {
+                        context::MockError::Other(e) => panic!("unexpected Error: {:?}",e),
+                        context::MockError::PredicateError(e) => panic!("{:?}", e.0),
+                        context::MockError::NoMatchingId => {
+                            panic!("failed to find mock id");
+                        }
                     }
                 }
-            }
+            } else {return #original_name(#input_idents_no_tuple);}
 
-            //#ret_val
         }
     };
     expanded

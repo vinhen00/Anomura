@@ -4,29 +4,99 @@ mod errors;
 pub mod time_mod;
 mod types;
 mod unit_tests;
-use errors::Result;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Mutex, OnceLock},
-};
-
-use derive_more::{AsMut, AsRef, FromStr};
-
+pub use crate::builder::ContextBuilder;
 pub use crate::closure_wrappers::{ConditionDoublePointer, ReturnValDoublePointer};
-use crate::{
-    errors::{MockError, PredicateError},
-    types::{
-        edges::{Edge, EdgeTransitionInfo},
-        mock::{MockHead, MockId, MockState},
-        nodes::{Node, NodeIndex, Nodes},
-        sequences::{SequenceHead, SequenceHeads, SequenceIndex},
-        slices::Slices,
-    },
+use crate::errors::PredicateResult;
+pub use crate::time_mod::TimeModifier;
+pub use crate::types::mock::MockId;
+use crate::types::{
+    edges::{Edge, EdgeTransitionInfo},
+    mock::{MockHead, MockState},
+    nodes::{Node, NodeIndex, Nodes},
+    sequences::{SequenceHead, SequenceHeads, SequenceIndex},
+    slices::Slices,
 };
+use errors::Result;
+pub use errors::{MockError, PredicateError};
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::mem;
 
-pub static GLOBAL_CONTEXT: OnceLock<Mutex<GlobalContext>> = OnceLock::new();
+pub enum CtxState {
+    Builder(ContextBuilder),
+    Ctx(GlobalContext),
+    Processing,
+}
+
+impl CtxState {
+    pub fn finish(&mut self) {
+        // Swap out the existing value with `Empty`
+        let old_self = mem::replace(self, CtxState::Processing);
+
+        // Match on the extracted owned value
+        *self = match old_self {
+            CtxState::Builder(builder) => {
+                let ctx = builder.finish();
+                CtxState::Ctx(ctx)
+            }
+            other => panic!("finish was called on state more than once before a teardown"),
+        }
+    }
+}
+pub fn finish_building_context() {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        ctx.finish();
+    });
+}
+pub fn teardown() {
+    println!("tearing down context");
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| *ctx = CtxState::Builder(ContextBuilder::new()))
+}
+
+pub fn add_mock<Input, ReturnVal>(
+    mock_id: MockId,
+    default_return_val_closure: Option<Box<dyn Fn(Input) -> ReturnVal>>,
+) -> errors::Result<()> {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Builder(context_builder) => {
+            context_builder.add_mock(mock_id, default_return_val_closure)
+        }
+        other => panic!("context not in build mode during add_mock call"),
+    })
+}
+
+pub fn ctx_built_and_contains_id(id: &MockId) -> bool {
+    GLOBAL_CONTEXT.with_borrow(|ctx| match ctx {
+        CtxState::Ctx(global_context) => global_context.check_id(id),
+        other => false,
+    })
+}
+pub fn add_expectation<Input, ReturnVal>(
+    mock_id: &MockId,
+    condition: Box<dyn Fn(&Input) -> PredicateResult<()> + 'static>,
+    return_val_closure: Option<Box<dyn Fn(Input) -> ReturnVal>>,
+    modifier: TimeModifier,
+) -> errors::Result<()> {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Builder(context_builder) => {
+            context_builder.add_expectation(mock_id, condition, return_val_closure, modifier)
+        }
+        other => panic!("context not in build mode during add_mock call"),
+    })
+}
+
+pub fn run_mock<Input, ReturnVal>(mock_id: MockId, input: Input) -> errors::Result<ReturnVal> {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Ctx(ctx) => ctx.run_mock::<Input, ReturnVal>(mock_id, input),
+        other => panic!("context not in build mode during add_mock call"),
+    })
+}
+thread_local! {
+    pub static GLOBAL_CONTEXT: RefCell<CtxState> =
+    RefCell::new(CtxState::Builder(ContextBuilder::new()));
+}
 //Slices are (for now) defined as sequences with a fixed start and end point.
-//
+
 #[derive(Debug)]
 pub struct GlobalContext {
     slices: Slices,
@@ -126,7 +196,10 @@ impl GlobalContext {
         }
         Ok(())
     }
-
+    ///returns true if mock id exists in context
+    pub fn check_id(&self, mock_id: &MockId) -> bool {
+        self.mock_heads.contains_key(mock_id)
+    }
     pub fn run_mock<Input, ReturnVal>(
         &mut self,
         mock_id: MockId,

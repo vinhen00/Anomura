@@ -1,5 +1,5 @@
 use bar::{TestStruct1, TestStruct2, handler1, handler2};
-use mock_macro::{end_mock_setup, mock_fn, start_mock_setup};
+use mock_macro::mock_fn;
 use std::sync::Mutex;
 
 fn gab() -> TestStruct2 {
@@ -8,7 +8,6 @@ fn gab() -> TestStruct2 {
 }
 
 fn main() {
-    start_mock_setup!();
     mock_fn!(
         bar,
         fn handler1(input: TestStruct1) -> TestStruct2 {
@@ -52,7 +51,8 @@ fn main() {
             );
         }
     );
-    end_mock_setup!();
+    context::finish_building_context();
+    
     let struct1 = TestStruct1 {
         text: "hello world".into(),
     };
@@ -72,5 +72,6 @@ fn main() {
     }
     let struct1_res = handler2(TestStruct2 { n: 1, m: 44 });
     let struct2_res2 = handler1(struct1_res);
+    dbg!(&struct2_res2);
     handler2(struct2_res2);
 }

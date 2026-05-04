@@ -20,6 +20,7 @@ impl std::fmt::Display for TestStruct1 {
         write!(f, "{}", self.text)
     }
 }
+#[derive(Debug, Clone)]
 pub struct TestStruct2 {
     pub n: u32,
     pub m: u32,

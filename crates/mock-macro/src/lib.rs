@@ -3,7 +3,7 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
     Expr, ExprClosure, Ident, Token, Type, parse::Parse, parse_macro_input, parse_quote,
-    punctuated::Punctuated, token::Comma,
+    punctuated::Punctuated, spanned::Spanned, token::Comma,
 };
 
 struct Expectation {
@@ -41,11 +41,9 @@ impl Expectation {
                         && let Some(ident) = expr_path.path.get_ident()
                     {
                         if ident == "with_return" {
-                            expr_call
-                                .args
-                                .first()
-                                .cloned()
-                                .inspect(|expr| ret = parse_quote! { Some(Box::new(|| #expr)) });
+                            expr_call.args.first().cloned().inspect(|expr| {
+                                ret = parse_quote! { Some(Box::new(|#input_tuple| #expr)) }
+                            });
                         } else if ident == "once" {
                             time = context::time_mod::TimeModifier::Once
                         } else if ident == "any" {
@@ -190,6 +188,16 @@ struct MockFnData {
     expectations: Vec<Expectation>,
 }
 
+fn path_to_ident(path: &syn::Path) -> Ident {
+    let parts: Vec<String> = path
+        .segments
+        .iter()
+        .map(|seg| seg.ident.to_string())
+        .collect();
+
+    let combined_name = parts.join("_");
+    format_ident!("{}", combined_name, span = path.span())
+}
 fn combine_path_and_ident(path: &syn::Path, ident: &Ident) -> Ident {
     let mut parts: Vec<String> = path
         .segments
@@ -212,11 +220,13 @@ pub fn mock_fn(item: TokenStream) -> TokenStream {
     let mock_id = combine_path_and_ident(&path, &ident);
     let mock_id_string = format!("{}", quote! {#mock_id});
     let mock_id_ident = format_ident!("{}_mock_id", mock_id);
+    let input_idents = mock_fn_data.input_idents;
+    let input_tuple = quote! { (#(#input_idents),*) };
     //let return_type = quote! {#return_type};
     let default_return_val = mock_fn_data.default_return_val;
     let default_return: Expr = match &default_return_val {
         Some(expr) => parse_quote! {
-            Some( Box::new(|| #default_return_val) )
+            Some( Box::new(|#input_tuple| #default_return_val) )
         },
         None => parse_quote! { None },
     };
@@ -225,7 +235,7 @@ pub fn mock_fn(item: TokenStream) -> TokenStream {
     let mut setup_mock = quote! {
         let #mock_id_ident = context::MockId::new(#mock_id_string);
 
-        if let Err(e) = context_builder.add_mock::<#return_type>(#mock_id_ident.clone(), #default_return) {
+        if let Err(e) = context::add_mock::<#input_type, #return_type>(#mock_id_ident.clone(), #default_return) {
             panic!("failed to add mock, got error {:?}", e);
         }
 
@@ -242,7 +252,6 @@ pub fn mock_fn(item: TokenStream) -> TokenStream {
             input_type.clone(),
             ret,
             cond,
-            exit,
             time,
         );
     });
@@ -256,11 +265,10 @@ fn add_expectation_to_context(
     input_type: proc_macro2::TokenStream,
     ret: Expr,
     cond: ExprClosure,
-    exit: bool,
     time: TimeModifier,
 ) {
     let append = quote! {
-    if let Err(e) = context_builder.add_expectation::<#input_type, #return_type>(&#mock_id_ident, Box::new( #cond ), #ret, #time, #exit) {
+    if let Err(e) = context::add_expectation::<#input_type, #return_type>(&#mock_id_ident, Box::new( #cond ), #ret, #time) {
         panic!("failed to add mock, got error {:?}", e);
         };
     };
@@ -291,7 +299,6 @@ pub fn slice(item: TokenStream) -> TokenStream {
     fn_data.expectations.into_iter().for_each(|e| {
         let ret = e.ret;
         let cond = e.condition;
-        let exit = e.exit;
         let time = e.time;
         add_expectation_to_context(
             &mut expects,
@@ -300,7 +307,6 @@ pub fn slice(item: TokenStream) -> TokenStream {
             input_type.clone(),
             ret,
             cond,
-            exit,
             time,
         );
     });
@@ -327,25 +333,75 @@ pub fn sequence(item: TokenStream) -> TokenStream {
 
     TokenStream::new()
 }*/
+/*
+struct ExpectData {
+    path: syn::Path,
+    expectation: Expectation,
+    input_types: Vec<Type>,
+    return_type: Type,
+}
+impl Parse for ExpectData {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let path = input.parse::<syn::Path>()?;
+        let krate = path.segments.first().unwrap().ident.to_string();
+        let name = path.segments.last().unwrap().ident.to_string();
+        input.parse::<Token![,]>()?;
+        let exprs = Punctuated::<Expr, Token![,]>::parse_terminated(&input)?;
+        let program = std::env::var(driver_test::SUBSTITUTION_MOCK_PATHS).unwrap();
+        let map = driver_test::mock_map_from_program(program);
+        let mocks = map
+            .get(&krate)
+            .expect(&format!("krate with string id {:?} wasnt found", krate));
+        let Some((input_idents, input_types, return_type)) = mocks.into_iter().find_map(|m| {
+            let m_name = m.get_name();
+            if m_name == name {
+                Some((
+                    m.get_idents()
+                        .into_iter()
+                        .map(|s| Ident::new(&s, path.span()))
+                        .collect::<Vec<_>>(),
+                    m.input_types(),
+                    m.return_type(),
+                ))
+            } else {
+                None
+            }
+        }) else {
+            let err = syn::Error::new(
+                path.span(),
+                "did not find a matching mock definition in expectdata",
+            );
+            return Err(err);
+        };
+
+        let expectation = Expectation::from_exprs(&input_idents, exprs);
+        Ok(ExpectData {
+            path,
+            expectation,
+            input_types,
+            return_type,
+        })
+    }
+}
+#[proc_macro]
+pub fn expect(item: TokenStream) -> TokenStream {
+    let expect_data = parse_macro_input!(item as ExpectData);
+    let input_types = expect_data.input_types;
+    let input_type = quote! { (#(#input_types),*) };
+    let return_type = expect_data.return_type;
+    let mock_id = path_to_ident(&expect_data.path);
+    let mock_id_string = format!("{}", quote! {#mock_id});
+    let cond = expect_data.expectation.condition;
+    let ret = expect_data.expectation.ret;
+    let time = expect_data.expectation.time;
+    quote! {
+    if let Err(e) = context::add_expectation::<#input_type, #return_type>(&context::MockId::new(#mock_id_string), Box::new( #cond ), #ret, #time) {
+        panic!("failed to add mock, got error {:?}", e);
+        };
+    }.into()
+}*/
 
 #[proc_macro]
 pub fn mock_method(_item: TokenStream) -> TokenStream {
     TokenStream::new()
-}
-
-#[proc_macro]
-pub fn start_mock_setup(_item: TokenStream) -> TokenStream {
-    quote! {
-        let mut context_builder = context::ContextBuilder::new();
-    }
-    .into()
-}
-
-#[proc_macro]
-pub fn end_mock_setup(_item: TokenStream) -> TokenStream {
-    quote! {  ;
-        let binding = context::GLOBAL_CONTEXT.get_or_init(|| Mutex::new(context_builder.finish()));
-        drop(binding);
-    }
-    .into()
 }

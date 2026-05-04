@@ -1,478 +1,1086 @@
 [DEBUG driver_test::mock_discover_pass] discover arg: "run"
-[DEBUG driver_test::mock_discover_pass] rustc discover context  only: ["context", "derive_more", "derive_more_impl", "convert_case", "unicode_segmentation", "proc_macro2", "unicode_ident", "quote", "syn", "unicode_ident", "unicode_xid", "petgraph", "fixedbitset", "hashbrown", "foldhash", "indexmap", "equivalent", "rustc_version", "semver"]
+[DEBUG driver_test::mock_discover_pass] discover arg: "--bin"
+[DEBUG driver_test::mock_discover_pass] discover arg: "mock_test3"
+[DEBUG driver_test::list_dependencies] b_crates: {PackageId { repr: "path+file:///home/eli/Documents/project_mockingbird/crates/mock-macro#0.1.0" }, PackageId { repr: "registry+https://github.com/rust-lang/crates.io-index#rand@0.10.0" }, PackageId { repr: "path+file:///home/eli/Documents/project_mockingbird/test_project/bar#0.1.0" }, PackageId { repr: "path+file:///home/eli/Documents/project_mockingbird/crates/context#0.1.0" }, PackageId { repr: "path+file:///home/eli/Documents/project_mockingbird/test_project/foobar#0.1.0" }}
+[DEBUG driver_test::list_dependencies] c_crates: {}
+[DEBUG driver_test::mock_discover_pass] rustc discover context  only: ["context", "proc_macro2", "unicode_ident", "quote", "log", "toml", "serde", "serde_core", "serde_derive", "serde_spanned", "toml_datetime", "toml_edit", "indexmap", "equivalent", "hashbrown", "winnow"]
 [/home/eli/Documents/rustc_plugin/crates/rustc_plugin/src/cli.rs:57:3] &path = "/home/eli/.cargo/bin/mock_discover_driver_exec"
-[DEBUG rustc_plugin::cli] PLUGIN_ARGS=[]
-[DEBUG rustc_plugin::cli] final command: DISCOVER_BOOTSTRAP="\"/tmp\"/tmp.sock" PLUGIN_ARGS="[]" RUN_NORMAL_RUSTC_ON_NON_FILTERED="{\"Only\":[\"context\",\"derive_more\",\"derive_more_impl\",\"convert_case\",\"unicode_segmentation\",\"proc_macro2\",\"unicode_ident\",\"quote\",\"syn\",\"unicode_ident\",\"unicode_xid\",\"petgraph\",\"fixedbitset\",\"hashbrown\",\"foldhash\",\"indexmap\",\"equivalent\",\"rustc_version\",\"semver\"]}" RUSTC_PLUGIN_ON_WORKSPACE="" RUSTC_WRAPPER="/home/eli/.cargo/bin/mock_discover_driver_exec" "cargo" "build" "--target-dir" "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20"
-   Compiling proc-macro2 v1.0.106
-   Compiling unicode-ident v1.0.24
-   Compiling quote v1.0.45
-   Compiling unicode-segmentation v1.12.0
-   Compiling hashbrown v0.16.1
-   Compiling unicode-xid v0.2.6
-   Compiling foldhash v0.1.5
-   Compiling equivalent v1.0.2
-   Compiling libc v0.2.182
-   Compiling cfg-if v1.0.4
-   Compiling getrandom v0.4.2
-   Compiling rand_core v0.10.0
-   Compiling fixedbitset v0.5.7
-   Compiling cpufeatures v0.3.0
-   Compiling bar v0.1.0 (/home/eli/Documents/project_mockingbird/test_project/bar)
-   Compiling foobar v0.1.0 (/home/eli/Documents/project_mockingbird/test_project/foobar)
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate unicode_xid. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "unicode_xid", "--edition=2015", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-xid-0.2.6/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"bench\", \"default\", \"no_std\"))", "-C", "metadata=c3425b65afe67857", "-C", "extra-filename=-e26b8bf552b59880", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate unicode_ident. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "unicode_ident", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=0bbb7f0d070acd95", "-C", "extra-filename=-e36a029196a2cca1", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc_soft=false, normal_rustc_hard=true, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.45/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"proc-macro\"))", "-C", "metadata=a9e031bcd3e6cae3", "-C", "extra-filename=-1e9ca957d3355363", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/quote-1e9ca957d3355363", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate hashbrown. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "hashbrown", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hashbrown-0.16.1/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"alloc\", \"allocator-api2\", \"core\", \"default\", \"default-hasher\", \"equivalent\", \"inline-more\", \"nightly\", \"raw-entry\", \"rayon\", \"rustc-dep-of-std\", \"rustc-internal-api\", \"serde\"))", "-C", "metadata=f65ddcfc01a91622", "-C", "extra-filename=-b0e8b026c933dc04", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+[DEBUG rustc_plugin::cli] PLUGIN_ARGS=["--bin","mock_test3"]
+[DEBUG rustc_plugin::cli] final command: DISCOVER_BOOTSTRAP="\"/tmp\"/tmp.sock" PLUGIN_ARGS="[\"--bin\",\"mock_test3\"]" RUN_NORMAL_RUSTC_ON_NON_FILTERED="{\"Only\":[\"context\",\"proc_macro2\",\"unicode_ident\",\"quote\",\"log\",\"toml\",\"serde\",\"serde_core\",\"serde_derive\",\"serde_spanned\",\"toml_datetime\",\"toml_edit\",\"indexmap\",\"equivalent\",\"hashbrown\",\"winnow\"]}" RUSTC_PLUGIN_ON_WORKSPACE="" RUSTC_WRAPPER="/home/eli/.cargo/bin/mock_discover_driver_exec" "cargo" "build" "--bin" "mock_test3" "--target-dir" "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20"
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc_soft=false, normal_rustc_hard=true, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-1.0.106/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"nightly\", \"proc-macro\", \"span-locations\"))", "-C", "metadata=0c7e1e582327754c", "-C", "extra-filename=-cdf796aa2c14344f", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/proc-macro2-cdf796aa2c14344f", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] Running normal Rust for crate foldhash. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "foldhash", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/foldhash-0.1.5/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"std\"))", "-C", "metadata=0bea503628394c41", "-C", "extra-filename=-abf39bc0971f8ebd", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc_soft=false, normal_rustc_hard=true, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.45/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"proc-macro\"))", "-C", "metadata=a9e031bcd3e6cae3", "-C", "extra-filename=-1e9ca957d3355363", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/quote-1e9ca957d3355363", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] skiping compilation for crate rand_core
+[DEBUG rustc_plugin::driver] Running normal Rust for crate unicode_ident. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "unicode_ident", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=0bbb7f0d070acd95", "-C", "extra-filename=-e36a029196a2cca1", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] skiping compilation for crate cpufeatures
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate equivalent. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "equivalent", "--edition=2015", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/equivalent-1.0.2/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=c5a6edd6b7773200", "-C", "extra-filename=-3ff77df1ac69f53a", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+[DEBUG rustc_plugin::driver] Running normal Rust for crate proc_macro2. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "proc_macro2", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-1.0.106/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"nightly\", \"proc-macro\", \"span-locations\"))", "-C", "metadata=baf61787b217eabc", "-C", "extra-filename=-9b6d83678af5a96b", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "unicode_ident=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libunicode_ident-e36a029196a2cca1.rmeta", "--cap-lints", "allow", "--cfg", "wrap_proc_macro", "--cfg", "proc_macro_span", "--cfg", "proc_macro_span_location", "--cfg", "proc_macro_span_file", "--check-cfg", "cfg(fuzzing)", "--check-cfg", "cfg(no_is_available)", "--check-cfg", "cfg(no_literal_byte_character)", "--check-cfg", "cfg(no_literal_c_string)", "--check-cfg", "cfg(no_source_text)", "--check-cfg", "cfg(proc_macro_span)", "--check-cfg", "cfg(proc_macro_span_file)", "--check-cfg", "cfg(proc_macro_span_location)", "--check-cfg", "cfg(procmacro2_backtrace)", "--check-cfg", "cfg(procmacro2_build_probe)", "--check-cfg", "cfg(procmacro2_nightly_testing)", "--check-cfg", "cfg(procmacro2_semver_exempt)", "--check-cfg", "cfg(randomize_layout)", "--check-cfg", "cfg(span_locations)", "--check-cfg", "cfg(super_unstable)", "--check-cfg", "cfg(wrap_proc_macro)", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc_soft=false, normal_rustc_hard=true, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libc-0.2.182/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--allow=clippy::used_underscore_binding", "--allow=unused_qualifications", "--warn=clippy::unnecessary_semicolon", "--allow=clippy::unnecessary_cast", "--allow=clippy::uninlined_format_args", "--warn=clippy::ptr_as_ptr", "--allow=clippy::non_minimal_cfg", "--allow=clippy::missing_safety_doc", "--warn=clippy::map_unwrap_or", "--warn=clippy::manual_assert", "--allow=clippy::identity_op", "--warn=clippy::explicit_iter_loop", "--allow=clippy::expl_impl_clone_on_copy", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"align\", \"const-extern-fn\", \"default\", \"extra_traits\", \"rustc-dep-of-std\", \"rustc-std-workspace-core\", \"std\", \"use_std\"))", "-C", "metadata=6564f5fffd09aab3", "-C", "extra-filename=-c8cf9f2c627bbe32", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/libc-c8cf9f2c627bbe32", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] skiping compilation for crate cfg_if
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate fixedbitset. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "fixedbitset", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fixedbitset-0.5.7/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"serde\", \"std\"))", "-C", "metadata=3c53af0a268cea2c", "-C", "extra-filename=-eb9d888c851121be", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] skiping compilation for crate foobar
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate unicode_segmentation. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "unicode_segmentation", "--edition=2018", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-segmentation-1.12.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"no_std\"))", "-C", "metadata=79ada9ba99bedf6d", "-C", "extra-filename=-e4d718e88c618177", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-   Compiling chacha20 v0.10.0
+   Compiling cfg-if v1.0.4
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc_soft=false, normal_rustc_hard=true, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2024", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/getrandom-0.4.2/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--warn=clippy::useless_conversion", "--warn=unused_lifetimes", "--warn=clippy::unnecessary_cast", "--warn=unexpected_cfgs", "--warn=clippy::ptr_as_ptr", "--warn=missing_docs", "--warn=clippy::fn_to_numeric_cast_with_truncation", "--warn=clippy::fn_to_numeric_cast", "--warn=clippy::checked_conversions", "--warn=clippy::char_lit_as_u8", "--warn=clippy::cast_sign_loss", "--warn=clippy::cast_ptr_alignment", "--warn=clippy::cast_precision_loss", "--warn=clippy::cast_possible_wrap", "--warn=clippy::cast_possible_truncation", "--warn=clippy::cast_lossless", "--check-cfg", "cfg(getrandom_backend, values(\"custom\", \"efi_rng\", \"rdrand\", \"rndr\", \"linux_getrandom\", \"linux_raw\", \"windows_legacy\", \"unsupported\", \"extern_impl\"))", "--check-cfg", "cfg(getrandom_msan)", "--check-cfg", "cfg(getrandom_test_linux_fallback)", "--check-cfg", "cfg(getrandom_test_linux_without_fallback)", "--check-cfg", "cfg(getrandom_test_netbsd_fallback)", "--check-cfg", "cfg(target_os, values(\"cygwin\"))", "--check-cfg", "cfg(target_os, values(\"motor\"))", "--cfg", "feature=\"std\"", "--cfg", "feature=\"sys_rng\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"std\", \"sys_rng\", \"wasm_js\"))", "-C", "metadata=a0f2eafc7d556f0a", "-C", "extra-filename=-13db9ac554904862", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/getrandom-13db9ac554904862", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+   Compiling rand_core v0.10.0
+   Compiling cpufeatures v0.3.0
+   Compiling foobar v0.1.0 (/home/eli/Documents/project_mockingbird/test_project/foobar)
+   Compiling bar v0.1.0 (/home/eli/Documents/project_mockingbird/test_project/bar)
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+    
+[DEBUG rustc_plugin::driver] Running normal Rust for crate quote. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "quote", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.45/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"proc-macro\"))", "-C", "metadata=19910aed013a74c3", "-C", "extra-filename=-3368f998a80240a0", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rmeta", "--cap-lints", "allow", "--check-cfg", "cfg(no_diagnostic_namespace)", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+   Compiling libc v0.2.182
+   Compiling syn v2.0.117
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+    
+[DEBUG rustc_plugin::driver] Running normal Rust for crate context. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "context", "--edition=2024", "crates/context/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=36077f3fbae72b9c", "-C", "extra-filename=-5975a90ebde8d3b4", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rmeta", "--extern", "quote=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-3368f998a80240a0.rmeta", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+warning: unused imports: `ConditionDoublePointer`, `ReturnValDoublePointer`, `builder::ContextBuilder`, `errors::PredicateResult`, `time_mod::TimeModifier`, and `types::mock::MockId`
+ --> crates/context/src/unit_tests.rs:2:5
+  |
+2 |     ConditionDoublePointer, ReturnValDoublePointer, builder::ContextBuilder,
+  |     ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^
+3 |     errors::PredicateResult, time_mod::TimeModifier, types::mock::MockId,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^
+  |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+ --> crates/context/src/lib.rs:6:1
+  |
+6 | mod unit_tests;
+  | ^^^^^^^^^^^^^^^
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused variable: `builder`
+   --> crates/context/src/builder.rs:143:18
+    |
+143 |         let Some(builder) = self.mocks.get_mut(mock_id) else {
+    |                  ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_builder`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `env_id`
+   --> crates/context/src/builder.rs:225:33
+    |
+225 |             TimeModifier::Until(env_id) => todo!(),
+    |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
+
+warning: unused variable: `times_value`
+   --> crates/context/src/builder.rs:226:33
+    |
+226 |             TimeModifier::Times(times_value) => todo!(),
+    |                                 ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_times_value`
+
+warning: unused variable: `env_id`
+   --> crates/context/src/builder.rs:227:33
+    |
+227 |             TimeModifier::After(env_id) => todo!(),
+    |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
+
+warning: unused variable: `env_id`
+   --> crates/context/src/builder.rs:331:33
+    |
+331 |             TimeModifier::Until(env_id) => todo!(),
+    |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
+
+warning: unused variable: `times_value`
+   --> crates/context/src/builder.rs:332:33
+    |
+332 |             TimeModifier::Times(times_value) => todo!(),
+    |                                 ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_times_value`
+
+warning: unused variable: `env_id`
+   --> crates/context/src/builder.rs:333:33
+    |
+333 |             TimeModifier::After(env_id) => todo!(),
+    |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
+
+warning: unused variable: `env_id`
+  --> crates/context/src/time_mod.rs:39:33
+   |
+39 |             TimeModifier::Until(env_id) => quote! { context::TimeModifier::Until },
+   |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
+
+warning: unused variable: `times_value`
+  --> crates/context/src/time_mod.rs:40:33
+   |
+40 |             TimeModifier::Times(times_value) => quote! { context::TimeModifier::Times},
+   |                                 ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_times_value`
+
+warning: unused variable: `env_id`
+  --> crates/context/src/time_mod.rs:41:33
+   |
+41 |             TimeModifier::After(env_id) => quote! { context::TimeModifier::After },
+   |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
+
+warning: unused variable: `other`
+  --> crates/context/src/lib.rs:42:13
+   |
+42 |             other => panic!("finish was called on state more than once before a teardown"),
+   |             ^^^^^ help: if this is intentional, prefix it with an underscore: `_other`
+
+warning: unused variable: `other`
+  --> crates/context/src/lib.rs:64:9
+   |
+64 |         other => panic!("context not in build mode during add_mock call"),
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_other`
+
+warning: unused variable: `other`
+  --> crates/context/src/lib.rs:71:9
+   |
+71 |         other => false,
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_other`
+
+warning: unused variable: `other`
+  --> crates/context/src/lib.rs:84:9
+   |
+84 |         other => panic!("context not in build mode during add_mock call"),
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_other`
+
+warning: unused variable: `other`
+  --> crates/context/src/lib.rs:91:9
+   |
+91 |         other => panic!("context not in build mode during add_mock call"),
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_other`
+
+warning: field `slices` is never read
+   --> crates/context/src/lib.rs:102:5
+    |
+101 | pub struct GlobalContext {
+    |            ------------- field in this struct
+102 |     slices: Slices,
+    |     ^^^^^^
+    |
+    = note: `GlobalContext` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` on by default
+
+warning: struct `EnvId` is never constructed
+ --> crates/context/src/closure_wrappers.rs:5:12
+  |
+5 | pub struct EnvId(String);
+  |            ^^^^^
+
+warning: enum `EnvValue` is never used
+ --> crates/context/src/closure_wrappers.rs:6:10
+  |
+6 | pub enum EnvValue {
+  |          ^^^^^^^^
+
+warning: struct `Env` is never constructed
+  --> crates/context/src/closure_wrappers.rs:11:12
+   |
+11 | pub struct Env {
+   |            ^^^
+
+warning: associated items `new`, `add`, `remove`, `get_ref`, and `get_mut` are never used
+  --> crates/context/src/closure_wrappers.rs:15:12
+   |
+14 | impl Env {
+   | -------- associated items in this implementation
+15 |     pub fn new() -> Self {
+   |            ^^^
+...
+18 |     pub fn add<Value: Any + 'static>(&mut self, ident: impl Into<String>, value: Value) {
+   |            ^^^
+...
+21 |     pub fn remove<Value: Any + 'static>(&mut self, ident: &EnvId) -> Option<Box<Value>> {
+   |            ^^^^^^
+...
+25 |     pub fn get_ref<Value: Any + 'static>(&mut self, ident: &EnvId) -> Option<&Value> {
+   |            ^^^^^^^
+...
+29 |     pub fn get_mut<Value: Any + 'static>(&mut self, ident: &EnvId) -> Option<&mut Value> {
+   |            ^^^^^^^
+
+warning: enum `ReturnValPointerKind` is never used
+  --> crates/context/src/closure_wrappers.rs:35:10
+   |
+35 | pub enum ReturnValPointerKind {
+   |          ^^^^^^^^^^^^^^^^^^^^
+
+warning: field `0` is never read
+ --> crates/context/src/time_mod.rs:6:27
+  |
+6 | pub struct ExpectationRef(u32);
+  |            -------------- ^^^
+  |            |
+  |            field in this struct
+  |
+  = help: consider removing this field
+
+warning: field `0` is never read
+ --> crates/context/src/time_mod.rs:9:18
+  |
+9 | pub struct EnvId(String);
+  |            ----- ^^^^^^
+  |            |
+  |            field in this struct
+  |
+  = help: consider removing this field
+  = note: `EnvId` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `conditionals` is never read
+  --> crates/context/src/types/edges.rs:31:5
+   |
+30 | pub struct FreePermutationConditional {
+   |            -------------------------- field in this struct
+31 |     conditionals: Vec<(bool, ConditionalEdge)>,
+   |     ^^^^^^^^^^^^
+   |
+   = note: `FreePermutationConditional` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `remove_edge`, `iter_mut`, and `into_iter` are never used
+  --> crates/context/src/types/edges.rs:61:12
+   |
+52 | impl Edges {
+   | ---------- methods in this implementation
+...
+61 |     pub fn remove_edge(&mut self, index: EdgeIndex) -> Option<Edge> {
+   |            ^^^^^^^^^^^
+...
+76 |     pub fn iter_mut(&mut self) -> IterMut<'_, Edge> {
+   |            ^^^^^^^^
+...
+79 |     pub fn into_iter(self) -> <std::vec::Vec<Edge> as std::iter::IntoIterator>::IntoIter {
+   |            ^^^^^^^^^
+
+warning: constant `CONTEXT_CONST` is never used
+  --> crates/context/src/types/mock.rs:17:11
+   |
+17 | pub const CONTEXT_CONST: &str = "CONSTANT FROM CONTEXT";
+   |           ^^^^^^^^^^^^^
+
+warning: enum `SequenceState` is never used
+  --> crates/context/src/types/nodes.rs:14:10
+   |
+14 | pub enum SequenceState {
+   |          ^^^^^^^^^^^^^
+
+warning: methods `remove_node`, `iter`, `iter_mut`, and `into_iter` are never used
+  --> crates/context/src/types/nodes.rs:35:12
+   |
+20 | impl Nodes {
+   | ---------- methods in this implementation
+...
+35 |     pub fn remove_node(&mut self, node_index: NodeIndex) -> Option<Node> {
+   |            ^^^^^^^^^^^
+...
+41 |     pub fn iter(&self) -> Iter<'_, Node> {
+   |            ^^^^
+...
+44 |     pub fn iter_mut(&mut self) -> IterMut<'_, Node> {
+   |            ^^^^^^^^
+...
+47 |     pub fn into_iter(self) -> <std::vec::Vec<Node> as std::iter::IntoIterator>::IntoIter {
+   |            ^^^^^^^^^
+
+warning: struct `SequenceBuilder` is never constructed
+ --> crates/context/src/types/sequences.rs:9:12
+  |
+9 | pub struct SequenceBuilder {
+  |            ^^^^^^^^^^^^^^^
+
+warning: method `to_sequence_head` is never used
+  --> crates/context/src/types/sequences.rs:17:12
+   |
+16 | impl SequenceBuilder {
+   | -------------------- method in this implementation
+17 |     pub fn to_sequence_head(self) -> SequenceHead {
+   |            ^^^^^^^^^^^^^^^^
+
+warning: struct `Sequences` is never constructed
+  --> crates/context/src/types/sequences.rs:28:12
+   |
+28 | pub struct Sequences(Vec<SequenceBuilder>);
+   |            ^^^^^^^^^
+
+warning: multiple associated items are never used
+  --> crates/context/src/types/sequences.rs:36:12
+   |
+35 | impl Sequences {
+   | -------------- associated items in this implementation
+36 |     pub fn new() -> Self {
+   |            ^^^
+...
+39 |     pub fn add_edge(&mut self, edge: SequenceBuilder) -> SequenceIndex {
+   |            ^^^^^^^^
+...
+44 |     pub fn remove_edge(&mut self, index: SequenceIndex) -> Option<SequenceBuilder> {
+   |            ^^^^^^^^^^^
+...
+50 |     pub fn edge_ref(&self, index: SequenceIndex) -> Option<&SequenceBuilder> {
+   |            ^^^^^^^^
+...
+53 |     pub fn edge_mut(&mut self, index: SequenceIndex) -> Option<&mut SequenceBuilder> {
+   |            ^^^^^^^^
+...
+56 |     pub fn iter(&self) -> Iter<'_, SequenceBuilder> {
+   |            ^^^^
+...
+59 |     pub fn iter_mut(&mut self) -> IterMut<'_, SequenceBuilder> {
+   |            ^^^^^^^^
+...
+62 |     pub fn into_iter(
+   |            ^^^^^^^^^
+
+warning: methods `add_edge`, `remove_edge`, `iter`, `iter_mut`, and `into_iter` are never used
+   --> crates/context/src/types/sequences.rs:90:12
+    |
+ 86 | impl SequenceHeads {
+    | ------------------ methods in this implementation
+...
+ 90 |     pub fn add_edge(&mut self, edge: SequenceHead) -> SequenceIndex {
+    |            ^^^^^^^^
+...
+ 95 |     pub fn remove_edge(&mut self, index: SequenceIndex) -> Option<SequenceHead> {
+    |            ^^^^^^^^^^^
+...
+107 |     pub fn iter(&self) -> Iter<'_, SequenceHead> {
+    |            ^^^^
+...
+110 |     pub fn iter_mut(&mut self) -> IterMut<'_, SequenceHead> {
+    |            ^^^^^^^^
+...
+113 |     pub fn into_iter(self) -> <std::vec::Vec<SequenceHead> as std::iter::IntoIterator>::IntoIter {
+    |            ^^^^^^^^^
+
+warning: struct `SequenceExit` is never constructed
+   --> crates/context/src/types/sequences.rs:124:12
+    |
+124 | pub struct SequenceExit {
+    |            ^^^^^^^^^^^^
+
+warning: fields `start_node`, `nodes`, and `current` are never read
+ --> crates/context/src/types/slices.rs:7:5
+  |
+6 | pub struct SliceBuilder {
+  |            ------------ fields in this struct
+7 |     start_node: Node,
+  |     ^^^^^^^^^^
+8 |     nodes: Nodes,
+  |     ^^^^^
+9 |     current: NodeIndex,
+  |     ^^^^^^^
+  |
+  = note: `SliceBuilder` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `iter_nodes`, `iter_mut`, and `into_iter` are never used
+  --> crates/context/src/types/slices.rs:12:12
+   |
+11 | impl SliceBuilder {
+   | ----------------- methods in this implementation
+12 |     pub fn iter_nodes(&self) -> Iter<'_, Node> {
+   |            ^^^^^^^^^^
+...
+15 |     pub fn iter_mut(&mut self) -> IterMut<'_, Node> {
+   |            ^^^^^^^^
+...
+18 |     pub fn into_iter(self) -> <std::vec::Vec<Node> as std::iter::IntoIterator>::IntoIter {
+   |            ^^^^^^^^^
+
+warning: struct `SliceRef` is never constructed
+  --> crates/context/src/types/slices.rs:23:12
+   |
+23 | pub struct SliceRef(usize);
+   |            ^^^^^^^^
+
+warning: field `0` is never read
+  --> crates/context/src/types/slices.rs:25:19
+   |
+25 | pub struct Slices(Vec<SliceBuilder>);
+   |            ------ ^^^^^^^^^^^^^^^^^
+   |            |
+   |            field in this struct
+   |
+   = help: consider removing this field
+   = note: `Slices` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `add_slice`, `get_ref_slice`, `get_mut_slice`, `iter`, `iter_mut`, and `into_iter` are never used
+  --> crates/context/src/types/slices.rs:30:12
+   |
+26 | impl Slices {
+   | ----------- methods in this implementation
+...
+30 |     pub fn add_slice(&mut self, slice: SliceBuilder) -> SliceRef {
+   |            ^^^^^^^^^
+...
+35 |     pub fn get_ref_slice(&mut self, slice_ref: SliceRef) -> Option<&SliceBuilder> {
+   |            ^^^^^^^^^^^^^
+...
+38 |     pub fn get_mut_slice(&mut self, slice_ref: SliceRef) -> Option<&mut SliceBuilder> {
+   |            ^^^^^^^^^^^^^
+...
+42 |     pub fn iter(&self) -> Iter<'_, SliceBuilder> {
+   |            ^^^^
+...
+45 |     pub fn iter_mut(&mut self) -> IterMut<'_, SliceBuilder> {
+   |            ^^^^^^^^
+...
+48 |     pub fn into_iter(self) -> <std::vec::Vec<SliceBuilder> as std::iter::IntoIterator>::IntoIter {
+   |            ^^^^^^^^^
+
+warning: `context` (lib) generated 40 warnings (run `cargo fix --lib -p context` to apply 1 suggestion)
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+    
+[DEBUG rustc_plugin::driver] skiping compilation for crate cfg_if
+    
+[DEBUG rustc_plugin::driver] skiping compilation for crate rand_core
     
 [DEBUG rustc_plugin::driver] skiping compilation for crate bar
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] skiping compilation for crate chacha20
-   Compiling hashbrown v0.15.5
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate hashbrown. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "hashbrown", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hashbrown-0.15.5/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--cfg", "feature=\"default-hasher\"", "--cfg", "feature=\"inline-more\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"alloc\", \"allocator-api2\", \"core\", \"default\", \"default-hasher\", \"equivalent\", \"inline-more\", \"nightly\", \"raw-entry\", \"rayon\", \"rustc-dep-of-std\", \"rustc-internal-api\", \"serde\"))", "-C", "metadata=e265e0e0d4a94d29", "-C", "extra-filename=-520b28db63ae8a73", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "foldhash=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libfoldhash-abf39bc0971f8ebd.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-   Compiling convert_case v0.10.0
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
 [DEBUG rustc_plugin::driver] skiping compilation for crate libc
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate convert_case. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "convert_case", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=1382dfd6b301700d", "-C", "extra-filename=-995708dcf8b807f9", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "unicode_segmentation=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libunicode_segmentation-e4d718e88c618177.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] Running normal Rust for crate proc_macro2. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "proc_macro2", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-1.0.106/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"nightly\", \"proc-macro\", \"span-locations\"))", "-C", "metadata=baf61787b217eabc", "-C", "extra-filename=-9b6d83678af5a96b", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "unicode_ident=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libunicode_ident-e36a029196a2cca1.rmeta", "--cap-lints", "allow", "--cfg", "wrap_proc_macro", "--cfg", "proc_macro_span", "--cfg", "proc_macro_span_location", "--cfg", "proc_macro_span_file", "--check-cfg", "cfg(fuzzing)", "--check-cfg", "cfg(no_is_available)", "--check-cfg", "cfg(no_literal_byte_character)", "--check-cfg", "cfg(no_literal_c_string)", "--check-cfg", "cfg(no_source_text)", "--check-cfg", "cfg(proc_macro_span)", "--check-cfg", "cfg(proc_macro_span_file)", "--check-cfg", "cfg(proc_macro_span_location)", "--check-cfg", "cfg(procmacro2_backtrace)", "--check-cfg", "cfg(procmacro2_build_probe)", "--check-cfg", "cfg(procmacro2_nightly_testing)", "--check-cfg", "cfg(procmacro2_semver_exempt)", "--check-cfg", "cfg(randomize_layout)", "--check-cfg", "cfg(span_locations)", "--check-cfg", "cfg(super_unstable)", "--check-cfg", "cfg(wrap_proc_macro)", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+[DEBUG rustc_plugin::driver] skiping compilation for crate cpufeatures
+    
+[DEBUG rustc_plugin::driver] skiping compilation for crate foobar
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] skiping compilation for crate getrandom
-   Compiling rand v0.10.0
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] skiping compilation for crate rand
-   Compiling indexmap v2.13.0
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate indexmap. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "indexmap", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/indexmap-2.13.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--deny=unsafe-code", "--deny=unreachable-pub", "--deny=unnameable-types", "--allow=clippy::style", "--warn=rust-2018-idioms", "--deny=private-interfaces", "--deny=private-bounds", "--cfg", "feature=\"std\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"arbitrary\", \"borsh\", \"default\", \"quickcheck\", \"rayon\", \"serde\", \"std\", \"sval\", \"test_debug\"))", "-C", "metadata=51ad3524b81f3f68", "-C", "extra-filename=-3d6b8805d0aaebef", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "equivalent=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libequivalent-3ff77df1ac69f53a.rmeta", "--extern", "hashbrown=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libhashbrown-b0e8b026c933dc04.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate quote. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "quote", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.45/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"proc-macro\"))", "-C", "metadata=19910aed013a74c3", "-C", "extra-filename=-3368f998a80240a0", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rmeta", "--cap-lints", "allow", "--check-cfg", "cfg(no_diagnostic_namespace)", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-   Compiling syn v2.0.117
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate syn. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "syn", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/syn-2.0.117/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"clone-impls\"", "--cfg", "feature=\"default\"", "--cfg", "feature=\"derive\"", "--cfg", "feature=\"extra-traits\"", "--cfg", "feature=\"full\"", "--cfg", "feature=\"parsing\"", "--cfg", "feature=\"printing\"", "--cfg", "feature=\"proc-macro\"", "--cfg", "feature=\"visit\"", "--cfg", "feature=\"visit-mut\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"clone-impls\", \"default\", \"derive\", \"extra-traits\", \"fold\", \"full\", \"parsing\", \"printing\", \"proc-macro\", \"test\", \"visit\", \"visit-mut\"))", "-C", "metadata=b286ddc70c7b2bb5", "-C", "extra-filename=-117d692c18998c7e", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rmeta", "--extern", "quote=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-3368f998a80240a0.rmeta", "--extern", "unicode_ident=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libunicode_ident-e36a029196a2cca1.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-   Compiling petgraph v0.8.3
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate petgraph. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "petgraph", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/petgraph-0.8.3/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--warn=clippy::std_instead_of_core", "--warn=clippy::std_instead_of_alloc", "--warn=clippy::alloc_instead_of_core", "--cfg", "feature=\"default\"", "--cfg", "feature=\"graphmap\"", "--cfg", "feature=\"matrix_graph\"", "--cfg", "feature=\"stable_graph\"", "--cfg", "feature=\"std\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"all\", \"default\", \"dot_parser\", \"generate\", \"graphmap\", \"matrix_graph\", \"quickcheck\", \"rayon\", \"serde\", \"serde-1\", \"serde_derive\", \"stable_graph\", \"std\", \"unstable\"))", "-C", "metadata=954cb92cea0df382", "-C", "extra-filename=-b065b08841607f6c", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "fixedbitset=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libfixedbitset-eb9d888c851121be.rmeta", "--extern", "hashbrown=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libhashbrown-520b28db63ae8a73.rmeta", "--extern", "indexmap=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libindexmap-3d6b8805d0aaebef.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-   Compiling derive_more-impl v2.1.1
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate derive_more_impl. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "derive_more_impl", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/derive_more-impl-2.1.1/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "proc-macro", "--emit=dep-info,link", "-C", "prefer-dynamic", "-C", "embed-bitcode=no", "--warn=unexpected_cfgs", "--check-cfg", "cfg(ci)", "--check-cfg", "cfg(error_generic_member_access)", "--check-cfg", "cfg(nightly)", "--cfg", "feature=\"add\"", "--cfg", "feature=\"add_assign\"", "--cfg", "feature=\"as_ref\"", "--cfg", "feature=\"constructor\"", "--cfg", "feature=\"debug\"", "--cfg", "feature=\"default\"", "--cfg", "feature=\"deref\"", "--cfg", "feature=\"deref_mut\"", "--cfg", "feature=\"display\"", "--cfg", "feature=\"eq\"", "--cfg", "feature=\"error\"", "--cfg", "feature=\"from\"", "--cfg", "feature=\"from_str\"", "--cfg", "feature=\"index\"", "--cfg", "feature=\"index_mut\"", "--cfg", "feature=\"into\"", "--cfg", "feature=\"into_iterator\"", "--cfg", "feature=\"is_variant\"", "--cfg", "feature=\"mul\"", "--cfg", "feature=\"mul_assign\"", "--cfg", "feature=\"not\"", "--cfg", "feature=\"sum\"", "--cfg", "feature=\"try_from\"", "--cfg", "feature=\"try_into\"", "--cfg", "feature=\"try_unwrap\"", "--cfg", "feature=\"unwrap\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"add\", \"add_assign\", \"as_ref\", \"constructor\", \"debug\", \"default\", \"deref\", \"deref_mut\", \"display\", \"eq\", \"error\", \"from\", \"from_str\", \"full\", \"index\", \"index_mut\", \"into\", \"into_iterator\", \"is_variant\", \"mul\", \"mul_assign\", \"not\", \"sum\", \"testing-helpers\", \"try_from\", \"try_into\", \"try_unwrap\", \"unwrap\"))", "-C", "metadata=06abfb70bbe1f33e", "-C", "extra-filename=-38ee99581b207885", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "convert_case=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libconvert_case-995708dcf8b807f9.rlib", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rlib", "--extern", "quote=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-3368f998a80240a0.rlib", "--extern", "syn=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libsyn-117d692c18998c7e.rlib", "--extern", "unicode_xid=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libunicode_xid-e26b8bf552b59880.rlib", "--extern", "proc_macro", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-   Compiling derive_more v2.1.1
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate derive_more. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "derive_more", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/derive_more-2.1.1/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--warn=unexpected_cfgs", "--check-cfg", "cfg(ci)", "--check-cfg", "cfg(nightly)", "--cfg", "feature=\"add\"", "--cfg", "feature=\"add_assign\"", "--cfg", "feature=\"as_ref\"", "--cfg", "feature=\"constructor\"", "--cfg", "feature=\"debug\"", "--cfg", "feature=\"default\"", "--cfg", "feature=\"deref\"", "--cfg", "feature=\"deref_mut\"", "--cfg", "feature=\"display\"", "--cfg", "feature=\"eq\"", "--cfg", "feature=\"error\"", "--cfg", "feature=\"from\"", "--cfg", "feature=\"from_str\"", "--cfg", "feature=\"full\"", "--cfg", "feature=\"index\"", "--cfg", "feature=\"index_mut\"", "--cfg", "feature=\"into\"", "--cfg", "feature=\"into_iterator\"", "--cfg", "feature=\"is_variant\"", "--cfg", "feature=\"mul\"", "--cfg", "feature=\"mul_assign\"", "--cfg", "feature=\"not\"", "--cfg", "feature=\"std\"", "--cfg", "feature=\"sum\"", "--cfg", "feature=\"try_from\"", "--cfg", "feature=\"try_into\"", "--cfg", "feature=\"try_unwrap\"", "--cfg", "feature=\"unwrap\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"add\", \"add_assign\", \"as_ref\", \"constructor\", \"debug\", \"default\", \"deref\", \"deref_mut\", \"display\", \"eq\", \"error\", \"from\", \"from_str\", \"full\", \"index\", \"index_mut\", \"into\", \"into_iterator\", \"is_variant\", \"mul\", \"mul_assign\", \"not\", \"std\", \"sum\", \"testing-helpers\", \"try_from\", \"try_into\", \"try_unwrap\", \"unwrap\"))", "-C", "metadata=b93a96650be26fdc", "-C", "extra-filename=-75e687d899674f9e", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "derive_more_impl=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libderive_more_impl-38ee99581b207885.so", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-   Compiling context v0.1.0 (/home/eli/Documents/project_mockingbird/crates/context)
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate context. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "context", "--edition=2024", "crates/context/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=40b464bebaa92bfd", "-C", "extra-filename=-a6b25c5832ae9db3", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "derive_more=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libderive_more-75e687d899674f9e.rmeta", "--extern", "petgraph=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libpetgraph-b065b08841607f6c.rmeta", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rmeta", "--extern", "quote=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-3368f998a80240a0.rmeta", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-warning: unused variable: `env_id`
-   --> crates/context/src/lib.rs:401:33
-    |
-401 |             TimeModifier::Until(env_id) => todo!(),
-    |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
-    |
-    = note: `#[warn(unused_variables)]` on by default
-
-warning: unused variable: `times_value`
-   --> crates/context/src/lib.rs:402:33
-    |
-402 |             TimeModifier::Times(times_value) => todo!(),
-    |                                 ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_times_value`
-
-warning: unused variable: `env_id`
-   --> crates/context/src/lib.rs:403:33
-    |
-403 |             TimeModifier::After(env_id) => todo!(),
-    |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
-
-warning: unused variable: `env_id`
-   --> crates/context/src/lib.rs:437:33
-    |
-437 |             TimeModifier::Until(env_id) => quote! { context::TimeModifier::Until },
-    |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
-
-warning: unused variable: `times_value`
-   --> crates/context/src/lib.rs:438:33
-    |
-438 |             TimeModifier::Times(times_value) => quote! { context::TimeModifier::Times},
-    |                                 ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_times_value`
-
-warning: unused variable: `env_id`
-   --> crates/context/src/lib.rs:439:33
-    |
-439 |             TimeModifier::After(env_id) => quote! { context::TimeModifier::After },
-    |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
-
-warning: fields `effected_mocks`, `sequence_state`, and `index` are never read
-  --> crates/context/src/lib.rs:27:5
-   |
-26 | pub struct SequenceHead {
-   |            ------------ fields in this struct
-27 |     effected_mocks: Vec<MockId>,
-   |     ^^^^^^^^^^^^^^
-28 |     sequence_state: SequenceState,
-   |     ^^^^^^^^^^^^^^
-29 |     index: u32,
-   |     ^^^^^
-   |
-   = note: `#[warn(dead_code)]` on by default
-
-warning: field `sequence_heads` is never read
-  --> crates/context/src/lib.rs:49:5
-   |
-48 | pub struct GlobalContext {
-   |            ------------- field in this struct
-49 |     sequence_heads: Vec<SequenceHead>,
-   |     ^^^^^^^^^^^^^^
-
-warning: field `0` is never read
-   --> crates/context/src/lib.rs:153:27
-    |
-153 | pub struct ExpectationRef(u32);
-    |            -------------- ^^^
-    |            |
-    |            field in this struct
-    |
-    = help: consider removing this field
-
-warning: fields `entry` and `exit` are never read
-   --> crates/context/src/lib.rs:461:5
-    |
-460 | pub struct MockNode {
-    |            -------- fields in this struct
-461 |     entry: bool,
-    |     ^^^^^
-462 |     exit: bool,
-    |     ^^^^
-    |
-    = note: `MockNode` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
-
-warning: `context` (lib) generated 10 warnings
+[DEBUG rustc_plugin::driver] skiping compilation for crate syn
+   Compiling chacha20 v0.10.0
+   Compiling getrandom v0.4.2
    Compiling mock-macro v0.1.0 (/home/eli/Documents/project_mockingbird/crates/mock-macro)
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
 [DEBUG rustc_plugin::driver] skiping compilation for crate mock_macro
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+    
+[DEBUG rustc_plugin::driver] skiping compilation for crate getrandom
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+    
+[DEBUG rustc_plugin::driver] skiping compilation for crate chacha20
+   Compiling rand v0.10.0
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+    
+[DEBUG rustc_plugin::driver] skiping compilation for crate rand
    Compiling foo v0.1.0 (/home/eli/Documents/project_mockingbird/test_project/foo)
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] Running plugin for crate foo. Relevant variables: normal_rustc_soft=false, normal_rustc_hard=false, run_on_all_crates=false, primary_package=true, is_target_crate=false, specified_crate=None
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.09s
+[DEBUG rustc_plugin::driver] Running plugin for crate mock_test3. Relevant variables: normal_rustc_soft=false, normal_rustc_hard=false, run_on_all_crates=false, primary_package=true, is_target_crate=false, specified_crate=None
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.37s
+[DEBUG driver_test::mock_discover_pass] Sending Done
 [DEBUG driver_test::substitution_pass] discover arg: "run"
+[DEBUG driver_test::substitution_pass] discover arg: "--bin"
+[DEBUG driver_test::substitution_pass] discover arg: "mock_test3"
 [/home/eli/Documents/rustc_plugin/crates/rustc_plugin/src/cli.rs:57:3] &path = "/home/eli/.cargo/bin/mock_substitute_driver_exec"
-[DEBUG rustc_plugin::cli] PLUGIN_ARGS=["run"]
-[DEBUG rustc_plugin::cli] final command: MANY_SPECIFIC_CRATES="[\"rand\",\"rand\"]" PLUGIN_ARGS="[\"run\"]" RUN_NORMAL_RUSTC_ON_NON_FILTERED="\"Yes\"" RUSTC_WRAPPER="/home/eli/.cargo/bin/mock_substitute_driver_exec" SUBSTITUTION_MOCK_PATHS="# [mocked (rand)] fn random_bool (prob : f64) -> bool { std :: println ! (\"Mocked version of function {} was used\" , \"random_bool\") ; let rand_random_bool_mock_id = context :: MockId :: new (stringify ! (rand_random_bool)) ; let ctx = context :: GLOBAL_CONTEXT . get () . expect (\" couldn\'t fetch context\") ; let mut guard = ctx . lock () . expect (\"failed to fetch guard\") ; match guard . run_mock :: < (f64) , bool > (rand_random_bool_mock_id , & (prob)) { Ok (res) => res , Err (e) => panic ! (\"{:?}\" , e) } }# [mocked (rand)] fn random_bool (prob : f64) -> bool { std :: println ! (\"Mocked version of function {} was used\" , \"random_bool\") ; let rand_random_bool_mock_id = context :: MockId :: new (stringify ! (rand_random_bool)) ; let ctx = context :: GLOBAL_CONTEXT . get () . expect (\" couldn\'t fetch context\") ; let mut guard = ctx . lock () . expect (\"failed to fetch guard\") ; match guard . run_mock :: < (f64) , bool > (rand_random_bool_mock_id , & (prob)) { Ok (res) => res , Err (e) => panic ! (\"{:?}\" , e) } }" "cargo" "run" "--target-dir" "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20"
+[DEBUG rustc_plugin::cli] PLUGIN_ARGS=["run","--bin","mock_test3"]
+[DEBUG rustc_plugin::cli] final command: MANY_SPECIFIC_CRATES="[\"bar\",\"bar\"]" PLUGIN_ARGS="[\"run\",\"--bin\",\"mock_test3\"]" RUN_NORMAL_RUSTC_ON_NON_FILTERED="\"Yes\"" RUSTC_WRAPPER="/home/eli/.cargo/bin/mock_substitute_driver_exec" SUBSTITUTION_MOCK_PATHS="# [mocked (bar)] fn handler1 (input : TestStruct1) -> TestStruct2 { std :: println ! (\"Mocked version of function {} was used\" , \"handler1\") ; let bar_handler1_mock_id = context :: MockId :: new (stringify ! (bar_handler1)) ; if context :: ctx_built_and_contains_id (& bar_handler1_mock_id) { match context :: run_mock :: < (TestStruct1) , TestStruct2 > (bar_handler1_mock_id , (input)) { Ok (res) => res , Err (e) => match e { context :: MockError :: Other (e) => panic ! (\"unexpected Error: {:?}\" , e) , context :: MockError :: PredicateError (e) => panic ! (\"{:?}\" , e . 0) , context :: MockError :: NoMatchingId => { panic ! (\"failed to find mock id\") ; } } } } else { return handler1_original (input) ; } }# [mocked (bar)] fn handler2 (input : TestStruct2) -> TestStruct1 { std :: println ! (\"Mocked version of function {} was used\" , \"handler2\") ; let bar_handler2_mock_id = context :: MockId :: new (stringify ! (bar_handler2)) ; if context :: ctx_built_and_contains_id (& bar_handler2_mock_id) { match context :: run_mock :: < (TestStruct2) , TestStruct1 > (bar_handler2_mock_id , (input)) { Ok (res) => res , Err (e) => match e { context :: MockError :: Other (e) => panic ! (\"unexpected Error: {:?}\" , e) , context :: MockError :: PredicateError (e) => panic ! (\"{:?}\" , e . 0) , context :: MockError :: NoMatchingId => { panic ! (\"failed to find mock id\") ; } } } } else { return handler2_original (input) ; } }" "cargo" "run" "--bin" "mock_test3" "--target-dir" "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20"
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc_soft=false, normal_rustc_hard=true, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-1.0.106/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"nightly\", \"proc-macro\", \"span-locations\"))", "-C", "metadata=0c7e1e582327754c", "-C", "extra-filename=-cdf796aa2c14344f", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/proc-macro2-cdf796aa2c14344f", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] Running normal Rust for crate unicode_ident. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "unicode_ident", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=0bbb7f0d070acd95", "-C", "extra-filename=-e36a029196a2cca1", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc_soft=false, normal_rustc_hard=true, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.45/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"proc-macro\"))", "-C", "metadata=a9e031bcd3e6cae3", "-C", "extra-filename=-1e9ca957d3355363", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/quote-1e9ca957d3355363", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc_soft=false, normal_rustc_hard=true, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.45/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"proc-macro\"))", "-C", "metadata=a9e031bcd3e6cae3", "-C", "extra-filename=-1e9ca957d3355363", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/quote-1e9ca957d3355363", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+[DEBUG rustc_plugin::driver] Running normal Rust for crate unicode_ident. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "unicode_ident", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=0bbb7f0d070acd95", "-C", "extra-filename=-e36a029196a2cca1", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
 [DEBUG rustc_plugin::driver] Running normal Rust for crate proc_macro2. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "proc_macro2", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-1.0.106/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"nightly\", \"proc-macro\", \"span-locations\"))", "-C", "metadata=baf61787b217eabc", "-C", "extra-filename=-9b6d83678af5a96b", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "unicode_ident=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libunicode_ident-e36a029196a2cca1.rmeta", "--cap-lints", "allow", "--cfg", "wrap_proc_macro", "--cfg", "proc_macro_span", "--cfg", "proc_macro_span_location", "--cfg", "proc_macro_span_file", "--check-cfg", "cfg(fuzzing)", "--check-cfg", "cfg(no_is_available)", "--check-cfg", "cfg(no_literal_byte_character)", "--check-cfg", "cfg(no_literal_c_string)", "--check-cfg", "cfg(no_source_text)", "--check-cfg", "cfg(proc_macro_span)", "--check-cfg", "cfg(proc_macro_span_file)", "--check-cfg", "cfg(proc_macro_span_location)", "--check-cfg", "cfg(procmacro2_backtrace)", "--check-cfg", "cfg(procmacro2_build_probe)", "--check-cfg", "cfg(procmacro2_nightly_testing)", "--check-cfg", "cfg(procmacro2_semver_exempt)", "--check-cfg", "cfg(randomize_layout)", "--check-cfg", "cfg(span_locations)", "--check-cfg", "cfg(super_unstable)", "--check-cfg", "cfg(wrap_proc_macro)", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] Running normal Rust for crate unicode_segmentation. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "unicode_segmentation", "--edition=2018", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-segmentation-1.12.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"no_std\"))", "-C", "metadata=79ada9ba99bedf6d", "-C", "extra-filename=-e4d718e88c618177", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate unicode_xid. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "unicode_xid", "--edition=2015", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-xid-0.2.6/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"default\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"bench\", \"default\", \"no_std\"))", "-C", "metadata=c3425b65afe67857", "-C", "extra-filename=-e26b8bf552b59880", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate foldhash. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "foldhash", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/foldhash-0.1.5/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"std\"))", "-C", "metadata=0bea503628394c41", "-C", "extra-filename=-abf39bc0971f8ebd", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc_soft=false, normal_rustc_hard=true, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libc-0.2.182/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--allow=clippy::used_underscore_binding", "--allow=unused_qualifications", "--warn=clippy::unnecessary_semicolon", "--allow=clippy::unnecessary_cast", "--allow=clippy::uninlined_format_args", "--warn=clippy::ptr_as_ptr", "--allow=clippy::non_minimal_cfg", "--allow=clippy::missing_safety_doc", "--warn=clippy::map_unwrap_or", "--warn=clippy::manual_assert", "--allow=clippy::identity_op", "--warn=clippy::explicit_iter_loop", "--allow=clippy::expl_impl_clone_on_copy", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"align\", \"const-extern-fn\", \"default\", \"extra_traits\", \"rustc-dep-of-std\", \"rustc-std-workspace-core\", \"std\", \"use_std\"))", "-C", "metadata=6564f5fffd09aab3", "-C", "extra-filename=-c8cf9f2c627bbe32", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/libc-c8cf9f2c627bbe32", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] Running normal Rust for crate hashbrown. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "hashbrown", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hashbrown-0.16.1/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"alloc\", \"allocator-api2\", \"core\", \"default\", \"default-hasher\", \"equivalent\", \"inline-more\", \"nightly\", \"raw-entry\", \"rayon\", \"rustc-dep-of-std\", \"rustc-internal-api\", \"serde\"))", "-C", "metadata=f65ddcfc01a91622", "-C", "extra-filename=-b0e8b026c933dc04", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate equivalent. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "equivalent", "--edition=2015", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/equivalent-1.0.2/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=c5a6edd6b7773200", "-C", "extra-filename=-3ff77df1ac69f53a", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
 [DEBUG rustc_plugin::driver] Running normal Rust for crate build_script_build. Relevant variables: normal_rustc_soft=false, normal_rustc_hard=true, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "build_script_build", "--edition=2024", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/getrandom-0.4.2/build.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "--warn=clippy::useless_conversion", "--warn=unused_lifetimes", "--warn=clippy::unnecessary_cast", "--warn=unexpected_cfgs", "--warn=clippy::ptr_as_ptr", "--warn=missing_docs", "--warn=clippy::fn_to_numeric_cast_with_truncation", "--warn=clippy::fn_to_numeric_cast", "--warn=clippy::checked_conversions", "--warn=clippy::char_lit_as_u8", "--warn=clippy::cast_sign_loss", "--warn=clippy::cast_ptr_alignment", "--warn=clippy::cast_precision_loss", "--warn=clippy::cast_possible_wrap", "--warn=clippy::cast_possible_truncation", "--warn=clippy::cast_lossless", "--check-cfg", "cfg(getrandom_backend, values(\"custom\", \"efi_rng\", \"rdrand\", \"rndr\", \"linux_getrandom\", \"linux_raw\", \"windows_legacy\", \"unsupported\", \"extern_impl\"))", "--check-cfg", "cfg(getrandom_msan)", "--check-cfg", "cfg(getrandom_test_linux_fallback)", "--check-cfg", "cfg(getrandom_test_linux_without_fallback)", "--check-cfg", "cfg(getrandom_test_netbsd_fallback)", "--check-cfg", "cfg(target_os, values(\"cygwin\"))", "--check-cfg", "cfg(target_os, values(\"motor\"))", "--cfg", "feature=\"std\"", "--cfg", "feature=\"sys_rng\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"std\", \"sys_rng\", \"wasm_js\"))", "-C", "metadata=a0f2eafc7d556f0a", "-C", "extra-filename=-13db9ac554904862", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/build/getrandom-13db9ac554904862", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate fixedbitset. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "fixedbitset", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fixedbitset-0.5.7/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"serde\", \"std\"))", "-C", "metadata=3c53af0a268cea2c", "-C", "extra-filename=-eb9d888c851121be", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
    Compiling rand_core v0.10.0
    Compiling cfg-if v1.0.4
    Compiling cpufeatures v0.3.0
-   Compiling foobar v0.1.0 (/home/eli/Documents/project_mockingbird/test_project/foobar)
    Compiling bar v0.1.0 (/home/eli/Documents/project_mockingbird/test_project/bar)
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate convert_case. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "convert_case", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/convert_case-0.10.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=1382dfd6b301700d", "-C", "extra-filename=-995708dcf8b807f9", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "unicode_segmentation=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libunicode_segmentation-e4d718e88c618177.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate indexmap. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "indexmap", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/indexmap-2.13.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--deny=unsafe-code", "--deny=unreachable-pub", "--deny=unnameable-types", "--allow=clippy::style", "--warn=rust-2018-idioms", "--deny=private-interfaces", "--deny=private-bounds", "--cfg", "feature=\"std\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"arbitrary\", \"borsh\", \"default\", \"quickcheck\", \"rayon\", \"serde\", \"std\", \"sval\", \"test_debug\"))", "-C", "metadata=51ad3524b81f3f68", "-C", "extra-filename=-3d6b8805d0aaebef", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "equivalent=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libequivalent-3ff77df1ac69f53a.rmeta", "--extern", "hashbrown=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libhashbrown-b0e8b026c933dc04.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate hashbrown. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "hashbrown", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hashbrown-0.15.5/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--cfg", "feature=\"default-hasher\"", "--cfg", "feature=\"inline-more\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"alloc\", \"allocator-api2\", \"core\", \"default\", \"default-hasher\", \"equivalent\", \"inline-more\", \"nightly\", \"raw-entry\", \"rayon\", \"rustc-dep-of-std\", \"rustc-internal-api\", \"serde\"))", "-C", "metadata=e265e0e0d4a94d29", "-C", "extra-filename=-520b28db63ae8a73", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "foldhash=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libfoldhash-abf39bc0971f8ebd.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+   Compiling foobar v0.1.0 (/home/eli/Documents/project_mockingbird/test_project/foobar)
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
 [DEBUG rustc_plugin::driver] Running normal Rust for crate quote. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "quote", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.45/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--cfg", "feature=\"default\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"default\", \"proc-macro\"))", "-C", "metadata=19910aed013a74c3", "-C", "extra-filename=-3368f998a80240a0", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rmeta", "--cap-lints", "allow", "--check-cfg", "cfg(no_diagnostic_namespace)", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
    Compiling libc v0.2.182
+   Compiling syn v2.0.117
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] Running normal Rust for crate petgraph. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "petgraph", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/petgraph-0.8.3/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--warn=clippy::std_instead_of_core", "--warn=clippy::std_instead_of_alloc", "--warn=clippy::alloc_instead_of_core", "--cfg", "feature=\"default\"", "--cfg", "feature=\"graphmap\"", "--cfg", "feature=\"matrix_graph\"", "--cfg", "feature=\"stable_graph\"", "--cfg", "feature=\"std\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"all\", \"default\", \"dot_parser\", \"generate\", \"graphmap\", \"matrix_graph\", \"quickcheck\", \"rayon\", \"serde\", \"serde-1\", \"serde_derive\", \"stable_graph\", \"std\", \"unstable\"))", "-C", "metadata=954cb92cea0df382", "-C", "extra-filename=-b065b08841607f6c", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "fixedbitset=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libfixedbitset-eb9d888c851121be.rmeta", "--extern", "hashbrown=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libhashbrown-520b28db63ae8a73.rmeta", "--extern", "indexmap=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libindexmap-3d6b8805d0aaebef.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate syn. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "syn", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/syn-2.0.117/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"clone-impls\"", "--cfg", "feature=\"default\"", "--cfg", "feature=\"derive\"", "--cfg", "feature=\"extra-traits\"", "--cfg", "feature=\"full\"", "--cfg", "feature=\"parsing\"", "--cfg", "feature=\"printing\"", "--cfg", "feature=\"proc-macro\"", "--cfg", "feature=\"visit\"", "--cfg", "feature=\"visit-mut\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"clone-impls\", \"default\", \"derive\", \"extra-traits\", \"fold\", \"full\", \"parsing\", \"printing\", \"proc-macro\", \"test\", \"visit\", \"visit-mut\"))", "-C", "metadata=b286ddc70c7b2bb5", "-C", "extra-filename=-117d692c18998c7e", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rmeta", "--extern", "quote=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-3368f998a80240a0.rmeta", "--extern", "unicode_ident=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libunicode_ident-e36a029196a2cca1.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate derive_more_impl. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "derive_more_impl", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/derive_more-impl-2.1.1/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "proc-macro", "--emit=dep-info,link", "-C", "prefer-dynamic", "-C", "embed-bitcode=no", "--warn=unexpected_cfgs", "--check-cfg", "cfg(ci)", "--check-cfg", "cfg(error_generic_member_access)", "--check-cfg", "cfg(nightly)", "--cfg", "feature=\"add\"", "--cfg", "feature=\"add_assign\"", "--cfg", "feature=\"as_ref\"", "--cfg", "feature=\"constructor\"", "--cfg", "feature=\"debug\"", "--cfg", "feature=\"default\"", "--cfg", "feature=\"deref\"", "--cfg", "feature=\"deref_mut\"", "--cfg", "feature=\"display\"", "--cfg", "feature=\"eq\"", "--cfg", "feature=\"error\"", "--cfg", "feature=\"from\"", "--cfg", "feature=\"from_str\"", "--cfg", "feature=\"index\"", "--cfg", "feature=\"index_mut\"", "--cfg", "feature=\"into\"", "--cfg", "feature=\"into_iterator\"", "--cfg", "feature=\"is_variant\"", "--cfg", "feature=\"mul\"", "--cfg", "feature=\"mul_assign\"", "--cfg", "feature=\"not\"", "--cfg", "feature=\"sum\"", "--cfg", "feature=\"try_from\"", "--cfg", "feature=\"try_into\"", "--cfg", "feature=\"try_unwrap\"", "--cfg", "feature=\"unwrap\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"add\", \"add_assign\", \"as_ref\", \"constructor\", \"debug\", \"default\", \"deref\", \"deref_mut\", \"display\", \"eq\", \"error\", \"from\", \"from_str\", \"full\", \"index\", \"index_mut\", \"into\", \"into_iterator\", \"is_variant\", \"mul\", \"mul_assign\", \"not\", \"sum\", \"testing-helpers\", \"try_from\", \"try_into\", \"try_unwrap\", \"unwrap\"))", "-C", "metadata=06abfb70bbe1f33e", "-C", "extra-filename=-38ee99581b207885", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "convert_case=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libconvert_case-995708dcf8b807f9.rlib", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rlib", "--extern", "quote=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-3368f998a80240a0.rlib", "--extern", "syn=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libsyn-117d692c18998c7e.rlib", "--extern", "unicode_xid=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libunicode_xid-e26b8bf552b59880.rlib", "--extern", "proc_macro", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate derive_more. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "derive_more", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/derive_more-2.1.1/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--warn=unexpected_cfgs", "--check-cfg", "cfg(ci)", "--check-cfg", "cfg(nightly)", "--cfg", "feature=\"add\"", "--cfg", "feature=\"add_assign\"", "--cfg", "feature=\"as_ref\"", "--cfg", "feature=\"constructor\"", "--cfg", "feature=\"debug\"", "--cfg", "feature=\"default\"", "--cfg", "feature=\"deref\"", "--cfg", "feature=\"deref_mut\"", "--cfg", "feature=\"display\"", "--cfg", "feature=\"eq\"", "--cfg", "feature=\"error\"", "--cfg", "feature=\"from\"", "--cfg", "feature=\"from_str\"", "--cfg", "feature=\"full\"", "--cfg", "feature=\"index\"", "--cfg", "feature=\"index_mut\"", "--cfg", "feature=\"into\"", "--cfg", "feature=\"into_iterator\"", "--cfg", "feature=\"is_variant\"", "--cfg", "feature=\"mul\"", "--cfg", "feature=\"mul_assign\"", "--cfg", "feature=\"not\"", "--cfg", "feature=\"std\"", "--cfg", "feature=\"sum\"", "--cfg", "feature=\"try_from\"", "--cfg", "feature=\"try_into\"", "--cfg", "feature=\"try_unwrap\"", "--cfg", "feature=\"unwrap\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"add\", \"add_assign\", \"as_ref\", \"constructor\", \"debug\", \"default\", \"deref\", \"deref_mut\", \"display\", \"eq\", \"error\", \"from\", \"from_str\", \"full\", \"index\", \"index_mut\", \"into\", \"into_iterator\", \"is_variant\", \"mul\", \"mul_assign\", \"not\", \"std\", \"sum\", \"testing-helpers\", \"try_from\", \"try_into\", \"try_unwrap\", \"unwrap\"))", "-C", "metadata=b93a96650be26fdc", "-C", "extra-filename=-75e687d899674f9e", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "derive_more_impl=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libderive_more_impl-38ee99581b207885.so", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] Running normal Rust for crate context. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "context", "--edition=2024", "crates/context/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=40b464bebaa92bfd", "-C", "extra-filename=-a6b25c5832ae9db3", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "derive_more=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libderive_more-75e687d899674f9e.rmeta", "--extern", "petgraph=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libpetgraph-b065b08841607f6c.rmeta", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rmeta", "--extern", "quote=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-3368f998a80240a0.rmeta", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-warning: unused variable: `env_id`
-   --> crates/context/src/lib.rs:401:33
+[DEBUG rustc_plugin::driver] Running normal Rust for crate context. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_discover_driver_exec", "--crate-name", "context", "--edition=2024", "crates/context/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=36077f3fbae72b9c", "-C", "extra-filename=-5975a90ebde8d3b4", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rmeta", "--extern", "quote=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-3368f998a80240a0.rmeta", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+warning: unused imports: `ConditionDoublePointer`, `ReturnValDoublePointer`, `builder::ContextBuilder`, `errors::PredicateResult`, `time_mod::TimeModifier`, and `types::mock::MockId`
+ --> crates/context/src/unit_tests.rs:2:5
+  |
+2 |     ConditionDoublePointer, ReturnValDoublePointer, builder::ContextBuilder,
+  |     ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^
+3 |     errors::PredicateResult, time_mod::TimeModifier, types::mock::MockId,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^
+  |
+help: if this is a test module, consider adding a `#[cfg(test)]` to the containing module
+ --> crates/context/src/lib.rs:6:1
+  |
+6 | mod unit_tests;
+  | ^^^^^^^^^^^^^^^
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused variable: `builder`
+   --> crates/context/src/builder.rs:143:18
     |
-401 |             TimeModifier::Until(env_id) => todo!(),
-    |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
+143 |         let Some(builder) = self.mocks.get_mut(mock_id) else {
+    |                  ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_builder`
     |
     = note: `#[warn(unused_variables)]` on by default
 
-warning: unused variable: `times_value`
-   --> crates/context/src/lib.rs:402:33
-    |
-402 |             TimeModifier::Times(times_value) => todo!(),
-    |                                 ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_times_value`
-
 warning: unused variable: `env_id`
-   --> crates/context/src/lib.rs:403:33
+   --> crates/context/src/builder.rs:225:33
     |
-403 |             TimeModifier::After(env_id) => todo!(),
-    |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
-
-warning: unused variable: `env_id`
-   --> crates/context/src/lib.rs:437:33
-    |
-437 |             TimeModifier::Until(env_id) => quote! { context::TimeModifier::Until },
+225 |             TimeModifier::Until(env_id) => todo!(),
     |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
 
 warning: unused variable: `times_value`
-   --> crates/context/src/lib.rs:438:33
+   --> crates/context/src/builder.rs:226:33
     |
-438 |             TimeModifier::Times(times_value) => quote! { context::TimeModifier::Times},
+226 |             TimeModifier::Times(times_value) => todo!(),
     |                                 ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_times_value`
 
 warning: unused variable: `env_id`
-   --> crates/context/src/lib.rs:439:33
+   --> crates/context/src/builder.rs:227:33
     |
-439 |             TimeModifier::After(env_id) => quote! { context::TimeModifier::After },
+227 |             TimeModifier::After(env_id) => todo!(),
     |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
 
-warning: fields `effected_mocks`, `sequence_state`, and `index` are never read
-  --> crates/context/src/lib.rs:27:5
+warning: unused variable: `env_id`
+   --> crates/context/src/builder.rs:331:33
+    |
+331 |             TimeModifier::Until(env_id) => todo!(),
+    |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
+
+warning: unused variable: `times_value`
+   --> crates/context/src/builder.rs:332:33
+    |
+332 |             TimeModifier::Times(times_value) => todo!(),
+    |                                 ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_times_value`
+
+warning: unused variable: `env_id`
+   --> crates/context/src/builder.rs:333:33
+    |
+333 |             TimeModifier::After(env_id) => todo!(),
+    |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
+
+warning: unused variable: `env_id`
+  --> crates/context/src/time_mod.rs:39:33
    |
-26 | pub struct SequenceHead {
-   |            ------------ fields in this struct
-27 |     effected_mocks: Vec<MockId>,
-   |     ^^^^^^^^^^^^^^
-28 |     sequence_state: SequenceState,
-   |     ^^^^^^^^^^^^^^
-29 |     index: u32,
-   |     ^^^^^
+39 |             TimeModifier::Until(env_id) => quote! { context::TimeModifier::Until },
+   |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
+
+warning: unused variable: `times_value`
+  --> crates/context/src/time_mod.rs:40:33
    |
-   = note: `#[warn(dead_code)]` on by default
+40 |             TimeModifier::Times(times_value) => quote! { context::TimeModifier::Times},
+   |                                 ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_times_value`
 
-warning: field `sequence_heads` is never read
-  --> crates/context/src/lib.rs:49:5
+warning: unused variable: `env_id`
+  --> crates/context/src/time_mod.rs:41:33
    |
-48 | pub struct GlobalContext {
-   |            ------------- field in this struct
-49 |     sequence_heads: Vec<SequenceHead>,
-   |     ^^^^^^^^^^^^^^
+41 |             TimeModifier::After(env_id) => quote! { context::TimeModifier::After },
+   |                                 ^^^^^^ help: if this is intentional, prefix it with an underscore: `_env_id`
 
-warning: field `0` is never read
-   --> crates/context/src/lib.rs:153:27
-    |
-153 | pub struct ExpectationRef(u32);
-    |            -------------- ^^^
-    |            |
-    |            field in this struct
-    |
-    = help: consider removing this field
-
-warning: fields `entry` and `exit` are never read
-   --> crates/context/src/lib.rs:461:5
-    |
-460 | pub struct MockNode {
-    |            -------- fields in this struct
-461 |     entry: bool,
-    |     ^^^^^
-462 |     exit: bool,
-    |     ^^^^
-    |
-    = note: `MockNode` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
-
-warning: `context` (lib) generated 10 warnings
-   Compiling mock-macro v0.1.0 (/home/eli/Documents/project_mockingbird/crates/mock-macro)
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] list of crates to run ["rand", "rand"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate bar. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "bar", "--edition=2024", "test_project/bar/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=e3f1b90803dc0485", "-C", "extra-filename=-772c80eee34acaa2", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] list of crates to run ["rand", "rand"]
-    
-    
-[DEBUG rustc_plugin::driver] list of crates to run ["rand", "rand"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate rand_core. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "rand_core", "--edition=2024", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.10.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--warn=clippy::undocumented_unsafe_blocks", "--warn=missing_docs", "--warn=missing_debug_implementations", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=aa8f18ef4a295e95", "-C", "extra-filename=-0b287fd0adf2c97d", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] list of crates to run ["rand", "rand"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate cpufeatures. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "cpufeatures", "--edition=2024", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--warn=clippy::unwrap_used", "--warn=clippy::unwrap_in_result", "--warn=unused_qualifications", "--warn=unused_lifetimes", "--warn=clippy::unnecessary_safety_comment", "--warn=clippy::undocumented_unsafe_blocks", "--warn=clippy::trivially_copy_pass_by_ref", "--warn=trivial_numeric_casts", "--warn=trivial_casts", "--warn=clippy::std_instead_of_core", "--warn=clippy::std_instead_of_alloc", "--warn=clippy::semicolon_if_nothing_returned", "--warn=clippy::return_self_not_must_use", "--warn=clippy::ref_as_ptr", "--warn=clippy::redundant_closure_for_method_calls", "--warn=clippy::ptr_as_ptr", "--allow=clippy::needless_range_loop", "--warn=clippy::must_use_candidate", "--warn=clippy::mod_module_files", "--warn=clippy::missing_panics_doc", "--warn=clippy::missing_errors_doc", "--warn=missing_docs", "--warn=missing_debug_implementations", "--warn=missing_copy_implementations", "--warn=clippy::map_unwrap_or", "--warn=clippy::manual_assert", "--warn=clippy::implicit_saturating_sub", "--warn=clippy::from_iter_instead_of_collect", "--warn=clippy::doc_markdown", "--warn=clippy::checked_conversions", "--warn=clippy::cast_sign_loss", "--warn=clippy::cast_precision_loss", "--warn=clippy::cast_possible_wrap", "--warn=clippy::cast_possible_truncation", "--warn=clippy::cast_lossless", "--warn=clippy::borrow_as_ptr", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=13129d37e8208d46", "-C", "extra-filename=-8d0a72ec04d3841a", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate libc. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "libc", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libc-0.2.182/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--allow=clippy::used_underscore_binding", "--allow=unused_qualifications", "--warn=clippy::unnecessary_semicolon", "--allow=clippy::unnecessary_cast", "--allow=clippy::uninlined_format_args", "--warn=clippy::ptr_as_ptr", "--allow=clippy::non_minimal_cfg", "--allow=clippy::missing_safety_doc", "--warn=clippy::map_unwrap_or", "--warn=clippy::manual_assert", "--allow=clippy::identity_op", "--warn=clippy::explicit_iter_loop", "--allow=clippy::expl_impl_clone_on_copy", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"align\", \"const-extern-fn\", \"default\", \"extra_traits\", \"rustc-dep-of-std\", \"rustc-std-workspace-core\", \"std\", \"use_std\"))", "-C", "metadata=694288097367552b", "-C", "extra-filename=-19e28f8698608751", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--cfg", "freebsd12", "--check-cfg", "cfg(emscripten_old_stat_abi)", "--check-cfg", "cfg(espidf_time32)", "--check-cfg", "cfg(freebsd10)", "--check-cfg", "cfg(freebsd11)", "--check-cfg", "cfg(freebsd12)", "--check-cfg", "cfg(freebsd13)", "--check-cfg", "cfg(freebsd14)", "--check-cfg", "cfg(freebsd15)", "--check-cfg", "cfg(gnu_file_offset_bits64)", "--check-cfg", "cfg(gnu_time_bits64)", "--check-cfg", "cfg(libc_deny_warnings)", "--check-cfg", "cfg(linux_time_bits64)", "--check-cfg", "cfg(musl_v1_2_3)", "--check-cfg", "cfg(musl32_time64)", "--check-cfg", "cfg(vxworks_lt_25_09)", "--check-cfg", "cfg(target_os,values(\"switch\",\"aix\",\"ohos\",\"hurd\",\"rtems\",\"visionos\",\"nuttx\",\"cygwin\",\"qurt\"))", "--check-cfg", "cfg(target_env,values(\"illumos\",\"wasi\",\"aix\",\"ohos\",\"nto71_iosock\",\"nto80\"))", "--check-cfg", "cfg(target_arch,values(\"loongarch64\",\"mips32r6\",\"mips64r6\",\"csky\"))", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] list of crates to run ["rand", "rand"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate mock_macro. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "mock_macro", "--edition=2024", "crates/mock-macro/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "proc-macro", "--emit=dep-info,link", "-C", "prefer-dynamic", "-C", "embed-bitcode=no", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=a2d6b710c203ec54", "-C", "extra-filename=-f9299f123aa602ca", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "context=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libcontext-a6b25c5832ae9db3.rlib", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rlib", "--extern", "quote=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-3368f998a80240a0.rlib", "--extern", "syn=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libsyn-117d692c18998c7e.rlib", "--extern", "proc_macro", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-warning: unused variable: `str`
-  --> test_project/bar/src/lib.rs:15:19
+warning: unused variable: `other`
+  --> crates/context/src/lib.rs:42:13
    |
-15 | pub fn mut_string(str: &mut String) {
-   |                   ^^^ help: if this is intentional, prefix it with an underscore: `_str`
+42 |             other => panic!("finish was called on state more than once before a teardown"),
+   |             ^^^^^ help: if this is intentional, prefix it with an underscore: `_other`
+
+warning: unused variable: `other`
+  --> crates/context/src/lib.rs:64:9
    |
-   = note: `#[warn(unused_variables)]` on by default
+64 |         other => panic!("context not in build mode during add_mock call"),
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_other`
 
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
-    
-[DEBUG rustc_plugin::driver] list of crates to run ["rand", "rand"]
-    
-[DEBUG rustc_plugin::driver] list of crates to run ["rand", "rand"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate foobar. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "foobar", "--edition=2024", "test_project/foobar/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=7ea6380f7b877d90", "-C", "extra-filename=-e2f883b39ae09e8c", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate cfg_if. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "cfg_if", "--edition=2018", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cfg-if-1.0.4/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"core\", \"rustc-dep-of-std\"))", "-C", "metadata=da77556cd7f2a9d4", "-C", "extra-filename=-2262c59ed30cbfdf", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-warning: `bar` (lib) generated 1 warning
-   Compiling chacha20 v0.10.0
-[DEBUG mock_substitute_driver_exec] entered substitute driver
-warning: unused variable: `receiver`
-   --> crates/mock-macro/src/lib.rs:131:38
-    |
-131 |                 syn::FnArg::Receiver(receiver) => todo!(),
-    |                                      ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_receiver`
-    |
-    = note: `#[warn(unused_variables)]` on by default
+warning: unused variable: `other`
+  --> crates/context/src/lib.rs:71:9
+   |
+71 |         other => false,
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_other`
 
-warning: unused variable: `receiver`
-   --> crates/mock-macro/src/lib.rs:167:38
-    |
-167 |                 syn::FnArg::Receiver(receiver) => todo!(),
-    |                                      ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_receiver`
+warning: unused variable: `other`
+  --> crates/context/src/lib.rs:84:9
+   |
+84 |         other => panic!("context not in build mode during add_mock call"),
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_other`
 
-warning: unused variable: `expr`
-   --> crates/mock-macro/src/lib.rs:218:14
-    |
-218 |         Some(expr) => parse_quote! {
-    |              ^^^^ help: if this is intentional, prefix it with an underscore: `_expr`
+warning: unused variable: `other`
+  --> crates/context/src/lib.rs:91:9
+   |
+91 |         other => panic!("context not in build mode during add_mock call"),
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_other`
 
-warning: field `input_idents` is never read
-   --> crates/mock-macro/src/lib.rs:186:5
+warning: field `slices` is never read
+   --> crates/context/src/lib.rs:102:5
     |
-183 | struct MockFnData {
-    |        ---------- field in this struct
-...
-186 |     input_idents: Vec<Ident>,
-    |     ^^^^^^^^^^^^
+101 | pub struct GlobalContext {
+    |            ------------- field in this struct
+102 |     slices: Slices,
+    |     ^^^^^^
     |
+    = note: `GlobalContext` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
     = note: `#[warn(dead_code)]` on by default
 
+warning: struct `EnvId` is never constructed
+ --> crates/context/src/closure_wrappers.rs:5:12
+  |
+5 | pub struct EnvId(String);
+  |            ^^^^^
+
+warning: enum `EnvValue` is never used
+ --> crates/context/src/closure_wrappers.rs:6:10
+  |
+6 | pub enum EnvValue {
+  |          ^^^^^^^^
+
+warning: struct `Env` is never constructed
+  --> crates/context/src/closure_wrappers.rs:11:12
+   |
+11 | pub struct Env {
+   |            ^^^
+
+warning: associated items `new`, `add`, `remove`, `get_ref`, and `get_mut` are never used
+  --> crates/context/src/closure_wrappers.rs:15:12
+   |
+14 | impl Env {
+   | -------- associated items in this implementation
+15 |     pub fn new() -> Self {
+   |            ^^^
+...
+18 |     pub fn add<Value: Any + 'static>(&mut self, ident: impl Into<String>, value: Value) {
+   |            ^^^
+...
+21 |     pub fn remove<Value: Any + 'static>(&mut self, ident: &EnvId) -> Option<Box<Value>> {
+   |            ^^^^^^
+...
+25 |     pub fn get_ref<Value: Any + 'static>(&mut self, ident: &EnvId) -> Option<&Value> {
+   |            ^^^^^^^
+...
+29 |     pub fn get_mut<Value: Any + 'static>(&mut self, ident: &EnvId) -> Option<&mut Value> {
+   |            ^^^^^^^
+
+warning: enum `ReturnValPointerKind` is never used
+  --> crates/context/src/closure_wrappers.rs:35:10
+   |
+35 | pub enum ReturnValPointerKind {
+   |          ^^^^^^^^^^^^^^^^^^^^
+
+warning: field `0` is never read
+ --> crates/context/src/time_mod.rs:6:27
+  |
+6 | pub struct ExpectationRef(u32);
+  |            -------------- ^^^
+  |            |
+  |            field in this struct
+  |
+  = help: consider removing this field
+
+warning: field `0` is never read
+ --> crates/context/src/time_mod.rs:9:18
+  |
+9 | pub struct EnvId(String);
+  |            ----- ^^^^^^
+  |            |
+  |            field in this struct
+  |
+  = help: consider removing this field
+  = note: `EnvId` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `conditionals` is never read
+  --> crates/context/src/types/edges.rs:31:5
+   |
+30 | pub struct FreePermutationConditional {
+   |            -------------------------- field in this struct
+31 |     conditionals: Vec<(bool, ConditionalEdge)>,
+   |     ^^^^^^^^^^^^
+   |
+   = note: `FreePermutationConditional` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `remove_edge`, `iter_mut`, and `into_iter` are never used
+  --> crates/context/src/types/edges.rs:61:12
+   |
+52 | impl Edges {
+   | ---------- methods in this implementation
+...
+61 |     pub fn remove_edge(&mut self, index: EdgeIndex) -> Option<Edge> {
+   |            ^^^^^^^^^^^
+...
+76 |     pub fn iter_mut(&mut self) -> IterMut<'_, Edge> {
+   |            ^^^^^^^^
+...
+79 |     pub fn into_iter(self) -> <std::vec::Vec<Edge> as std::iter::IntoIterator>::IntoIter {
+   |            ^^^^^^^^^
+
+warning: constant `CONTEXT_CONST` is never used
+  --> crates/context/src/types/mock.rs:17:11
+   |
+17 | pub const CONTEXT_CONST: &str = "CONSTANT FROM CONTEXT";
+   |           ^^^^^^^^^^^^^
+
+warning: enum `SequenceState` is never used
+  --> crates/context/src/types/nodes.rs:14:10
+   |
+14 | pub enum SequenceState {
+   |          ^^^^^^^^^^^^^
+
+warning: methods `remove_node`, `iter`, `iter_mut`, and `into_iter` are never used
+  --> crates/context/src/types/nodes.rs:35:12
+   |
+20 | impl Nodes {
+   | ---------- methods in this implementation
+...
+35 |     pub fn remove_node(&mut self, node_index: NodeIndex) -> Option<Node> {
+   |            ^^^^^^^^^^^
+...
+41 |     pub fn iter(&self) -> Iter<'_, Node> {
+   |            ^^^^
+...
+44 |     pub fn iter_mut(&mut self) -> IterMut<'_, Node> {
+   |            ^^^^^^^^
+...
+47 |     pub fn into_iter(self) -> <std::vec::Vec<Node> as std::iter::IntoIterator>::IntoIter {
+   |            ^^^^^^^^^
+
+warning: struct `SequenceBuilder` is never constructed
+ --> crates/context/src/types/sequences.rs:9:12
+  |
+9 | pub struct SequenceBuilder {
+  |            ^^^^^^^^^^^^^^^
+
+warning: method `to_sequence_head` is never used
+  --> crates/context/src/types/sequences.rs:17:12
+   |
+16 | impl SequenceBuilder {
+   | -------------------- method in this implementation
+17 |     pub fn to_sequence_head(self) -> SequenceHead {
+   |            ^^^^^^^^^^^^^^^^
+
+warning: struct `Sequences` is never constructed
+  --> crates/context/src/types/sequences.rs:28:12
+   |
+28 | pub struct Sequences(Vec<SequenceBuilder>);
+   |            ^^^^^^^^^
+
+warning: multiple associated items are never used
+  --> crates/context/src/types/sequences.rs:36:12
+   |
+35 | impl Sequences {
+   | -------------- associated items in this implementation
+36 |     pub fn new() -> Self {
+   |            ^^^
+...
+39 |     pub fn add_edge(&mut self, edge: SequenceBuilder) -> SequenceIndex {
+   |            ^^^^^^^^
+...
+44 |     pub fn remove_edge(&mut self, index: SequenceIndex) -> Option<SequenceBuilder> {
+   |            ^^^^^^^^^^^
+...
+50 |     pub fn edge_ref(&self, index: SequenceIndex) -> Option<&SequenceBuilder> {
+   |            ^^^^^^^^
+...
+53 |     pub fn edge_mut(&mut self, index: SequenceIndex) -> Option<&mut SequenceBuilder> {
+   |            ^^^^^^^^
+...
+56 |     pub fn iter(&self) -> Iter<'_, SequenceBuilder> {
+   |            ^^^^
+...
+59 |     pub fn iter_mut(&mut self) -> IterMut<'_, SequenceBuilder> {
+   |            ^^^^^^^^
+...
+62 |     pub fn into_iter(
+   |            ^^^^^^^^^
+
+warning: methods `add_edge`, `remove_edge`, `iter`, `iter_mut`, and `into_iter` are never used
+   --> crates/context/src/types/sequences.rs:90:12
+    |
+ 86 | impl SequenceHeads {
+    | ------------------ methods in this implementation
+...
+ 90 |     pub fn add_edge(&mut self, edge: SequenceHead) -> SequenceIndex {
+    |            ^^^^^^^^
+...
+ 95 |     pub fn remove_edge(&mut self, index: SequenceIndex) -> Option<SequenceHead> {
+    |            ^^^^^^^^^^^
+...
+107 |     pub fn iter(&self) -> Iter<'_, SequenceHead> {
+    |            ^^^^
+...
+110 |     pub fn iter_mut(&mut self) -> IterMut<'_, SequenceHead> {
+    |            ^^^^^^^^
+...
+113 |     pub fn into_iter(self) -> <std::vec::Vec<SequenceHead> as std::iter::IntoIterator>::IntoIter {
+    |            ^^^^^^^^^
+
+warning: struct `SequenceExit` is never constructed
+   --> crates/context/src/types/sequences.rs:124:12
+    |
+124 | pub struct SequenceExit {
+    |            ^^^^^^^^^^^^
+
+warning: fields `start_node`, `nodes`, and `current` are never read
+ --> crates/context/src/types/slices.rs:7:5
+  |
+6 | pub struct SliceBuilder {
+  |            ------------ fields in this struct
+7 |     start_node: Node,
+  |     ^^^^^^^^^^
+8 |     nodes: Nodes,
+  |     ^^^^^
+9 |     current: NodeIndex,
+  |     ^^^^^^^
+  |
+  = note: `SliceBuilder` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `iter_nodes`, `iter_mut`, and `into_iter` are never used
+  --> crates/context/src/types/slices.rs:12:12
+   |
+11 | impl SliceBuilder {
+   | ----------------- methods in this implementation
+12 |     pub fn iter_nodes(&self) -> Iter<'_, Node> {
+   |            ^^^^^^^^^^
+...
+15 |     pub fn iter_mut(&mut self) -> IterMut<'_, Node> {
+   |            ^^^^^^^^
+...
+18 |     pub fn into_iter(self) -> <std::vec::Vec<Node> as std::iter::IntoIterator>::IntoIter {
+   |            ^^^^^^^^^
+
+warning: struct `SliceRef` is never constructed
+  --> crates/context/src/types/slices.rs:23:12
+   |
+23 | pub struct SliceRef(usize);
+   |            ^^^^^^^^
+
+warning: field `0` is never read
+  --> crates/context/src/types/slices.rs:25:19
+   |
+25 | pub struct Slices(Vec<SliceBuilder>);
+   |            ------ ^^^^^^^^^^^^^^^^^
+   |            |
+   |            field in this struct
+   |
+   = help: consider removing this field
+   = note: `Slices` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `add_slice`, `get_ref_slice`, `get_mut_slice`, `iter`, `iter_mut`, and `into_iter` are never used
+  --> crates/context/src/types/slices.rs:30:12
+   |
+26 | impl Slices {
+   | ----------- methods in this implementation
+...
+30 |     pub fn add_slice(&mut self, slice: SliceBuilder) -> SliceRef {
+   |            ^^^^^^^^^
+...
+35 |     pub fn get_ref_slice(&mut self, slice_ref: SliceRef) -> Option<&SliceBuilder> {
+   |            ^^^^^^^^^^^^^
+...
+38 |     pub fn get_mut_slice(&mut self, slice_ref: SliceRef) -> Option<&mut SliceBuilder> {
+   |            ^^^^^^^^^^^^^
+...
+42 |     pub fn iter(&self) -> Iter<'_, SliceBuilder> {
+   |            ^^^^
+...
+45 |     pub fn iter_mut(&mut self) -> IterMut<'_, SliceBuilder> {
+   |            ^^^^^^^^
+...
+48 |     pub fn into_iter(self) -> <std::vec::Vec<SliceBuilder> as std::iter::IntoIterator>::IntoIter {
+   |            ^^^^^^^^^
+
+warning: `context` (lib) generated 40 warnings (run `cargo fix --lib -p context` to apply 1 suggestion)
+[DEBUG mock_substitute_driver_exec] entered substitute driver
+[DEBUG mock_substitute_driver_exec] entered substitute driver
+[DEBUG mock_substitute_driver_exec] entered substitute driver
+[DEBUG mock_substitute_driver_exec] entered substitute driver
+[DEBUG mock_substitute_driver_exec] entered substitute driver
+[DEBUG mock_substitute_driver_exec] entered substitute driver
+[DEBUG mock_substitute_driver_exec] entered substitute driver
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] list of crates to run ["rand", "rand"]
+[DEBUG rustc_plugin::driver] list of crates to run ["bar", "bar"]
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+    
+[DEBUG rustc_plugin::driver] list of crates to run ["bar", "bar"]
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+[DEBUG rustc_plugin::driver] Running normal Rust for crate cpufeatures. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "cpufeatures", "--edition=2024", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--warn=clippy::unwrap_used", "--warn=clippy::unwrap_in_result", "--warn=unused_qualifications", "--warn=unused_lifetimes", "--warn=clippy::unnecessary_safety_comment", "--warn=clippy::undocumented_unsafe_blocks", "--warn=clippy::trivially_copy_pass_by_ref", "--warn=trivial_numeric_casts", "--warn=trivial_casts", "--warn=clippy::std_instead_of_core", "--warn=clippy::std_instead_of_alloc", "--warn=clippy::semicolon_if_nothing_returned", "--warn=clippy::return_self_not_must_use", "--warn=clippy::ref_as_ptr", "--warn=clippy::redundant_closure_for_method_calls", "--warn=clippy::ptr_as_ptr", "--allow=clippy::needless_range_loop", "--warn=clippy::must_use_candidate", "--warn=clippy::mod_module_files", "--warn=clippy::missing_panics_doc", "--warn=clippy::missing_errors_doc", "--warn=missing_docs", "--warn=missing_debug_implementations", "--warn=missing_copy_implementations", "--warn=clippy::map_unwrap_or", "--warn=clippy::manual_assert", "--warn=clippy::implicit_saturating_sub", "--warn=clippy::from_iter_instead_of_collect", "--warn=clippy::doc_markdown", "--warn=clippy::checked_conversions", "--warn=clippy::cast_sign_loss", "--warn=clippy::cast_precision_loss", "--warn=clippy::cast_possible_wrap", "--warn=clippy::cast_possible_truncation", "--warn=clippy::cast_lossless", "--warn=clippy::borrow_as_ptr", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=13129d37e8208d46", "-C", "extra-filename=-8d0a72ec04d3841a", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+    
+[DEBUG rustc_plugin::driver] list of crates to run ["bar", "bar"]
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+[DEBUG rustc_plugin::driver] Running normal Rust for crate libc. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "libc", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libc-0.2.182/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--allow=clippy::used_underscore_binding", "--allow=unused_qualifications", "--warn=clippy::unnecessary_semicolon", "--allow=clippy::unnecessary_cast", "--allow=clippy::uninlined_format_args", "--warn=clippy::ptr_as_ptr", "--allow=clippy::non_minimal_cfg", "--allow=clippy::missing_safety_doc", "--warn=clippy::map_unwrap_or", "--warn=clippy::manual_assert", "--allow=clippy::identity_op", "--warn=clippy::explicit_iter_loop", "--allow=clippy::expl_impl_clone_on_copy", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"align\", \"const-extern-fn\", \"default\", \"extra_traits\", \"rustc-dep-of-std\", \"rustc-std-workspace-core\", \"std\", \"use_std\"))", "-C", "metadata=694288097367552b", "-C", "extra-filename=-19e28f8698608751", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--cfg", "freebsd12", "--check-cfg", "cfg(emscripten_old_stat_abi)", "--check-cfg", "cfg(espidf_time32)", "--check-cfg", "cfg(freebsd10)", "--check-cfg", "cfg(freebsd11)", "--check-cfg", "cfg(freebsd12)", "--check-cfg", "cfg(freebsd13)", "--check-cfg", "cfg(freebsd14)", "--check-cfg", "cfg(freebsd15)", "--check-cfg", "cfg(gnu_file_offset_bits64)", "--check-cfg", "cfg(gnu_time_bits64)", "--check-cfg", "cfg(libc_deny_warnings)", "--check-cfg", "cfg(linux_time_bits64)", "--check-cfg", "cfg(musl_v1_2_3)", "--check-cfg", "cfg(musl32_time64)", "--check-cfg", "cfg(vxworks_lt_25_09)", "--check-cfg", "cfg(target_os,values(\"switch\",\"aix\",\"ohos\",\"hurd\",\"rtems\",\"visionos\",\"nuttx\",\"cygwin\",\"qurt\"))", "--check-cfg", "cfg(target_env,values(\"illumos\",\"wasi\",\"aix\",\"ohos\",\"nto71_iosock\",\"nto80\"))", "--check-cfg", "cfg(target_arch,values(\"loongarch64\",\"mips32r6\",\"mips64r6\",\"csky\"))", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+    
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+[DEBUG rustc_plugin::driver] Running normal Rust for crate foobar. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "foobar", "--edition=2024", "test_project/foobar/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=7ea6380f7b877d90", "-C", "extra-filename=-e2f883b39ae09e8c", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+[DEBUG rustc_plugin::driver] list of crates to run ["bar", "bar"]
+    
+[DEBUG rustc_plugin::driver] list of crates to run ["bar", "bar"]
+[DEBUG rustc_plugin::driver] Running plugin for crate bar. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=Some("bar")
+[DEBUG rustc_plugin::driver] Running normal Rust for crate cfg_if. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "cfg_if", "--edition=2018", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cfg-if-1.0.4/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"core\", \"rustc-dep-of-std\"))", "-C", "metadata=da77556cd7f2a9d4", "-C", "extra-filename=-2262c59ed30cbfdf", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+[DEBUG driver_test::substitution_pass] sub new compiler args: ["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "bar", "--edition=2024", "test_project/bar/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=e3f1b90803dc0485", "-C", "extra-filename=-772c80eee34acaa2", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "context=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libcontext-5975a90ebde8d3b4.rmeta", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+warning: unnecessary parentheses around function argument
+  --> test_project/bar/src/lib.rs:20:19
+   |
+20 |         write!(f, "{}", self.text)
+   |                   ^     ^
+   |
+   = note: `#[warn(unused_parens)]` on by default
+help: remove these parentheses
+   |
+20 -         write!(f, "{}", self.text)
+20 +         write!(f, {}", elf.text)
+   |
+
+warning: unnecessary parentheses around type
+  --> test_project/bar/src/lib.rs:19:38
+   |
+19 |     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+   |                                      ^           ^
+   |
+help: remove these parentheses
+   |
+19 -     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+19 +     fn fmt(&self, f: &mut std::fmt::Frmatter<'_> -> std::fmt::Result {
+   |
+
+warning: unnecessary parentheses around function argument
+ --> /home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/lib.rs:4:31
+  |
+4 | //! set of minimal and battle-tested shared abstractions for the [broader Rust
+  |                               ^     ^
+  |
+help: remove these parentheses
+  |
+4 - //! set of minimal and battle-tested shared abstractions for the [broader Rust
+4 + //! set of minimal and battle-estedshared abstractions for the [broader Rust
+  |
+
+warning: unnecessary parentheses around type
+ --> /home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/lib.rs:3:54
+  |
+3 | //! The Rust Standard Library is the foundation of portable Rust software, a
+  |                                                      ^           ^
+  |
+help: remove these parentheses
+  |
+3 - //! The Rust Standard Library is the foundation of portable Rust software, a
+3 + //! The Rust Standard Library is the foundation of potable Rust oftware, a
+  |
+
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+    
+[DEBUG rustc_plugin::driver] list of crates to run ["bar", "bar"]
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+    
+[DEBUG rustc_plugin::driver] list of crates to run ["bar", "bar"]
+[DEBUG rustc_plugin::driver] Running normal Rust for crate syn. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "syn", "--edition=2021", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/syn-2.0.117/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "--cfg", "feature=\"clone-impls\"", "--cfg", "feature=\"default\"", "--cfg", "feature=\"derive\"", "--cfg", "feature=\"full\"", "--cfg", "feature=\"parsing\"", "--cfg", "feature=\"printing\"", "--cfg", "feature=\"proc-macro\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"clone-impls\", \"default\", \"derive\", \"extra-traits\", \"fold\", \"full\", \"parsing\", \"printing\", \"proc-macro\", \"test\", \"visit\", \"visit-mut\"))", "-C", "metadata=1b290556f8d85d75", "-C", "extra-filename=-2ca90a13dbfb20d7", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rmeta", "--extern", "quote=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-3368f998a80240a0.rmeta", "--extern", "unicode_ident=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libunicode_ident-e36a029196a2cca1.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+[DEBUG rustc_plugin::driver] Running normal Rust for crate rand_core. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "rand_core", "--edition=2024", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.10.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--warn=clippy::undocumented_unsafe_blocks", "--warn=missing_docs", "--warn=missing_debug_implementations", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=aa8f18ef4a295e95", "-C", "extra-filename=-0b287fd0adf2c97d", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+   Compiling chacha20 v0.10.0
+[DEBUG mock_substitute_driver_exec] entered substitute driver
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+    
+[DEBUG rustc_plugin::driver] list of crates to run ["bar", "bar"]
 [DEBUG rustc_plugin::driver] Running normal Rust for crate chacha20. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "chacha20", "--edition=2024", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/chacha20-0.10.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--warn=clippy::unwrap_used", "--warn=clippy::unwrap_in_result", "--warn=unused_qualifications", "--warn=unused_lifetimes", "--warn=clippy::unnecessary_safety_comment", "--warn=unexpected_cfgs", "--warn=clippy::undocumented_unsafe_blocks", "--warn=clippy::trivially_copy_pass_by_ref", "--warn=trivial_numeric_casts", "--warn=trivial_casts", "--warn=clippy::std_instead_of_core", "--warn=clippy::std_instead_of_alloc", "--warn=clippy::semicolon_if_nothing_returned", "--warn=clippy::return_self_not_must_use", "--warn=clippy::ref_as_ptr", "--warn=clippy::redundant_closure_for_method_calls", "--warn=clippy::ptr_as_ptr", "--allow=clippy::needless_range_loop", "--warn=clippy::must_use_candidate", "--warn=clippy::mod_module_files", "--warn=clippy::missing_panics_doc", "--warn=clippy::missing_errors_doc", "--warn=missing_docs", "--warn=missing_debug_implementations", "--warn=missing_copy_implementations", "--warn=clippy::map_unwrap_or", "--warn=clippy::manual_assert", "--warn=clippy::implicit_saturating_sub", "--warn=clippy::from_iter_instead_of_collect", "--warn=clippy::checked_conversions", "--warn=clippy::cast_sign_loss", "--warn=clippy::cast_precision_loss", "--warn=clippy::cast_possible_wrap", "--warn=clippy::cast_possible_truncation", "--warn=clippy::cast_lossless", "--warn=clippy::borrow_as_ptr", "--check-cfg", "cfg(chacha20_avx512)", "--check-cfg", "cfg(chacha20_backend, values(\"avx2\", \"avx512\", \"soft\", \"sse2\"))", "--cfg", "feature=\"rng\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"cipher\", \"default\", \"legacy\", \"rng\", \"xchacha\", \"zeroize\"))", "-C", "metadata=d6d1b7ca90501bdc", "-C", "extra-filename=-7aa9a4b1774e4a50", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "cfg_if=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libcfg_if-2262c59ed30cbfdf.rmeta", "--extern", "cpufeatures=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libcpufeatures-8d0a72ec04d3841a.rmeta", "--extern", "rand_core=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/librand_core-0b287fd0adf2c97d.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-warning: `mock-macro` (lib) generated 4 warnings
+warning: `bar` (lib) generated 4 warnings (run `cargo fix --lib -p bar` to apply 4 suggestions)
    Compiling getrandom v0.4.2
 [DEBUG mock_substitute_driver_exec] entered substitute driver
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] list of crates to run ["rand", "rand"]
+[DEBUG rustc_plugin::driver] list of crates to run ["bar", "bar"]
 [DEBUG rustc_plugin::driver] Running normal Rust for crate getrandom. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "getrandom", "--edition=2024", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/getrandom-0.4.2/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--warn=clippy::useless_conversion", "--warn=unused_lifetimes", "--warn=clippy::unnecessary_cast", "--warn=unexpected_cfgs", "--warn=clippy::ptr_as_ptr", "--warn=missing_docs", "--warn=clippy::fn_to_numeric_cast_with_truncation", "--warn=clippy::fn_to_numeric_cast", "--warn=clippy::checked_conversions", "--warn=clippy::char_lit_as_u8", "--warn=clippy::cast_sign_loss", "--warn=clippy::cast_ptr_alignment", "--warn=clippy::cast_precision_loss", "--warn=clippy::cast_possible_wrap", "--warn=clippy::cast_possible_truncation", "--warn=clippy::cast_lossless", "--check-cfg", "cfg(getrandom_backend, values(\"custom\", \"efi_rng\", \"rdrand\", \"rndr\", \"linux_getrandom\", \"linux_raw\", \"windows_legacy\", \"unsupported\", \"extern_impl\"))", "--check-cfg", "cfg(getrandom_msan)", "--check-cfg", "cfg(getrandom_test_linux_fallback)", "--check-cfg", "cfg(getrandom_test_linux_without_fallback)", "--check-cfg", "cfg(getrandom_test_netbsd_fallback)", "--check-cfg", "cfg(target_os, values(\"cygwin\"))", "--check-cfg", "cfg(target_os, values(\"motor\"))", "--cfg", "feature=\"std\"", "--cfg", "feature=\"sys_rng\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"std\", \"sys_rng\", \"wasm_js\"))", "-C", "metadata=3d6dd8f97cb12265", "-C", "extra-filename=-a621c8823bb3f822", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "cfg_if=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libcfg_if-2262c59ed30cbfdf.rmeta", "--extern", "libc=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/liblibc-19e28f8698608751.rmeta", "--extern", "rand_core=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/librand_core-0b287fd0adf2c97d.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
    Compiling rand v0.10.0
 [DEBUG mock_substitute_driver_exec] entered substitute driver
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] list of crates to run ["rand", "rand"]
-[DEBUG rustc_plugin::driver] Running plugin for crate rand. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=Some("rand")
-[DEBUG driver_test::substitution_pass] sub new compiler args: ["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "rand", "--edition=2024", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand-0.10.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--cfg", "feature=\"alloc\"", "--cfg", "feature=\"default\"", "--cfg", "feature=\"std\"", "--cfg", "feature=\"std_rng\"", "--cfg", "feature=\"sys_rng\"", "--cfg", "feature=\"thread_rng\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"alloc\", \"chacha\", \"default\", \"log\", \"serde\", \"simd_support\", \"std\", \"std_rng\", \"sys_rng\", \"thread_rng\", \"unbiased\"))", "-C", "metadata=aabb926f6390954b", "-C", "extra-filename=-19fe86b4131a3f1f", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "context=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libcontext-a6b25c5832ae9db3.rmeta", "--extern", "chacha20=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libchacha20-7aa9a4b1774e4a50.rmeta", "--extern", "getrandom=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libgetrandom-a621c8823bb3f822.rmeta", "--extern", "rand_core=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/librand_core-0b287fd0adf2c97d.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+[DEBUG rustc_plugin::driver] list of crates to run ["bar", "bar"]
+[DEBUG rustc_plugin::driver] Running normal Rust for crate rand. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "rand", "--edition=2024", "/home/eli/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand-0.10.0/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "lib", "--emit=dep-info,metadata,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--cfg", "feature=\"alloc\"", "--cfg", "feature=\"default\"", "--cfg", "feature=\"std\"", "--cfg", "feature=\"std_rng\"", "--cfg", "feature=\"sys_rng\"", "--cfg", "feature=\"thread_rng\"", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values(\"alloc\", \"chacha\", \"default\", \"log\", \"serde\", \"simd_support\", \"std\", \"std_rng\", \"sys_rng\", \"thread_rng\", \"unbiased\"))", "-C", "metadata=aabb926f6390954b", "-C", "extra-filename=-19fe86b4131a3f1f", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "chacha20=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libchacha20-7aa9a4b1774e4a50.rmeta", "--extern", "getrandom=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libgetrandom-a621c8823bb3f822.rmeta", "--extern", "rand_core=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/librand_core-0b287fd0adf2c97d.rmeta", "--cap-lints", "allow", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+   Compiling mock-macro v0.1.0 (/home/eli/Documents/project_mockingbird/crates/mock-macro)
+[DEBUG mock_substitute_driver_exec] entered substitute driver
+[DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
+    
+[DEBUG rustc_plugin::driver] list of crates to run ["bar", "bar"]
+[DEBUG rustc_plugin::driver] Running normal Rust for crate mock_macro. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "mock_macro", "--edition=2024", "crates/mock-macro/src/lib.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "proc-macro", "--emit=dep-info,link", "-C", "prefer-dynamic", "-C", "embed-bitcode=no", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=ada5dc39fd4060c2", "-C", "extra-filename=-f1f1ad7a9a44a45a", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "context=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libcontext-5975a90ebde8d3b4.rlib", "--extern", "proc_macro2=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libproc_macro2-9b6d83678af5a96b.rlib", "--extern", "quote=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libquote-3368f998a80240a0.rlib", "--extern", "syn=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libsyn-2ca90a13dbfb20d7.rlib", "--extern", "proc_macro", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+warning: unused variable: `receiver`
+   --> crates/mock-macro/src/lib.rs:129:38
+    |
+129 |                 syn::FnArg::Receiver(receiver) => todo!(),
+    |                                      ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_receiver`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `receiver`
+   --> crates/mock-macro/src/lib.rs:165:38
+    |
+165 |                 syn::FnArg::Receiver(receiver) => todo!(),
+    |                                      ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_receiver`
+
+warning: unused variable: `expr`
+   --> crates/mock-macro/src/lib.rs:228:14
+    |
+228 |         Some(expr) => parse_quote! {
+    |              ^^^^ help: if this is intentional, prefix it with an underscore: `_expr`
+
+warning: unused variable: `exit`
+   --> crates/mock-macro/src/lib.rs:246:13
+    |
+246 |         let exit = e.exit;
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_exit`
+
+warning: unused variable: `mock_id_string`
+   --> crates/mock-macro/src/lib.rs:296:9
+    |
+296 |     let mock_id_string = format!("{}", quote! {#mock_id});
+    |         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_mock_id_string`
+
+warning: function `path_to_ident` is never used
+   --> crates/mock-macro/src/lib.rs:191:4
+    |
+191 | fn path_to_ident(path: &syn::Path) -> Ident {
+    |    ^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: struct `SliceData` is never constructed
+   --> crates/mock-macro/src/lib.rs:278:8
+    |
+278 | struct SliceData {
+    |        ^^^^^^^^^
+
+warning: struct `SequenceData` is never constructed
+   --> crates/mock-macro/src/lib.rs:315:8
+    |
+315 | struct SequenceData {
+    |        ^^^^^^^^^^^^
+
+warning: `mock-macro` (lib) generated 8 warnings
    Compiling foo v0.1.0 (/home/eli/Documents/project_mockingbird/test_project/foo)
 [DEBUG mock_substitute_driver_exec] entered substitute driver
 [DEBUG rustc_plugin::driver] rustc version info: rustc 1.91.0-nightly (05f5a58e8 2025-08-19)
     
-[DEBUG rustc_plugin::driver] list of crates to run ["rand", "rand"]
-[DEBUG rustc_plugin::driver] Running normal Rust for crate foo. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "foo", "--edition=2024", "test_project/foo/src/main.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=15b4707e76326530", "-C", "extra-filename=-41befdbc54160c3d", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "bar=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libbar-772c80eee34acaa2.rlib", "--extern", "context=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libcontext-a6b25c5832ae9db3.rlib", "--extern", "foobar=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libfoobar-e2f883b39ae09e8c.rlib", "--extern", "mock_macro=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libmock_macro-f9299f123aa602ca.so", "--extern", "rand=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/librand-19fe86b4131a3f1f.rlib", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.37s
-     Running `/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/foo`
+[DEBUG rustc_plugin::driver] list of crates to run ["bar", "bar"]
+[DEBUG rustc_plugin::driver] Running normal Rust for crate mock_test3. Relevant variables: normal_rustc_soft=true, normal_rustc_hard=false, run_on_all_crates=false, primary_package=false, is_target_crate=false, specified_crate=None args=["/home/eli/.cargo/bin/mock_substitute_driver_exec", "--crate-name", "mock_test3", "--edition=2024", "test_project/foo/src/bin/mock_test3.rs", "--error-format=json", "--json=diagnostic-rendered-ansi,artifacts,future-incompat", "--crate-type", "bin", "--emit=dep-info,link", "-C", "embed-bitcode=no", "-C", "debuginfo=2", "--check-cfg", "cfg(docsrs,test)", "--check-cfg", "cfg(feature, values())", "-C", "metadata=3a7326956b7e16d8", "-C", "extra-filename=-15050e701cb0ffb6", "--out-dir", "/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "-C", "incremental=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/incremental", "-L", "dependency=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps", "--extern", "bar=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libbar-772c80eee34acaa2.rlib", "--extern", "context=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libcontext-5975a90ebde8d3b4.rlib", "--extern", "foobar=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libfoobar-e2f883b39ae09e8c.rlib", "--extern", "mock_macro=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/libmock_macro-f1f1ad7a9a44a45a.so", "--extern", "rand=/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/deps/librand-19fe86b4131a3f1f.rlib", "--sysroot", "/home/eli/.rustup/toolchains/nightly-2025-08-20-x86_64-unknown-linux-gnu"]
+warning: unused import: `std::sync::Mutex`
+ --> test_project/foo/src/bin/mock_test3.rs:3:5
+  |
+3 | use std::sync::Mutex;
+  |     ^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
 
-thread 'main' (485419) panicked at test_project/foo/src/main.rs:26:15:
-MockError("test failed, no valid conditions for input")
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-substitute pass failed with error: ExitCode(101)
+warning: unused variable: `input`
+  --> test_project/foo/src/bin/mock_test3.rs:13:21
+   |
+13 |         fn handler1(input: TestStruct1) -> TestStruct2 {
+   |                     ^^^^^ help: if this is intentional, prefix it with an underscore: `_input`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `input`
+  --> test_project/foo/src/bin/mock_test3.rs:37:21
+   |
+37 |         fn handler2(input: TestStruct2) -> TestStruct1 {
+   |                     ^^^^^ help: if this is intentional, prefix it with an underscore: `_input`
+
+warning: `foo` (bin "mock_test3") generated 3 warnings (run `cargo fix --bin "mock_test3"` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.12s
+     Running `/home/eli/Documents/project_mockingbird/target/plugin-nightly-2025-08-20/debug/mock_test3`
+[test_project/foo/src/bin/mock_test3.rs:75:5] &struct2_res2 = TestStruct2 {
+    n: 1,
+    m: 33,
+}

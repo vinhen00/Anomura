@@ -1,8 +1,7 @@
 use bar::{TestStruct1, TestStruct2};
-use mock_macro::{end_mock_setup, mock_fn, start_mock_setup};
+use mock_macro::mock_fn;
 use std::sync::Mutex;
 fn main() {
-    start_mock_setup!();
     mock_fn!(
         foo,
         fn handler1(input: TestStruct1) -> TestStruct2 {
@@ -22,10 +21,7 @@ fn main() {
     mock_fn!(
         rand,
         fn random_bool(prob: f64) -> bool {
-            default_return({
-                std::println!("greetings from context: {}", context::CONTEXT_CONST);
-                true
-            });
+            default_return({ true });
             expect(
                 *prob > 0.5,
                 Once,
@@ -37,7 +33,7 @@ fn main() {
             expect(*prob < 0.9, once());
         }
     );
-    end_mock_setup!();
+    context::finish_building_context();
     let fst = rand::random_bool(1.0);
     println!("fst return val {fst}");
     if !fst {

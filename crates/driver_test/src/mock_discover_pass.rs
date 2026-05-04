@@ -1,4 +1,5 @@
-use crate::{DISCOVER_TMP, Utf8Path};
+use crate::list_dependencies::list_transitive_build_dependencies;
+use crate::{DISCOVER_TMP, Utf8Path, list_dependencies};
 use clap::Parser;
 use interprocess::local_socket::traits::{Listener as _, Stream};
 use interprocess::local_socket::{
@@ -47,41 +48,28 @@ pub const DISCOVER_BUILD_NORMALY: &[&str] = &[
     // we probably want to add version check as a condition aswell,
     // we also don't want to mock any of these
     //derive_more dependencies
-    "derive_more",
-    "derive_more_impl",
-    "convert_case",
-    "unicode_segmentation",
     "proc_macro2",
     "unicode_ident",
     "quote",
-    "syn",
-    "unicode_ident",
-    "unicode_xid",
-    //petgraph dependencies
-    "petgraph",
-    "fixedbitset",
-    "hashbrown",
-    "foldhash",
+    "log",
+    "toml",
+    "serde",
+    "serde_core",
+    "serde_derive",
+    "serde_spanned",
+    "toml_datetime",
+    "toml_edit",
     "indexmap",
     "equivalent",
-    "rustc_version",
-    "semver",
-    //dashmap
-    "cfg_if",
-    "crossbeam-utils",
     "hashbrown",
-    "lock_api",
-    "scopeguard",
-    "once_cell",
-    "parking_lot_core",
-    "libc",
-    "smallvec",
+    "winnow",
 ];
 impl DiscoverPlugin {
     pub fn new() -> Self {
         let tmp_dir = std::env::temp_dir();
+
         let (name_string, name) = if GenericNamespaced::is_supported() {
-            let name_string = format!("{tmp_dir:#?}/qqtmp.sock");
+            let name_string = format!("{tmp_dir:#?}/tmp.sock");
             let name = name_string
                 .clone()
                 .to_ns_name::<GenericNamespaced>()
@@ -139,8 +127,6 @@ impl DiscoverPlugin {
                         }
                     }
                 }
-                //i think this just potentially messes thins up
-                //std::thread::sleep(std::time::Duration::from_millis(10));
             }
             (all_mocked_fns, crate_list)
         });
@@ -159,7 +145,7 @@ impl DiscoverPlugin {
         };
 
         //tell the server that we are done looking for messages sent from rustc_driver instances
-        println!("Sending Done");
+        log::debug!("Sending Done");
         let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
         let json = serde_json::to_string(&CallBackMessage::Done).unwrap();
         conn.write_all(json.as_bytes())?;
@@ -193,11 +179,15 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         let args = env::args().skip(2).collect_vec();
         args.iter()
             .for_each(|a| log::debug!("discover arg: {:?}", a));
-
-        let only = DISCOVER_BUILD_NORMALY
+        let mut build_dependencies = list_transitive_build_dependencies()
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>();
+        let mut only: Vec<_> = DISCOVER_BUILD_NORMALY
             .iter()
             .map(|s| String::from(*s))
             .collect();
+        only.append(&mut build_dependencies);
         log::debug!("rustc discover context  only: {:?}", only);
         RustcPluginArgs {
             args: Some(args),
@@ -295,4 +285,67 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
     conn.write_all(b"\n")?;
     conn.flush()?;
     Ok(())
+}
+
+/// Takes an iterator of command-line arguments given to Cargo and keeps only the ones
+/// that direct to a target package or target selection.
+pub fn filter_cargo_target_args<I, S>(args: I) -> Vec<String>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    // Exact match flags that optionally take a value (e.g. `--bin NAME` or `-p SPEC`)
+    const VALUE_FLAGS: &[&str] = &["-p", "--package", "--bin", "--example", "--test", "--bench"];
+
+    // Boolean flags that don't take any additional value (e.g. `--bins` or `--lib`)
+    const BOOLEAN_FLAGS: &[&str] = &[
+        "--all",
+        "--workspace",
+        "--lib",
+        "--bins",
+        "--examples",
+        "--tests",
+        "--benches",
+        "--all-targets",
+    ];
+
+    let mut filtered = Vec::new();
+    let mut iter = args.into_iter().map(|s| s.as_ref().to_string()).peekable();
+
+    while let Some(arg) = iter.next() {
+        // 1. Handle value flags where the option is merged using '=' (e.g., --bin=my_bin or -p=my_pkg)
+        if let Some((flag, value)) = arg.split_once('=') {
+            if VALUE_FLAGS.contains(&flag) {
+                filtered.push(arg);
+            }
+            continue;
+        }
+
+        // 2. Handle exact matches for flags that take a separate value
+        if VALUE_FLAGS.contains(&arg.as_str()) {
+            filtered.push(arg);
+            // Grab the next argument as the value if it exists
+            if let Some(next_val) = iter.next() {
+                filtered.push(next_val);
+            }
+            continue;
+        }
+
+        // 3. Handle exact matches for boolean flags (flags without arguments)
+        if BOOLEAN_FLAGS.contains(&arg.as_str()) {
+            filtered.push(arg);
+            continue;
+        }
+
+        // 4. Handle exact matches for options to explicitly exclude packages
+        if arg == "--exclude" {
+            filtered.push(arg);
+            if let Some(next_val) = iter.next() {
+                filtered.push(next_val);
+            }
+            continue;
+        }
+    }
+
+    filtered
 }
