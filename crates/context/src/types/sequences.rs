@@ -1,7 +1,5 @@
 use std::slice::{Iter, IterMut};
 
-use derive_more::Eq;
-
 use crate::types::{mock::MockId, nodes::NodeIndex};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

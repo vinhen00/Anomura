@@ -6,6 +6,7 @@ pub struct EnvId(String);
 pub enum EnvValue {
     NotInitialized,
     Initialized(Box<dyn Any>),
+    Consumed
 }
 pub struct Env {
     map: HashMap<EnvId, Box<dyn Any>>,

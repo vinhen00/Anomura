@@ -1,8 +1,7 @@
 use rustc_ast::mut_visit::MutVisitor;
+use rustc_ast_pretty::pprust;
 use std::collections::HashMap;
-
-
-
+use syn::parse_quote;
 
 struct SymbolFinder {
     symbols: Vec<String>,
@@ -10,33 +9,27 @@ struct SymbolFinder {
 }
 
 impl SymbolFinder {
-
-    fn visit_token_stream (&mut self, ts: &rustc_ast::tokenstream::TokenStream) {
+    fn visit_token_stream(&mut self, ts: &rustc_ast::tokenstream::TokenStream) {
         for tree in ts.iter() {
-
             match tree {
-                rustc_ast::tokenstream::TokenTree::Token(token, _) => {
-                    match &token.kind {
-                        rustc_ast::token::TokenKind::Literal(lit) => {
-                            self.symbols.push(lit.symbol.as_str().to_string());
-                        }
-
-                        rustc_ast::token::TokenKind::Ident(name, _) => {
-                            self.idents.push(name.as_str().to_string());
-                        }
-
-                        _ => {}
+                rustc_ast::tokenstream::TokenTree::Token(token, _) => match &token.kind {
+                    rustc_ast::token::TokenKind::Literal(lit) => {
+                        self.symbols.push(lit.symbol.as_str().to_string());
                     }
-                }
-                rustc_ast::tokenstream::TokenTree::Delimited(_,_,_, inner_tokenstream) => {
+
+                    rustc_ast::token::TokenKind::Ident(name, _) => {
+                        self.idents.push(name.as_str().to_string());
+                    }
+
+                    _ => {}
+                },
+                rustc_ast::tokenstream::TokenTree::Delimited(_, _, _, inner_tokenstream) => {
                     self.visit_token_stream(inner_tokenstream);
                 }
                 _ => {}
             }
         }
     }
-
-
 }
 
 //SymbolFinder finds symbols and Idents from an AST
@@ -61,7 +54,6 @@ impl MutVisitor for SymbolFinder {
     fn visit_mac_call(&mut self, node: &mut rustc_ast::MacCall) {
         self.visit_path(&mut node.path);
         self.visit_token_stream(&node.args.tokens);
-        
     }
 
     // Will collect ALL identifiers(including keywords and types) but doing this doesn't seem to cause any problems
@@ -86,45 +78,41 @@ struct SymbolFixer {
 }
 
 impl SymbolFixer {
-    fn visit_token_stream (&mut self, trees: &mut Vec<rustc_ast::tokenstream::TokenTree>) {
+    fn visit_token_stream(&mut self, trees: &mut Vec<rustc_ast::tokenstream::TokenTree>) {
         for tree in trees {
             match tree {
-                rustc_ast::tokenstream::TokenTree::Token(token, _) => {
-                    match &mut token.kind {
-                        rustc_ast::token::TokenKind::Literal(lit) => {
-                            let string = self.symbols.remove(0);
-                            lit.symbol = rustc_span::Symbol::intern(&string);
-                        }
+                rustc_ast::tokenstream::TokenTree::Token(token, _) => match &mut token.kind {
+                    rustc_ast::token::TokenKind::Literal(lit) => {
+                        let string = self.symbols.remove(0);
+                        lit.symbol = rustc_span::Symbol::intern(&string);
+                    }
 
-                        rustc_ast::token::TokenKind::Ident(name, _) => {
-                            let ident = self.idents.remove(0);
+                    rustc_ast::token::TokenKind::Ident(name, _) => {
+                        let ident = self.idents.remove(0);
 
-                            match self.dict.get(&ident) {
-                                Some(symb) => {
-                                    *name = *symb;
-                                }
-                                None => {
-                                    let symb = rustc_span::Symbol::intern(ident.as_str());
-                                    self.dict.insert(ident, symb);
-                                    *name = symb;
-                                }
+                        match self.dict.get(&ident) {
+                            Some(symb) => {
+                                *name = *symb;
+                            }
+                            None => {
+                                let symb = rustc_span::Symbol::intern(ident.as_str());
+                                self.dict.insert(ident, symb);
+                                *name = symb;
                             }
                         }
-
-                        _ => {}
                     }
-                }
-                rustc_ast::tokenstream::TokenTree::Delimited(_,_,_, inner_tokenstream) => {
+
+                    _ => {}
+                },
+                rustc_ast::tokenstream::TokenTree::Delimited(_, _, _, inner_tokenstream) => {
                     let mut inner_trees: Vec<_> = inner_tokenstream.iter().cloned().collect();
                     self.visit_token_stream(&mut inner_trees);
                     *inner_tokenstream = rustc_ast::tokenstream::TokenStream::new(inner_trees);
-
                 }
                 _ => {}
             }
         }
     }
-
 }
 
 //SymbolFixer will walk through an AST and fix all Identifiers and Symbols
@@ -216,6 +204,30 @@ pub struct MockedFun {
     symbols: Vec<String>,
     idents: Vec<String>,
 }
+impl MockedFun {
+    pub fn to_idents(self) -> Vec<String> {
+        self.idents
+    }
+    pub fn get_idents(&self) -> &Vec<String> {
+        &self.idents
+    }
+    pub fn input_types(&self) -> Vec<syn::Type> {
+        self.sig
+            .decl
+            .inputs
+            .iter()
+            .map(|i| syn::parse_str::<syn::Type>(&pprust::ty_to_string(&i.ty)).unwrap())
+            .collect()
+    }
+    pub fn return_type(&self) -> syn::Type {
+        match &self.sig.decl.output {
+            rustc_ast::FnRetTy::Default(span) => parse_quote!(()),
+            rustc_ast::FnRetTy::Ty(ty) => {
+                syn::parse_str::<syn::Type>(&pprust::ty_to_string(ty)).unwrap()
+            }
+        }
+    }
+}
 
 //encodes using pretty printing, this kinda sucks but it might work out idfk
 impl MockedFun {
@@ -263,7 +275,7 @@ impl MockedFun {
             symbols: Vec::new(),
             idents: Vec::new(),
         };
-       visitor.visit_fn_decl(&mut self.sig.decl);
+        visitor.visit_fn_decl(&mut self.sig.decl);
         visitor.visit_block(&mut self.body);
         self.symbols = visitor.symbols;
         self.idents = visitor.idents;
@@ -282,6 +294,4 @@ impl MockedFun {
         visitor.visit_fn_decl(&mut self.sig.decl);
         visitor.visit_block(&mut self.body);
     }
-
-
 }

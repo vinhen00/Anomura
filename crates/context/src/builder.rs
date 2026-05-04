@@ -80,7 +80,7 @@ impl ContextBuilder {
             .map(|n| n.add_id(mock_id))
             .unwrap_or(false)
     }
-    ///
+
     pub fn add_mock<Input, ReturnVal>(
         &mut self,
         mock_id: MockId,
@@ -108,6 +108,7 @@ impl ContextBuilder {
         modifier: TimeModifier,
     ) -> Result<()> {
         let starting_point = self.mocks.get(mock_id).unwrap().head;
+
         let new_index = self.add_expectation_to_starting_point(
             starting_point,
             mock_id,
@@ -203,6 +204,7 @@ impl ContextBuilder {
                 //  (n) ----------> (n+1) ------------------> (n+2)
 
                 let n_plus_one = self.add_node(Node::new(NodeKind::Mock));
+                assert!(self.add_id_to_node(n_plus_one, mock_id.clone()));
                 self.add_edge(n_plus_one, create_conditional_edge(1, n_plus_one))
                     .unwrap();
                 //epsilon
@@ -216,12 +218,8 @@ impl ContextBuilder {
                 .unwrap();
 
                 //condition1
-                self.add_edge(starting_point, create_conditional_edge(1, new_node_index));
+                self.add_edge(starting_point, create_conditional_edge(1, n_plus_one));
 
-                let instant_weight = Edge::Instant {
-                    priority: 0,
-                    target: new_node_index,
-                };
                 Ok(new_node_index)
             }
             TimeModifier::Until(env_id) => todo!(),

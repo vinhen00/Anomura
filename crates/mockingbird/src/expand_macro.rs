@@ -185,9 +185,22 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[mocked( #path )]
         fn #name(#(#params),*) -> #ret_type {
-            
+
             std::println!("Mocked version of function {} was used", #name_str);
-            #ret_val
+            let #mock_id_ident = context::MockId::new(stringify!(#mock_id));
+            if context::ctx_built_and_contains_id(&#mock_id_ident) {
+                match context::run_mock::<#input_type_tuple, #ret_type>(#mock_id_ident, #input_ident_tuple) {
+                    Ok(res) => res,
+                    Err(e) => match e {
+                        context::MockError::Other(e) => panic!("unexpected Error: {:?}",e),
+                        context::MockError::PredicateError(e) => panic!("{:?}", e.0),
+                        context::MockError::NoMatchingId => {
+                            panic!("failed to find mock id");
+                        }
+                    }
+                }
+            } else {return #original_name(#input_idents_no_tuple);}
+
         }
     };
 
@@ -211,8 +224,6 @@ struct MockMethod {
     ret_val: Expr,
 }
 
-
-
 impl Parse for MockMethod {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         // let struct_name = parse_struct_field_value::<Path>("struct_name", &input, true)?;
@@ -229,7 +240,6 @@ impl Parse for MockMethod {
         // let ret_type = parse_struct_field_value("ret_type", &input, true)?;
         // let ret_val = parse_struct_field_value("ret_val", &input, false)?;
 
-        
         let path = input.parse::<Path>()?;
         input.parse::<Token![,]>()?;
         let struct_name = input.parse::<Path>()?;
@@ -282,8 +292,11 @@ impl Parse for MockMethod {
         for i in fn_body.sig.inputs.iter() {
             match i {
                 syn::FnArg::Receiver(receiver) => {
-                    if let Some(_) = receiver.mutability { self_receiver = SelfReceiver::RefMut }
-                    else { self_receiver = SelfReceiver::Ref }
+                    if let Some(_) = receiver.mutability {
+                        self_receiver = SelfReceiver::RefMut
+                    } else {
+                        self_receiver = SelfReceiver::Ref
+                    }
                 }
                 syn::FnArg::Typed(pat_type) => {
                     input_types.push(*pat_type.ty.clone());
@@ -291,10 +304,8 @@ impl Parse for MockMethod {
                         syn::Pat::Ident(pat_ident) => input_ident.push(pat_ident.ident),
                         _ => {}
                     }
-                },
-
+                }
             }
-
         }
 
         Ok(MockMethod {
@@ -340,9 +351,9 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     let ret_val = mock.ret_val;
 
     let receiver = match mock.self_receiver {
-        SelfReceiver::Ref    => quote! { &self, },
+        SelfReceiver::Ref => quote! { &self, },
         SelfReceiver::RefMut => quote! { &mut self, },
-        SelfReceiver::None   => quote! {},
+        SelfReceiver::None => quote! {},
     };
 
     let params = mock

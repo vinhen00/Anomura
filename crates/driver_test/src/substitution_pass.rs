@@ -55,8 +55,6 @@ pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockedFun>>
     crate_mock_map
 }
 
-
-
 impl SubstitutePlugin {
     pub fn new(program: String, crate_list: Vec<String>) -> Self {
         Self {

@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
-use derive_more::{Display, FromStr};
 use proc_macro2::TokenStream;
 use quote::quote;
 
 pub struct ExpectationRef(u32);
 
-#[derive(Debug, Clone, Display, FromStr)]
+#[derive(Debug, Clone)]
 pub struct EnvId(String);
 pub enum EnvVal {
     ExpectationRef(ExpectationRef),
@@ -14,12 +13,12 @@ pub enum EnvVal {
 }
 pub type Environment = HashMap<EnvId, EnvVal>;
 
-#[derive(Display, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum TimesValue {
     Explicit(u32),
     Implicit(EnvId),
 }
-#[derive(Display, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum TimeModifier {
     Once,
     AtMostOnce,
