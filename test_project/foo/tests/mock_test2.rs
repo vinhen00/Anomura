@@ -19,6 +19,7 @@ fn macro_test_2() {
             expect(*prob > 20.0, TimeModifier::Once);
         }
     );
+    context::finish_building_context();
     let fst = rand::random_bool(0.7);
     println!("fst return val {fst}");
     if !fst {

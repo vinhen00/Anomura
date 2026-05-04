@@ -18,6 +18,7 @@ fn macro_test1() {
             expect(*prob < 0.9, once());
         }
     );
+    context::finish_building_context();
     let fst = rand::random_bool(0.7);
     println!("fst return val {fst}");
     if !fst {
