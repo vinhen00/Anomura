@@ -7,8 +7,8 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
 };
-
-struct MockFun {
+#[derive(Clone)]
+pub struct MockFun {
     name: Ident,
     path: Path,
     input_types: Vec<Type>,
@@ -175,13 +175,12 @@ fn combine_path_and_ident(path: &syn::Path, ident: &Ident) -> Ident {
     let combined_name = parts.join("_");
     format_ident!("{}", combined_name, span = ident.span())
 }
-pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
-    //println!("Inside syn {}", input);
+pub fn expand_mock_fn(input: TokenStream) -> (TokenStream, MockFun) {
     let mock = match parse2::<MockFun>(input.clone()) {
         Ok(m) => m,
         Err(e) => panic!("invalid mock_def! input: {} with error:  {e} ", &input),
     };
-
+    let mock_return = mock.clone();
     let name = mock.name;
     let original_name = format_ident!("{name}_original");
     let path = mock.path;
@@ -222,7 +221,7 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
 
         }
     };
-    expanded
+    (expanded, mock_return)
 }
 
 enum SelfReceiver {

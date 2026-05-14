@@ -1,6 +1,5 @@
 use bar::{TestStruct1, TestStruct2, handler1, handler2};
 use mock_macro::mock_fn;
-use std::sync::Mutex;
 
 fn gab() -> TestStruct2 {
     println!("hello gab");
@@ -52,7 +51,7 @@ fn main() {
         }
     );
     context::finish_building_context();
-    
+
     let struct1 = TestStruct1 {
         text: "hello world".into(),
     };

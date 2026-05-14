@@ -55,7 +55,6 @@ pub const DISCOVER_BUILD_NORMALY: &[&str] = &[
     "toml",
     "serde",
     "serde_core",
-    "serde_derive",
     "serde_spanned",
     "toml_datetime",
     "toml_edit",
@@ -256,7 +255,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
 }
 
 pub fn compile_maccalls(program: &str) -> CompileMocks {
-    let mut mocked_funs = CompileMocks::new(Vec::new(), program.to_string(), false);
+    let mut mocked_funs = CompileMocks::new(Vec::new(), program.to_string(), false, false);
     rustc_driver::run_compiler(
         &["ignored".to_string(), "anything".to_string()],
         &mut mocked_funs,

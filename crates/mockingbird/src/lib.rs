@@ -5,6 +5,7 @@ pub mod function_intercept;
 pub mod parse_mocks;
 mod visitors;
 
+pub const MACRO_MOCK_MAP: &str = "MACRO_MOCK_MAP";
 extern crate rustc_ast;
 extern crate rustc_ast_pretty;
 extern crate rustc_data_structures;

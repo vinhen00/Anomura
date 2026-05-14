@@ -195,10 +195,28 @@ impl MutVisitor for SymbolFixer {
 //
 // We need them because literals and identifiers are stored in a compilation context
 // and when we switch compiler that data disappears
+
+#[derive(Clone, Debug)]
+pub struct MockedFunPath(Vec<String>);
+impl MockedFunPath {
+    pub fn new(path: Vec<String>) -> Result<Self, String> {
+        if path.is_empty() {
+            return Err("path cannot be empty".to_string());
+        };
+        Ok(Self(path))
+    }
+    pub fn get_crate(&self) -> String {
+        self.0[0].clone()
+    }
+    pub fn path_as_string(&self) -> String {
+        self.0.join("::")
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct MockedFun {
     name: String,
-    path: String,
+    path: MockedFunPath,
     sig: rustc_ast::FnSig,
     body: Box<rustc_ast::Block>,
     symbols: Vec<String>,
@@ -210,6 +228,9 @@ impl MockedFun {
     }
     pub fn get_idents(&self) -> &Vec<String> {
         &self.idents
+    }
+    pub fn get_path(&self) -> &MockedFunPath {
+        &self.path
     }
     pub fn input_types(&self) -> Vec<syn::Type> {
         self.sig
@@ -231,7 +252,7 @@ impl MockedFun {
 
 //encodes using pretty printing, this kinda sucks but it might work out idfk
 impl MockedFun {
-    pub fn new(fun: rustc_ast::Fn, path: String) -> MockedFun {
+    pub fn new(fun: rustc_ast::Fn, path: MockedFunPath) -> MockedFun {
         //println!("{:#?}", fun);
         let name = fun.ident.as_str().to_string();
         match fun.body {
@@ -253,8 +274,8 @@ impl MockedFun {
         self.name = new_name;
     }
 
-    pub fn get_path(&self) -> String {
-        self.path.clone()
+    pub fn get_path_as_string(&self) -> String {
+        self.path.path_as_string()
     }
 
     pub fn get_name(&self) -> String {

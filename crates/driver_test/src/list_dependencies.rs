@@ -11,9 +11,7 @@ pub fn list_transitive_build_dependencies() -> HashSet<PackageId> {
         metadata.packages.iter().map(|p| (&p.id, p)).collect();
     let root = metadata.root_package().expect("should be some root");
 
-    // =========================================================================
-    // STEP 1: Find all normal and build dependencies of root (B0..Bn)
-    // =========================================================================
+    //Find all normal and build dependencies of root (B0..Bn)
     let mut b_crates = HashSet::new();
     let resolve = metadata.resolve.as_ref().expect("Missing resolve graph");
 
@@ -29,12 +27,9 @@ pub fn list_transitive_build_dependencies() -> HashSet<PackageId> {
                 b_crates.insert(&dep.pkg);
             }
         }
-        log::debug!("b_crates: {b_crates:?}");
     }
 
-    // =========================================================================
     // STEP 2: Extract all build dependencies of B0..Bn (C0..Cn)
-    // =========================================================================
     let mut c_crates = HashSet::new();
 
     for b_id in &b_crates {

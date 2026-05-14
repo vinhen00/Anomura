@@ -7,7 +7,7 @@ use std::{
 
 use crate::{SUBSTITUTION_MOCK_PATHS, Utf8Path};
 
-use mockingbird::{MockedFun, compile_mocks::CompileMocks};
+use mockingbird::{MACRO_MOCK_MAP, MockedFun, compile_mocks::CompileMocks, parse_mocks::MacroMap};
 
 use itertools::Itertools;
 use mockingbird::function_intercept::FunctionIntercept;
@@ -29,8 +29,11 @@ pub struct SubstitutePlugin {
     crate_list: Vec<String>,
 }
 
-pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockedFun>> {
-    let mut callbacks = CompileMocks::new(Vec::new(), program.clone(), true);
+pub fn mock_map_from_program(
+    program: String,
+    with_macro_map: bool,
+) -> (Option<MacroMap>, HashMap<String, Vec<MockedFun>>) {
+    let mut callbacks = CompileMocks::new(Vec::new(), program.clone(), true, with_macro_map);
     rustc_driver::run_compiler(
         &[
             "ignored".to_string(),
@@ -45,20 +48,20 @@ pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockedFun>>
 
     let mut crate_mock_map: HashMap<String, Vec<MockedFun>> = HashMap::new();
     for mock_fn in &callbacks.get_mocks() {
-        println!("mock fn path : {:?}", mock_fn.get_path());
+        log::debug!("mock fn path : {:?}", mock_fn.get_path());
         crate_mock_map
-            .entry(mock_fn.get_path())
+            .entry(mock_fn.get_path_as_string())
             .and_modify(|v| v.push(mock_fn.clone()))
             .or_insert(vec![mock_fn.clone()]);
     }
-    println!("mock map keys: {:?}", crate_mock_map.keys());
-    crate_mock_map
+    log::debug!("mock map keys: {:?}", crate_mock_map.keys());
+    (callbacks.macro_map, crate_mock_map)
 }
 
 impl SubstitutePlugin {
     pub fn new(program: String, crate_list: Vec<String>) -> Self {
         Self {
-            program: program.clone(),
+            program,
             crate_list,
         }
     }
@@ -101,14 +104,14 @@ impl RustcPlugin for SubstitutePlugin {
         compiler_args: Vec<String>,
         plugin_args: &Vec<String>,
     ) -> rustc_interface::interface::Result<()> {
-        println!("Test");
+        log::debug!("Test");
         let program = std::env::var(SUBSTITUTION_MOCK_PATHS)
             .expect("should always be available at this point");
-        let mut mock_map = mock_map_from_program(program);
+        let (_, mut mock_map) = mock_map_from_program(program, false);
         let mocks = mock_map.remove(&crate_name).expect("should exist");
         let mut callbacks = FunctionIntercept::new(mocks);
-        println!("runnin sugstitution plugin for crate {crate_name}");
-        println!("plugin_args: {:?}", plugin_args);
+        log::debug!("runnin sugstitution plugin for crate {crate_name}");
+        log::debug!("plugin_args: {:?}", plugin_args);
 
         //link against context
         let l_index = compiler_args
@@ -136,6 +139,11 @@ impl RustcPlugin for SubstitutePlugin {
 
     fn modify_cargo(&self, cargo: &mut std::process::Command, args: &Vec<String>) {
         println!("cargo args: {:?}", &args);
+        let (macro_map, mocked_funs) = mock_map_from_program(self.program.clone(), true);
+
+        //to be used by macros to fetch type information for expectations and sequences.
+        let macro_map = serde_json::to_string(&macro_map).unwrap();
+        cargo.env(MACRO_MOCK_MAP, macro_map);
         cargo.env(SUBSTITUTION_MOCK_PATHS, self.program.clone());
         cargo.args(args);
     }

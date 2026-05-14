@@ -1,6 +1,7 @@
 use context::time_mod::TimeModifier;
+use mockingbird::{MACRO_MOCK_MAP, parse_mocks::MacroMap};
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
+use quote::{ToTokens, format_ident, quote};
 use syn::{
     Expr, ExprClosure, Ident, Token, Type, parse::Parse, parse_macro_input, parse_quote,
     punctuated::Punctuated, spanned::Spanned, token::Comma,
@@ -321,7 +322,7 @@ impl Parse for SequenceData {
         let name = input.parse::<Ident>()?;
         input.parse::<Token![,]>()?;
 
-        let expectations = Punctuated::<MockFnData, Token![,]>::parse_terminated(&input)?
+        let expectations = Punctuated::<MockFnData, Token![,]>::parse_terminated(input)?
             .into_iter()
             .collect();
         Ok(Self { name, expectations })
@@ -333,7 +334,7 @@ pub fn sequence(item: TokenStream) -> TokenStream {
 
     TokenStream::new()
 }*/
-/*
+
 struct ExpectData {
     path: syn::Path,
     expectation: Expectation,
@@ -344,42 +345,24 @@ impl Parse for ExpectData {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let path = input.parse::<syn::Path>()?;
         let krate = path.segments.first().unwrap().ident.to_string();
-        let name = path.segments.last().unwrap().ident.to_string();
         input.parse::<Token![,]>()?;
-        let exprs = Punctuated::<Expr, Token![,]>::parse_terminated(&input)?;
-        let program = std::env::var(driver_test::SUBSTITUTION_MOCK_PATHS).unwrap();
-        let map = driver_test::mock_map_from_program(program);
-        let mocks = map
+        let exprs = Punctuated::<Expr, Token![,]>::parse_terminated(input)?;
+        let map = std::env::var(MACRO_MOCK_MAP).unwrap();
+        let map: MacroMap = serde_json::from_str(&map).unwrap();
+        let typed_map = map.make_useful();
+        let path_tokens = path.to_token_stream().to_string();
+        let mock_types = typed_map
             .get(&krate)
-            .expect(&format!("krate with string id {:?} wasnt found", krate));
-        let Some((input_idents, input_types, return_type)) = mocks.into_iter().find_map(|m| {
-            let m_name = m.get_name();
-            if m_name == name {
-                Some((
-                    m.get_idents()
-                        .into_iter()
-                        .map(|s| Ident::new(&s, path.span()))
-                        .collect::<Vec<_>>(),
-                    m.input_types(),
-                    m.return_type(),
-                ))
-            } else {
-                None
-            }
-        }) else {
-            let err = syn::Error::new(
-                path.span(),
-                "did not find a matching mock definition in expectdata",
-            );
-            return Err(err);
-        };
-
-        let expectation = Expectation::from_exprs(&input_idents, exprs);
+            .unwrap()
+            .iter()
+            .find(|m| m.path.to_token_stream().to_string() == path_tokens)
+            .unwrap();
+        let expectation = Expectation::from_exprs(&mock_types.input_idents, exprs);
         Ok(ExpectData {
             path,
             expectation,
-            input_types,
-            return_type,
+            input_types: mock_types.input_types.clone(),
+            return_type: mock_types.return_type.clone(),
         })
     }
 }
@@ -399,7 +382,7 @@ pub fn expect(item: TokenStream) -> TokenStream {
         panic!("failed to add mock, got error {:?}", e);
         };
     }.into()
-}*/
+}
 
 #[proc_macro]
 pub fn mock_method(_item: TokenStream) -> TokenStream {

@@ -6,7 +6,10 @@ use rustc_driver::Compilation;
 use rustc_interface::interface::{Compiler, Config};
 use rustc_session::config::CrateType;
 
-use crate::visitors::MockedFun;
+use crate::{
+    parse_mocks::MacroMap,
+    visitors::{MockedFun, MockedFunPath},
+};
 
 pub struct MockDefsLoader {
     pub mockdefs: String,
@@ -37,15 +40,24 @@ pub fn extract_struct_name_from_impl(imp: rustc_ast::Impl) -> Option<String> {
 pub struct CompileMocks {
     used_in_plugin: bool,
     mocks: Vec<MockedFun>,
+    pub macro_map: Option<MacroMap>,
+    set_macro_map: bool,
     program: String,
 }
 
 impl CompileMocks {
-    pub fn new(mocks: Vec<MockedFun>, program: String, used_in_plugin: bool) -> Self {
+    pub fn new(
+        mocks: Vec<MockedFun>,
+        program: String,
+        used_in_plugin: bool,
+        set_macro_map: bool,
+    ) -> Self {
         CompileMocks {
             mocks,
             program,
+            macro_map: None,
             used_in_plugin,
+            set_macro_map,
         }
     }
 
@@ -53,7 +65,7 @@ impl CompileMocks {
         self.mocks.clone()
     }
 
-    fn handle_fn(&mut self, fn_data: &rustc_ast::Fn, path: String) {
+    fn handle_fn(&mut self, fn_data: &rustc_ast::Fn, path: MockedFunPath) {
         if fn_data.ident.name.as_str() != "main" {
             let mut mocked_fn = MockedFun::new(fn_data.clone(), path);
             mocked_fn.collect_names();
@@ -66,12 +78,12 @@ impl CompileMocks {
         let imp_name =
             extract_struct_name_from_impl(impl_data.clone()).expect("failed to parse struct");
         for imp_item in &impl_data.items {
-            let mut path = "".to_string();
+            let mut path = None;
             for attr in &imp_item.attrs {
-                path = extract_attribute_name(attr.clone());
+                path = Some(extract_attribute_name(attr.clone()));
             }
             if let rustc_ast::AssocItemKind::Fn(fn_data) = &imp_item.kind {
-                let mut mocked_fn = MockedFun::new(*fn_data.clone(), path);
+                let mut mocked_fn = MockedFun::new(*fn_data.clone(), path.unwrap());
                 mocked_fn.collect_names();
                 mocked_fn.set_name(format!("{}.{}", imp_name, mocked_fn.get_name()));
                 self.mocks.push(mocked_fn);
@@ -82,13 +94,13 @@ impl CompileMocks {
     fn handle_mod(&mut self, mod_items: &rustc_ast::ModKind) {
         if let rustc_ast::ModKind::Loaded(items, ..) = mod_items {
             for i in items {
-                let mut path = "".to_string();
+                let mut path = None;
                 for attr in &i.attrs {
-                    path = extract_attribute_name(attr.clone());
+                    path = Some(extract_attribute_name(attr.clone()));
                 }
                 match &i.kind {
                     rustc_ast::ItemKind::Fn(fn_data) => {
-                        self.handle_fn(fn_data, path);
+                        self.handle_fn(fn_data, path.unwrap());
                     }
                     rustc_ast::ItemKind::Impl(impl_data) => {
                         self.handle_impl(impl_data);
@@ -103,25 +115,22 @@ impl CompileMocks {
     }
 }
 
-fn extract_attribute_name(atr: rustc_ast::Attribute) -> String {
-    let mut path = "".to_string();
-    if let rustc_ast::AttrKind::Normal(norm) = atr.kind
+fn extract_attribute_name(atr: rustc_ast::Attribute) -> MockedFunPath {
+    let mut path = vec![];
+    if let rustc_ast::AttrKind::Normal(norm) = atr.clone().kind
         && let rustc_ast::AttrArgs::Delimited(del_args) = norm.item.args
     {
         for token in del_args.tokens.iter() {
             if let rustc_ast::tokenstream::TokenTree::Token(tok, _) = token
                 && let rustc_ast::token::TokenKind::Ident(name, _) = tok.kind
             {
-                if !path.is_empty() {
-                    path = format!("{}::{}", path, name.as_str());
-                } else {
-                    path = name.as_str().to_string()
-                }
+                path.push(name.to_ident_string())
                 //println!("TOK: {:#?}", path);
             }
         }
     }
-    path
+    MockedFunPath::new(path)
+        .unwrap_or_else(|_| panic!("failed to construct path for atr {:?}", atr))
 }
 
 //Compile mocks is a compiler setting the compiles the file that the mocked functions reside in.
@@ -150,14 +159,14 @@ impl rustc_driver::Callbacks for CompileMocks {
         //     return Compilation::Stop;
         // }
         for item in &krate.items {
-            let mut path = "".to_string();
+            let mut path = None;
             for attr in &item.attrs {
-                path = extract_attribute_name(attr.clone());
+                path = Some(extract_attribute_name(attr.clone()));
             }
             // println!("checking item {:?}", item.kind.ident());
             match &item.kind {
                 rustc_ast::ItemKind::Fn(fn_data) => {
-                    self.handle_fn(fn_data, path);
+                    self.handle_fn(fn_data, path.unwrap());
                 }
                 rustc_ast::ItemKind::Impl(impl_data) => {
                     self.handle_impl(impl_data);
@@ -167,6 +176,11 @@ impl rustc_driver::Callbacks for CompileMocks {
                 }
                 _ => {}
             }
+        }
+
+        if self.set_macro_map {
+            let macro_map = MacroMap::new(self.get_mocks());
+            self.macro_map = Some(macro_map);
         }
         Compilation::Stop
     }
