@@ -136,13 +136,17 @@ fn mock_struct(){
 }
 
 
+fn ret_foo(x: i16) -> i16 {
+    x*2
+}
+
 #[test]
 fn return_call_with_args(){
     
     mock_fn!(
         fns,
         fn ret_call_w_args (x: i16) -> i16{
-            default_return(x*2);
+            default_return(ret_foo(x));
             expect(true, once());
         }
     );
@@ -405,12 +409,77 @@ fn match_operator(){
 //         fn match_pattern(pattern: Pattern) {
 //             default_return(());
 //             expect(
-//                 match pattern {
-//                     Okay => true,
-//                     NotOkay => false,
+//                 {
+//                     match pattern {
+//                         Okay => true,
+//                         NotOkay => false,
+//                     }
 //                 }, 
 //                 once()
 //             );
 //         }
 //     );
 // }
+
+#[test]
+fn match_range(){
+    mock_fn!(
+        fns,
+        fn match_range(key: u32) {
+            default_return(());
+            expect(
+                *key >= 0 && *key < 10,
+                any()
+            );
+        }
+    );
+    context::finish_building_context();
+
+    fns::match_range(0);
+    fns::match_range(5);
+    fns::match_range(9);
+}
+
+#[test]
+fn match_wildcard(){
+    mock_fn!(
+        fns,
+        fn match_wildcard(key: u32){
+            default_return(());
+            expect(true, once());
+        }
+    );
+    context::finish_building_context();
+    fns::match_wildcard(67);    
+}
+
+fn match_foo(key: u32) -> bool {
+    key == 67
+}
+
+#[test]
+fn match_function(){
+    mock_fn!(
+        fns,
+        fn match_function(key: u32){
+            default_return(());
+            expect(match_foo(*key), once());
+        }
+    );
+    context::finish_building_context();
+    fns::match_function(67);    
+}
+
+#[test]
+fn closures() {
+    mock_fn!(
+        fns,
+        fn closure_param(f: fns::ClosureWrapper) -> u32 {
+            default_return((f.0)(13));
+            expect(true, once());
+        }
+    );
+    context::finish_building_context();
+
+    assert_eq!(3, fns::closure_param(fns::ClosureWrapper(Box::new(|x| x % 5))));
+}

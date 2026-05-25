@@ -92,4 +92,31 @@ pub enum Pattern {
     NotOkay,
 }
 
+impl std::fmt::Display for Pattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Pattern::Okay => write!(f, "Okay"),
+            Pattern::NotOkay => write!(f, "NotOkay"),
+        }
+    }
+}
+
 pub fn match_patter(pattern: Pattern) {}
+
+pub fn match_range(key: u32) {}
+
+pub fn match_wildcard(key: u32){}
+
+pub fn match_function(key: u32){}
+
+pub struct ClosureWrapper(pub Box<dyn Fn(u32) -> u32>);
+
+impl std::fmt::Display for ClosureWrapper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ClosureWrapper")
+    }
+}
+
+pub fn closure_param(f: ClosureWrapper) -> u32 {
+    (f.0)(0)
+}
