@@ -1,0 +1,9 @@
+[package]
+name = "mocks"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+fns = { version = "0.1.0", path = "../fns" }
+mock-macro = { version = "0.1.0", path = "../../crates/mock-macro" }
+context = { version = "0.1.0", path = "../../crates/context" }
