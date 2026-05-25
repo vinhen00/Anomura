@@ -145,12 +145,42 @@ fn return_call_with_args(){
 #[test]
 fn return_reference(){
     start_mock_setup!();
-    mock_fn!(
+    mock_method!(
         fns,
-        fn ret_ref() -> &'static u32 {
+        Foo,
+        fn ret_ref(&self) -> &'static u32 {
             default_return(&5u32);
         }
     );
     end_mock_setup!();
-    assert_eq!(5, *fns::ret_ref());
+    let mut foo = fns::Foo { x: 5};
+    assert_eq!(5, *foo.ret_ref());
+}
+
+#[test]
+fn return_mutable_reference(){
+    start_mock_setup!();
+    mock_method!(
+        fns,
+        Foo,
+        fn ret_mut_ref(&mut self) -> &mut u32 {
+            default_return({
+                &mut self.x
+            })
+        }
+    );
+    end_mock_setup!();
+
+    let mut foo = fns::Foo{ x: 5 };
+    {
+        let x = foo.ret_mut_ref();
+        assert_eq!(5, *x);
+        *x = 6;
+    }
+    {
+        let y = foo.ret_mut_ref();
+        assert_eq!(6, *y);
+    }
+
+
 }

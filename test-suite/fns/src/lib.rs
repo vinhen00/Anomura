@@ -37,15 +37,16 @@ pub fn ret_call_w_args(x: i16) -> i16 {
     x
 }
 
-struct Foo;
+pub struct Foo {
+    pub x: u32
+}
 
 impl Foo {
     pub fn ret_ref(&self) -> &u32 {
-    &1u32
+        &1u32
     }
 
-    pub fn ret_mut_ref(&self) -> &mut u32 {
-        let mut x  = 1u32;
-        x
+    pub fn ret_mut_ref(&mut self) -> &mut u32 {
+       &mut self.x
     }
 }
