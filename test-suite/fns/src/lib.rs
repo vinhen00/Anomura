@@ -64,3 +64,17 @@ impl Foo {
 }
 
 pub fn ret_param( x: &mut u32 ) {}
+
+pub mod a {
+    pub fn modules() -> u32{0}
+}
+
+pub fn return_const() -> i16 {
+    16i16
+}
+
+pub fn return_panic(){}
+
+pub fn foo(a: i8, b: i8, c: i8, d: i8, e: i8, f: i8, g: i8,
+    h: i8, i: i8, j: i8, k: i8, l: i8, m: i8, n: i8, o: i8,
+    p: i8) {}

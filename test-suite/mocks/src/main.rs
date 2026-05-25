@@ -244,3 +244,62 @@ fn fallback(){
     let foo = fns::Foo{ x: 9};
     assert_eq!(11, foo.fallback());
 }
+
+#[test]
+fn modules(){
+    start_mock_setup!();
+    mock_fn!(
+        fns,
+        fn modules() -> u32 {
+            default_return(21);
+        }
+    );
+    end_mock_setup!();
+    assert_eq!(21, fns::a::modules());
+}
+
+#[test]
+fn return_const(){
+    start_mock_setup!();
+    mock_fn!(
+        fns,
+        fn return_const() -> i16 {
+            default_return(17i16);
+        }
+    );
+    end_mock_setup!();
+
+    assert_eq!(17, fns::return_const());
+}
+
+#[test]
+#[should_panic]
+fn return_panic(){
+    start_mock_setup!();
+    mock_fn!(
+        fns,
+        fn return_panic(){
+            default_return({panic!();});
+        }
+    );
+    end_mock_setup!();
+    fns::return_panic();
+}
+
+#[test]
+fn many_args(){
+    start_mock_setup!();
+    mock_fn!(
+        fns,
+        fn foo(a: i8, b: i8, c: i8, d: i8, e: i8, f: i8, g: i8,
+            h: i8, i: i8, j: i8, k: i8, l: i8, m: i8, n: i8, o: i8,
+            p: i8) {
+            default_return(());
+            }
+    );
+    end_mock_setup!();
+
+    fns::foo(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+
+}
+
