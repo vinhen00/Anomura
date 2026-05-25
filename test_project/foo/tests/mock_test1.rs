@@ -1,5 +1,3 @@
-use std::sync::Mutex;
-
 use mock_macro::mock_fn;
 #[test]
 fn macro_test1() {

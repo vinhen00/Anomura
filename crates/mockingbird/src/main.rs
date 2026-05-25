@@ -3,7 +3,9 @@
 #![feature(rustc_private)]
 use std::process::Command;
 extern crate rustc_driver;
-use mockingbird::{compile_mocks::CompileMocks, function_intercept::FunctionIntercept, parse_mocks::ParseMocks};
+use mockingbird::{
+    compile_mocks::CompileMocks, function_intercept::FunctionIntercept, parse_mocks::ParseMocks,
+};
 use rustc_driver::run_compiler;
 
 fn main() {
@@ -23,7 +25,6 @@ fn main() {
         ],
         &mut expanded_macros,
     );
-
 
     let mut mocked_funs = CompileMocks::new(Vec::new(), expanded_macros.get_program(), false);
     run_compiler(

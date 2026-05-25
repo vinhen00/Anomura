@@ -4,12 +4,19 @@ use mock_macro::{mock_method, mock_struct};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    Expr, Ident, Path, Token, Type, bracketed,
+    Expr,
+    Ident,
+    Path,
+    Token,
+    Type,
+    bracketed,
     parse::{Parse, ParseStream},
-    parse_quote, parse2,
+    parse_quote,
+    parse2,
     punctuated::Punctuated,
     spanned::Spanned,
     visit_mut::{VisitMut, visit_expr_mut},
+    //visit_mut::{VisitMut, visit_expr_mut},
 };
 
 //Don't know if these are used, gives warning about non use, so might delete in future
@@ -168,29 +175,45 @@ impl Parse for MockFun {
         })
     }
 }
+fn combine_path_and_ident(path: &syn::Path, ident: &Ident) -> Ident {
+    let mut parts: Vec<String> = path
+        .segments
+        .iter()
+        .map(|seg| seg.ident.to_string())
+        .collect();
 
+    parts.push(ident.to_string());
+
+    let combined_name = parts.join("_");
+    format_ident!("{}", combined_name, span = ident.span())
+}
 pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
+    //println!("Inside syn {}", input);
     let mock = match parse2::<MockFun>(input.clone()) {
         Ok(m) => m,
-        Err(e) => panic!(
-            "invalid mock_def! input for function: {} with error:  {e} ",
-            &input
-        ),
+        Err(e) => panic!("invalid mock_def! input: {} with error:  {e} ", &input),
     };
 
     let name = mock.name;
+    let original_name = format_ident!("{name}_original");
     let path = mock.path;
     let name_str = quote! {#name}.to_string();
     let ret_type = mock.ret_type;
-    let ret_val = mock.ret_val;
+    let mock_id = combine_path_and_ident(&path, &name);
+    let mock_id_ident = format_ident!("{}_mock_id", mock_id);
+    let input_types = mock.input_types;
+    let input_idents = mock.input_ident;
+    let input_ident_tuple = quote! { (#(#input_idents),*) };
+    let input_idents_no_tuple = quote! { #(#input_idents),* };
+    let input_type_tuple = quote! { (#(#input_types),*) };
 
-    let params = mock
-        .input_ident
+    let params = input_idents
         .iter()
-        .zip(mock.input_types.iter())
+        .zip(input_types.iter())
         .map(|(ident, ty)| quote! { #ident: #ty });
 
     let expanded = quote! {
+
         #[mocked( #path )]
         fn #name(#(#params),*) -> #ret_type {
 
@@ -211,7 +234,6 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
 
         }
     };
-
     expanded
 }
 

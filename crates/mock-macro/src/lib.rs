@@ -1,6 +1,6 @@
 use context::time_mod::TimeModifier;
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{
     Expr, ExprClosure, Ident, Token, Type, parse::Parse, parse_macro_input, parse_quote,
     punctuated::Punctuated, spanned::Spanned, token::Comma,
@@ -9,18 +9,30 @@ use syn::{
 struct Expectation {
     condition: ExprClosure,
     time: TimeModifier,
-    ret: Option<syn::Expr>,
+    ret: syn::Expr,
     exit: bool,
 }
 
 impl Expectation {
-    fn from_exprs(exprs: Punctuated<Expr, Comma>) -> Self {
+    fn from_exprs(input_idents: &[Ident], exprs: Punctuated<Expr, Comma>) -> Self {
         let mut exit = false;
-        let mut ret = None;
+        let mut ret: Expr = parse_quote! { None };
         let mut time = TimeModifier::Once;
         let mut exprs = exprs.into_iter();
-        let Some(syn::Expr::Closure(condition)) = exprs.next() else {
+        let Some(expr) = exprs.next() else {
             panic!("no expr");
+        };
+
+        let input_tuple = quote! { (#(#input_idents),*) };
+        let error_format = input_idents
+            .iter()
+            .map(|_| quote! { {}})
+            .collect::<Vec<_>>();
+        let error_format = quote! { #(#error_format),*};
+        let error_format_args = quote! { #(#input_idents),*};
+        let error_string = format!("condition {} failed for {error_format}", quote! {#expr });
+        let condition: ExprClosure = parse_quote! {
+            |#input_tuple| if #expr {Ok(())} else { Err(format!( #error_string , #error_format_args ).into())}
         };
         for expr in exprs {
             match expr {
@@ -99,49 +111,46 @@ impl Parse for MockFnData {
             };
             let maybe_expr_lit = *expr_call.func.clone();
             let Expr::Path(expr_path) = maybe_expr_lit else {
-                //panic!("expected expr_path found {:?}", quote! {maybe_expr_lit});
                 return None;
             };
-            let Some(ident) = expr_path.path.get_ident() else {
-                //panic!("could not get ident from path");
-                return None;
-            };
+            let ident = expr_path.path.get_ident()?;
             if ident == "default_return" {
                 let e = expr_call.args.first();
-                if e.is_none() {
-                    //panic!("first arg for default_return not found");
-                }
                 e.cloned()
             } else {
-                //panic!("expected id default_return, found {:?}", ident);
                 None
             }
         });
+        let input_idents: Vec<Ident> = fun
+            .sig
+            .inputs
+            .iter()
+            .map(|a| match a {
+                syn::FnArg::Receiver(receiver) => todo!(),
+                syn::FnArg::Typed(pat_type) => match *pat_type.pat.clone() {
+                    syn::Pat::Ident(pat_ident) => pat_ident.ident,
+                    _ => todo!(),
+                },
+            })
+            .collect();
         let expectations: Vec<Expectation> = fun
             .block
             .stmts
             .into_iter()
             .filter_map(|stmt| {
                 let syn::Stmt::Expr(expr, _) = stmt else {
-                    //panic!("expected stmtexpr found {:?}", quote! {d});
                     return None;
                 };
-
                 let Expr::Call(expr_call) = expr else {
-                    //panic!("expect expr call found {:?}", quote! {expr});
                     return None;
                 };
                 let maybe_expr_lit = *expr_call.func.clone();
                 let Expr::Path(expr_path) = maybe_expr_lit else {
-                    //panic!("expected expr_path found {:?}", quote! {maybe_expr_lit});
                     return None;
                 };
-                let Some(ident) = expr_path.path.get_ident() else {
-                    //panic!("could not get ident from path");
-                    return None;
-                };
+                let ident = expr_path.path.get_ident()?;
                 if ident == "expect" {
-                    let e = Expectation::from_exprs(expr_call.args);
+                    let e = Expectation::from_exprs(&input_idents, expr_call.args);
                     Some(e)
                 } else {
                     None
@@ -160,6 +169,7 @@ impl Parse for MockFnData {
         Ok(Self {
             path,
             ident,
+            input_idents,
             input_types,
             return_type,
             default_return_val,
@@ -171,6 +181,7 @@ impl Parse for MockFnData {
 struct MockFnData {
     path: syn::Path,
     ident: Ident,
+    input_idents: Vec<Ident>,
     input_types: Vec<Type>,
     return_type: Type,
     default_return_val: Option<syn::Expr>,
@@ -392,5 +403,9 @@ pub fn expect(item: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn mock_method(_item: TokenStream) -> TokenStream {
+    TokenStream::new()
+}
+#[proc_macro]
+pub fn mock_struct(_item: TokenStream) -> TokenStream {
     TokenStream::new()
 }
