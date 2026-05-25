@@ -16,6 +16,7 @@ use crate::types::{
     sequences::{SequenceHead, SequenceHeads, SequenceIndex},
     slices::Slices,
 };
+
 use errors::Result;
 pub use errors::{MockError, PredicateError};
 use std::cell::RefCell;

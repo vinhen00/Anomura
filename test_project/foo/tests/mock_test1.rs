@@ -1,9 +1,8 @@
 use std::sync::Mutex;
 
-use mock_macro::{end_mock_setup, mock_fn, start_mock_setup};
+use mock_macro::mock_fn;
 #[test]
 fn macro_test1() {
-    start_mock_setup!();
     mock_fn!(
         rand,
         fn random_bool(prob: f64) -> bool {
@@ -19,7 +18,6 @@ fn macro_test1() {
             expect(*prob < 0.9, once());
         }
     );
-    end_mock_setup!();
     let fst = rand::random_bool(0.7);
     println!("fst return val {fst}");
     if !fst {
