@@ -181,6 +181,66 @@ fn return_mutable_reference(){
         let y = foo.ret_mut_ref();
         assert_eq!(6, *y);
     }
+}
 
+#[test]
+fn return_owned(){
+    start_mock_setup!();
+    mock_method!(
+        fns,
+        Foo,
+        fn ret_owned() -> Foo {
+            default_return(Foo { x: 20 });
+        }
+    );
+    end_mock_setup!();
+    assert_eq!(fns::Foo::ret_owned(), fns::Foo{ x: 20 });
+}
 
+#[test]
+fn return_parameters(){
+    start_mock_setup!();
+    mock_fn!(
+        fns,
+        fn ret_param(x: &mut u32) {
+            default_return({
+                *x = 3;
+                ()
+            })
+        }
+    );
+    end_mock_setup!();
+    let mut value: u32 = 5;
+    fns::ret_param(&mut value);
+    assert_eq!(value, 3);
+
+}
+
+#[test]
+fn static_method(){
+    start_mock_setup!();
+    mock_method!(
+        fns,
+        Foo,
+        fn static_method () {
+            default_return(());
+        }
+    );
+    end_mock_setup!();    
+    fns::Foo::static_method();
+}
+
+#[test]
+fn fallback(){
+    start_mock_setup!();
+    mock_method!(
+        fns,
+        Foo,
+        fn fallback(&self) -> u32 {
+            default_return(self.fallback_original());
+        }
+    );
+    end_mock_setup!();
+    let foo = fns::Foo{ x: 9};
+    assert_eq!(11, foo.fallback());
 }
