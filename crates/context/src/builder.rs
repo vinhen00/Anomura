@@ -72,6 +72,7 @@ impl ContextBuilder {
             slices: self.slices,
             sequences: self.sequences,
             nodes: self.nodes,
+            id_count: 0,
         }
     }
     /// adds the given mock id to the node with the given index, returns true if successful and false if the node does not exist

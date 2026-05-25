@@ -622,14 +622,7 @@ fn quote_method(
 
         //Get the context to assign a mock_hash id
         hash_id_getter = quote! {
-            let Some(ctx) = context::GLOBAL_CONTEXT
-                .get()
-                else {
-                    panic!{"Context not init"};
-                };
-            let mut guard = ctx.lock().expect("failed to fetch guard");
-
-            let mock_hash = guard.get_incr_id();
+            let mock_hash = context::get_id();
 
             //Currently just a print, but should be some form of logging in context
             println!{"New instance of {} initialized with id {}", #struct_string, mock_hash};

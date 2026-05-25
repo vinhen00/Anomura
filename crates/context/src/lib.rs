@@ -66,6 +66,15 @@ pub fn add_mock<Input, ReturnVal>(
     })
 }
 
+pub fn get_id() -> u32 {
+        GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Ctx(global_context) => {
+            global_context.get_incr_id()
+        }
+        other => panic!("context not in build mode during add_mock call"),
+    })
+}
+
 pub fn ctx_built_and_contains_id(id: &MockId) -> bool {
     GLOBAL_CONTEXT.with_borrow(|ctx| match ctx {
         CtxState::Ctx(global_context) => global_context.check_id(id),
@@ -104,6 +113,7 @@ pub struct GlobalContext {
     sequences: SequenceHeads,
     mock_heads: HashMap<MockId, MockHead>,
     nodes: Nodes,
+    id_count: u32,
 }
 
 impl GlobalContext {
@@ -121,6 +131,13 @@ impl GlobalContext {
     pub fn get_sequence_head(&self, index: SequenceIndex) -> Option<&SequenceHead> {
         self.sequences.edge_ref(index)
     }
+
+    pub fn get_incr_id(&mut self) -> u32 {
+        let x = self.id_count;
+        self.id_count+= 1;
+        x
+    }
+
     pub fn mut_sequence_head(&mut self, index: SequenceIndex) -> Option<&mut SequenceHead> {
         self.sequences.edge_mut(index)
     }

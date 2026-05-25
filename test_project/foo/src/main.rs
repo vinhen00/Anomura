@@ -8,13 +8,11 @@ fn main() {
             outer: String,
         }
         fn new(n: String) -> Food {
-            default_return({
-                println!("Creating new Food with inner value {}", n);
-                Food{
-                    inner: n,
-                    outer: "YOOOOOOO".into()
-                }
-                } )
+            default_return( { 
+                Food{ 
+                    inner: n, 
+                    outer: "YOOOOOOO".into() } 
+            } )
         }
         [
             fn food_fun (&mut self, n: String) {
@@ -33,13 +31,13 @@ fn main() {
 
     context::finish_building_context();
 
+
     let mut food = bar::Food::new("hello".into());
-    dbg!(&food.inner);
     let mut mood = bar::Food::new("mellow".into());
     food.food_fun("rom".into());
     mood.food_fun("YAAAOOOIIII!!!".into());
-}
 
+}
 #[test]
 fn macro_test() {
     mock_fn!(

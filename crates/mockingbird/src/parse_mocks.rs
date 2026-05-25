@@ -12,7 +12,7 @@ use std::str::FromStr;
 use rustc_driver::Compilation;
 use rustc_interface::interface::Compiler;
 
-use crate::expand_macro::{expand_mock_fn, expand_mock_method};
+use crate::expand_macro::{expand_mock_fn, expand_mock_method, expand_mock_struct};
 
 
 
@@ -106,6 +106,8 @@ impl ParseMocks {
             match path.ident.name.as_str() {
                 "mock_fn" => result = expand_mock_fn(syn_ts).to_string(),
                 "mock_method" => result = expand_mock_method(syn_ts).to_string(),
+                "mock_struct" => result = expand_mock_struct(syn_ts).to_string(),
+
                 _ => return,
             }
         } else {
@@ -166,6 +168,12 @@ fn extract_path_value(mac_call: &rustc_ast::MacCall) -> Option<Symbol> {
                 return Some(value)
             }
             "mock_method" => { 
+                let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
+                let TokenTree::Token(val_tok, _) = tokens[0] else { return None};
+                let TokenKind::Ident(value, _) = val_tok.kind else {return None}; 
+                return Some(value)
+            }
+            "mock_struct" => { 
                 let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
                 let TokenTree::Token(val_tok, _) = tokens[0] else { return None};
                 let TokenKind::Ident(value, _) = val_tok.kind else {return None}; 
