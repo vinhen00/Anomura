@@ -58,7 +58,7 @@ impl GlobalContext {
 
     pub fn get_incr_id(&mut self) -> u32 {
         let x = self.id_count;
-        self.id_count+= 1;
+        self.id_count += 1;
         x
     }
 
@@ -312,6 +312,7 @@ impl ContextBuilder {
             TimeModifier::Any => {
                 //add two edges, one from Node n to n and one instant edge to edge n+1
                 //
+
                 //    condition
                 //       /   \
                 //      |    |
