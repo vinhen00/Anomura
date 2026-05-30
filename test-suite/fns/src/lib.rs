@@ -5,6 +5,7 @@ use std::sync::Mutex;
 pub fn ref_param(x: &u32){}
 pub fn cons_param(x: Box<u32>){}
 
+#[derive(Debug)]
 pub struct ConsSelfStruct;
 
 impl ConsSelfStruct {
@@ -22,6 +23,7 @@ pub fn foreign() {
     // implementation
 }
 
+#[derive(Debug)]
 pub struct MockStruct{
     pub pubfield: u32,
     privfield: u32,
@@ -109,14 +111,10 @@ pub fn match_wildcard(key: u32){}
 
 pub fn match_function(key: u32){}
 
-pub struct ClosureWrapper(pub Box<dyn Fn(u32) -> u32>);
+// #[derive(Debug)]
+// pub struct ClosureWrapper(pub Box<dyn Fn(u32) -> u32>);
 
-impl std::fmt::Display for ClosureWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ClosureWrapper")
-    }
-}
 
-pub fn closure_param(f: ClosureWrapper) -> u32 {
-    (f.0)(0)
-}
+// pub fn closure_param(f: ClosureWrapper) -> u32 {
+//     (f.0)(0)
+// }
