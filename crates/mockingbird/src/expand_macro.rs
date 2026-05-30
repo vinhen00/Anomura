@@ -7,6 +7,7 @@ use syn::{
     Expr,
     Ident,
     Path,
+    PathSegment,
     Token,
     Type,
     bracketed,
@@ -175,6 +176,30 @@ impl Parse for MockFun {
         })
     }
 }
+/// Strip a single-segment crate prefix from a type so it can be used inside that crate.
+/// e.g. `fns::Foo` with crate_path `fns` → `Foo`, `&fns::Foo` → `&Foo`.
+/// Types that don't start with the crate name are returned unchanged.
+fn strip_crate_prefix(ty: Type, crate_path: &Path) -> Type {
+    let Some(crate_seg) = crate_path.segments.first() else { return ty; };
+    if crate_path.segments.len() != 1 { return ty; }
+    match ty {
+        Type::Path(mut type_path) if type_path.qself.is_none() => {
+            let segs = &type_path.path.segments;
+            if segs.len() > 1 && segs.first().map(|s| s.ident == crate_seg.ident).unwrap_or(false) {
+                let new_segs: Punctuated<PathSegment, Token![::]> =
+                    segs.iter().skip(1).cloned().collect();
+                type_path.path.segments = new_segs;
+            }
+            Type::Path(type_path)
+        }
+        Type::Reference(mut type_ref) => {
+            *type_ref.elem = strip_crate_prefix(*type_ref.elem, crate_path);
+            Type::Reference(type_ref)
+        }
+        other => other,
+    }
+}
+
 fn combine_path_struct_and_method(path: &syn::Path, struct_name: &syn::Path, method: &Ident) -> Ident {
     let mut parts: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
     parts.extend(struct_name.segments.iter().map(|s| s.ident.to_string()));
@@ -388,25 +413,33 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     let input_ident_tuple = quote! { (#self_in_tuple #(#input_idents),*) };
     let input_type_tuple  = quote! { (#self_type_in_tuple #(#input_types),*) };
 
+    // Strip the crate prefix for types used inside the target crate's compiled body.
+    // e.g. `fns::Foo` (valid in test crate) → `Foo` (valid inside `fns` crate).
+    let driver_ret_type = strip_crate_prefix(ret_type.clone(), &path);
+    let driver_input_types: Vec<Type> = input_types.iter()
+        .map(|ty| strip_crate_prefix(ty.clone(), &path))
+        .collect();
+    let driver_input_type_tuple = quote! { (#self_type_in_tuple #(#driver_input_types),*) };
+
     let fallback = if is_static {
         quote! { return #struct_name::#original_name(#input_idents_no_tuple); }
     } else {
         quote! { return self.#original_name(#input_idents_no_tuple); }
     };
 
-    let params = input_idents
+    let driver_params = input_idents
         .iter()
-        .zip(input_types.iter())
+        .zip(driver_input_types.iter())
         .map(|(ident, ty)| quote! { #ident: #ty });
 
     let expanded = quote! {
         impl #struct_name {
             #[mocked( #path )]
-            fn #name(#receiver_quote #(#params),*) -> #ret_type {
+            fn #name(#receiver_quote #(#driver_params),*) -> #driver_ret_type {
                 std::println!("Mocked version of method {} was used", #name_str);
                 let #mock_id_ident = context::MockId::new(stringify!(#mock_id));
                 if context::ctx_built_and_contains_id(&#mock_id_ident) {
-                    match context::run_mock::<#input_type_tuple, #ret_type>(#mock_id_ident, #input_ident_tuple) {
+                    match context::run_mock::<#driver_input_type_tuple, #driver_ret_type>(#mock_id_ident, #input_ident_tuple) {
                         Ok(res) => res,
                         Err(e) => match e {
                             context::MockError::Other(e) => panic!("unexpected Error: {:?}", e),

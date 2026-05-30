@@ -26,7 +26,8 @@ impl Expectation {
         let input_tuple = quote! { (#(#input_idents),*) };
         let fmt_parts = std::iter::repeat("{:?}").take(input_idents.len()).collect::<Vec<_>>().join(", ");
         let error_format_args = quote! { #(#input_idents),*};
-        let error_string = format!("condition {} failed for {}", quote! {#expr }, fmt_parts);
+        let expr_str = format!("{}", quote! {#expr}).replace('{', "{{").replace('}', "}}");
+        let error_string = format!("condition {} failed for {}", expr_str, fmt_parts);
         let condition: ExprClosure = parse_quote! {
             |#input_tuple| if #expr {Ok(())} else { Err(format!( #error_string , #error_format_args ).into())}
         };
@@ -567,7 +568,6 @@ pub fn mock_method(item: TokenStream) -> TokenStream {
     mock_method_data.expectations.into_iter().for_each(|e| {
         let ret = e.ret;
         let cond = e.condition;
-        let exit = e.exit;
         let time = e.time;
         add_expectation_to_context(
             &mut setup_mock,

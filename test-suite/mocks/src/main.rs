@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 use mock_macro::{mock_fn, mock_method, mock_struct};
+use fns::{ClosureWrapper, Pattern};
+use fns::Pattern::*;
 
 fn main() {}
 
@@ -113,25 +115,25 @@ fn return_call_with_args(){
 }
 
 
-// #[test]
-// fn return_reference(){
+#[test]
+fn return_reference(){
     
-//     mock_method!(
-//         fns,
-//         Foo,
-//         fn ret_ref(&self) -> &'static u32 {
-//             default_return({
-//                 static V: u32 = 5;
-//                 &V
-//             });
-//             expect(true, once());
-//         }
-//     );
-//     context::finish_building_context();
+    mock_method!(
+        fns,
+        Foo,
+        fn ret_ref(&self) -> &'static u32 {
+            default_return({
+                static V: u32 = 5;
+                &V
+            });
+            expect(true, once());
+        }
+    );
+    context::finish_building_context();
 
-//     let mut foo = fns::Foo { x: 5};
-//     assert_eq!(5, *foo.ret_ref());
-// }
+    let mut foo = fns::Foo { x: 5};
+    assert_eq!(5, *foo.ret_ref());
+}
 
 #[test]
 fn return_mutable_reference(){
@@ -161,21 +163,21 @@ fn return_mutable_reference(){
     }
 }
 
-// #[test]
-// fn return_owned(){
-    
-//     mock_method!(
-//         fns,
-//         Foo,
-//         fn ret_owned() -> Foo {
-//             default_return(Foo { x: 20 });
-//             expect(true,once());
-//         }
-//     );
-//     context::finish_building_context();
+#[test]
+fn return_owned(){
 
-//     assert_eq!(fns::Foo::ret_owned(), fns::Foo{ x: 20 });
-// }
+    mock_method!(
+        fns,
+        Foo,
+        fn ret_owned() -> fns::Foo {
+            default_return(fns::Foo { x: 20 });
+            expect(true,once());
+        }
+    );
+    context::finish_building_context();
+
+    assert_eq!(fns::Foo::ret_owned(), fns::Foo{ x: 20 });
+}
 
 #[test]
 fn return_parameters(){
@@ -354,24 +356,27 @@ fn match_operator(){
 }
 
 
-// #[test]
-// fn match_pattern(){
-//     mock_fn!(
-//         fns,
-//         fn match_pattern(pattern: Pattern) {
-//             default_return(());
-//             expect(
-//                 {
-//                     match pattern {
-//                         Okay => true,
-//                         NotOkay => false,
-//                     }
-//                 }, 
-//                 once()
-//             );
-//         }
-//     );
-// }
+#[test]
+fn match_pattern(){
+    mock_fn!(
+        fns,
+        fn match_patter(pattern: Pattern) {
+            default_return(());
+            expect(
+                {
+                    match pattern {
+                        Okay => true,
+                        NotOkay => false,
+                    }
+                }, 
+                once()
+            );
+        }
+    );
+    context::finish_building_context();
+
+    fns::match_patter(fns::Pattern::Okay);
+}
 
 #[test]
 fn match_range(){
@@ -422,22 +427,17 @@ fn match_function(){
     fns::match_function(67);    
 }
 
-// use fns::ClosureWrapper;
-// #[test]
-// fn closures() {
-//     mock_fn!(
-//         fns,
-//         fn closure_param(f: ClosureWrapper) -> u32 {
-//             default_return((f.0)(13));
-//             expect(true, once());
-//         }
-//     );
-//     context::finish_building_context();
+#[test]
+fn closures() {
+    mock_fn!(
+        fns,
+        fn closure_param(f: ClosureWrapper) -> u32 {
+            default_return((f.0)(13));
+            expect(true, once());
+        }
+    );
+    context::finish_building_context();
 
-//     assert_eq!(3, fns::closure_param(fns::ClosureWrapper(Box::new(|x| x % 5))));
-// }
-
-
-struct Bar {
-    //[standard fields of struct]
+    assert_eq!(3, fns::closure_param(fns::ClosureWrapper(Box::new(|x| x % 5))));
 }
+

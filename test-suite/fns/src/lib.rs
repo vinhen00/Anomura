@@ -89,18 +89,10 @@ pub fn match_const(key: u32){}
 
 pub fn match_operator(key: u32){}
 
+#[derive(Debug)]
 pub enum Pattern {
     Okay,
     NotOkay,
-}
-
-impl std::fmt::Display for Pattern {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Pattern::Okay => write!(f, "Okay"),
-            Pattern::NotOkay => write!(f, "NotOkay"),
-        }
-    }
 }
 
 pub fn match_patter(pattern: Pattern) {}
@@ -111,10 +103,15 @@ pub fn match_wildcard(key: u32){}
 
 pub fn match_function(key: u32){}
 
-// #[derive(Debug)]
-// pub struct ClosureWrapper(pub Box<dyn Fn(u32) -> u32>);
+pub struct ClosureWrapper(pub Box<dyn Fn(u32) -> u32>);
+
+impl std::fmt::Debug for ClosureWrapper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ClosureWrapper(<fn>)")
+    }
+}
 
 
-// pub fn closure_param(f: ClosureWrapper) -> u32 {
-//     (f.0)(0)
-// }
+pub fn closure_param(f: ClosureWrapper) -> u32 {
+    (f.0)(0)
+}
