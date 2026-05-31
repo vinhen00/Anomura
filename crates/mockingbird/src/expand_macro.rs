@@ -659,11 +659,11 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
         .field_ident
         .iter()
         .zip(mock.field_types.iter())
-        .map(|(ident, ty)| quote! { #ident: #ty });
+        .map(|(ident, ty)| quote! { pub #ident: #ty });
 
     let expanded = quote! {
         #[mocked( #path )]
-        struct #name { #(#fields),* , mock_hash: String }
+        struct #name { #(#fields),* , pub mock_hash: String }
         impl #name {
             #constructor
             #(#methods)*
