@@ -82,7 +82,9 @@ impl FunctionIntercept {
                 mock.resolve_names();
                 //println!("TEST: {:#?}", mock.get_body());
 
+                let original_output = fun.sig.decl.output.clone();
                 fun.sig.decl = mock.get_sig().decl;
+                fun.sig.decl.output = original_output;
                 fun.body = Some(mock.get_body());
             }
         }
@@ -97,18 +99,24 @@ impl FunctionIntercept {
             return None;
         };
         let method_name = format!("{}.{}", imp_name, fn_data.ident.name.as_str());
-        //Dont copy constructors of the class
+
+        // Skip copying functions whose return type belongs to a mock_struct!-expanded struct.
+        // mock_struct! adds fields to the struct, making the original constructor body an
+        // invalid fallback. We skip when:
+        //   (a) the impl's own struct is expanded and the function returns Self or that struct, or
+        //   (b) the function returns any other expanded struct by name.
+        let impl_struct_is_expanded = self.mockobj.iter().any(|s| s.get_name() == imp_name);
         if let rustc_ast::FnRetTy::Ty(ty) = &fn_data.sig.decl.output {
-            match &ty.kind {
-                rustc_ast::TyKind::ImplicitSelf => return None,
-                rustc_ast::TyKind::Path(_, path) => {
-                    let name = path.segments.last().unwrap().ident.name.as_str();
-                    println!("Type of {} is {}", fn_data.ident.name.as_str(), name);
-                    if name == "Self" || name == imp_name.as_str() {
-                        return None;
-                    }
+            if let rustc_ast::TyKind::Path(_, path) = &ty.kind {
+                let ret_name = path.segments.last()
+                    .map(|s| s.ident.name.as_str().to_string())
+                    .unwrap_or_default();
+                if impl_struct_is_expanded && (ret_name == "Self" || ret_name == imp_name) {
+                    return None;
                 }
-                _ => {} // Do nothing
+                if self.mockobj.iter().any(|s| s.get_name() == ret_name) {
+                    return None;
+                }
             }
         }
 
@@ -132,7 +140,12 @@ impl FunctionIntercept {
                 // println!("Mocking method {}", mock.get_name());
                 mock.resolve_names();
                 // println!("{:#?}", mock.get_body());
+                // Preserve the original return type so the fallback calling *_original()
+                // compiles even when the mock declares a narrower lifetime (e.g. &'static T
+                // vs the original &T). The mock body returns &'static T which coerces fine.
+                let original_output = meth.sig.decl.output.clone();
                 meth.sig.decl = mock.get_sig().decl;
+                meth.sig.decl.output = original_output;
                 meth.body = Some(mock.get_body());
             }
         }
