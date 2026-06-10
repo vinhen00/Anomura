@@ -441,3 +441,20 @@ fn closures() {
     assert_eq!(3, fns::closure_param(fns::ClosureWrapper(Box::new(|x| x % 5))));
 }
 
+#[test]
+fn match_combinations(){
+    mock_fn!(
+        fns,
+        fn match_combination(key: i32) {
+            default_return(());
+            expect(
+                *key < 0 || *key > 10,
+                any()
+            );
+        }
+    );
+    context::finish_building_context();
+
+    fns::match_combination(-5);
+    fns::match_combination(11);
+}

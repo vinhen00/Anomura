@@ -115,3 +115,5 @@ impl std::fmt::Debug for ClosureWrapper {
 pub fn closure_param(f: ClosureWrapper) -> u32 {
     (f.0)(0)
 }
+
+pub fn match_combination(key: i32) {}
