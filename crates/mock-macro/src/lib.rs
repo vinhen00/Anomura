@@ -24,9 +24,13 @@ impl Expectation {
         };
 
         let input_tuple = quote! { (#(#input_idents),*) };
-        let fmt_parts = std::iter::repeat("{:?}").take(input_idents.len()).collect::<Vec<_>>().join(", ");
+        let fmt_parts = std::iter::repeat_n("{:?}", input_idents.len())
+            .collect::<Vec<_>>()
+            .join(", ");
         let error_format_args = quote! { #(#input_idents),*};
-        let expr_str = format!("{}", quote! {#expr}).replace('{', "{{").replace('}', "}}");
+        let expr_str = format!("{}", quote! {#expr})
+            .replace('{', "{{")
+            .replace('}', "}}");
         let error_string = format!("condition {} failed for {}", expr_str, fmt_parts);
         let condition: ExprClosure = parse_quote! {
             |#input_tuple| if #expr {Ok(())} else { Err(format!( #error_string , #error_format_args ).into())}
@@ -417,11 +421,7 @@ fn combine_path_struct_and_method(
     struct_ident: &Ident,
     method_ident: &Ident,
 ) -> Ident {
-    let mut parts: Vec<String> = path
-        .segments
-        .iter()
-        .map(|s| s.ident.to_string())
-        .collect();
+    let mut parts: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
     parts.push(struct_ident.to_string());
     parts.push(method_ident.to_string());
     format_ident!("{}", parts.join("_"), span = method_ident.span())

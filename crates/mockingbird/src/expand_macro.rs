@@ -4,20 +4,12 @@ use mock_macro::{mock_method, mock_struct};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    Expr,
-    Ident,
-    Path,
-    PathSegment,
-    Token,
-    Type,
-    bracketed,
+    Expr, Ident, Path, PathSegment, Token, Type, bracketed,
     parse::{Parse, ParseStream},
-    parse_quote,
-    parse2,
+    parse_quote, parse2,
     punctuated::Punctuated,
     spanned::Spanned,
     visit_mut::{VisitMut, visit_expr_mut},
-    //visit_mut::{VisitMut, visit_expr_mut},
 };
 
 //Don't know if these are used, gives warning about non use, so might delete in future
@@ -180,12 +172,21 @@ impl Parse for MockFun {
 /// e.g. `fns::Foo` with crate_path `fns` → `Foo`, `&fns::Foo` → `&Foo`.
 /// Types that don't start with the crate name are returned unchanged.
 fn strip_crate_prefix(ty: Type, crate_path: &Path) -> Type {
-    let Some(crate_seg) = crate_path.segments.first() else { return ty; };
-    if crate_path.segments.len() != 1 { return ty; }
+    let Some(crate_seg) = crate_path.segments.first() else {
+        return ty;
+    };
+    if crate_path.segments.len() != 1 {
+        return ty;
+    }
     match ty {
         Type::Path(mut type_path) if type_path.qself.is_none() => {
             let segs = &type_path.path.segments;
-            if segs.len() > 1 && segs.first().map(|s| s.ident == crate_seg.ident).unwrap_or(false) {
+            if segs.len() > 1
+                && segs
+                    .first()
+                    .map(|s| s.ident == crate_seg.ident)
+                    .unwrap_or(false)
+            {
                 let new_segs: Punctuated<PathSegment, Token![::]> =
                     segs.iter().skip(1).cloned().collect();
                 type_path.path.segments = new_segs;
@@ -200,7 +201,11 @@ fn strip_crate_prefix(ty: Type, crate_path: &Path) -> Type {
     }
 }
 
-fn combine_path_struct_and_method(path: &syn::Path, struct_name: &syn::Path, method: &Ident) -> Ident {
+fn combine_path_struct_and_method(
+    path: &syn::Path,
+    struct_name: &syn::Path,
+    method: &Ident,
+) -> Ident {
     let mut parts: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
     parts.extend(struct_name.segments.iter().map(|s| s.ident.to_string()));
     parts.push(method.to_string());
@@ -404,19 +409,28 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     let is_static = matches!(mock.self_receiver, SelfReceiver::None);
 
     let (receiver_quote, self_in_tuple, self_type_in_tuple) = match mock.self_receiver {
-        SelfReceiver::None    => (quote! {}, quote! {}, quote! {}),
-        SelfReceiver::Owned   => (quote! { self, }, quote! { self, }, quote! { #struct_name, }),
-        SelfReceiver::Ref     => (quote! { &self, }, quote! { self, }, quote! { &#struct_name, }),
-        SelfReceiver::RefMut  => (quote! { &mut self, }, quote! { self, }, quote! { &mut #struct_name, }),
+        SelfReceiver::None => (quote! {}, quote! {}, quote! {}),
+        SelfReceiver::Owned => (quote! { self, }, quote! { self, }, quote! { #struct_name, }),
+        SelfReceiver::Ref => (
+            quote! { &self, },
+            quote! { self, },
+            quote! { &#struct_name, },
+        ),
+        SelfReceiver::RefMut => (
+            quote! { &mut self, },
+            quote! { self, },
+            quote! { &mut #struct_name, },
+        ),
     };
 
     let input_ident_tuple = quote! { (#self_in_tuple #(#input_idents),*) };
-    let input_type_tuple  = quote! { (#self_type_in_tuple #(#input_types),*) };
+    let input_type_tuple = quote! { (#self_type_in_tuple #(#input_types),*) };
 
     // Strip the crate prefix for types used inside the target crate's compiled body.
     // e.g. `fns::Foo` (valid in test crate) → `Foo` (valid inside `fns` crate).
     let driver_ret_type = strip_crate_prefix(ret_type.clone(), &path);
-    let driver_input_types: Vec<Type> = input_types.iter()
+    let driver_input_types: Vec<Type> = input_types
+        .iter()
         .map(|ty| strip_crate_prefix(ty.clone(), &path))
         .collect();
     let driver_input_type_tuple = quote! { (#self_type_in_tuple #(#driver_input_types),*) };
@@ -437,6 +451,7 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
             #[mocked( #path )]
             fn #name(#receiver_quote #(#driver_params),*) -> #driver_ret_type {
                 std::println!("Mocked version of method {} was used", #name_str);
+                let mock_id_ident_string : String = format!("{}{}", stringify!(#mock_id), self.)
                 let #mock_id_ident = context::MockId::new(stringify!(#mock_id));
                 if context::ctx_built_and_contains_id(&#mock_id_ident) {
                     match context::run_mock::<#driver_input_type_tuple, #driver_ret_type>(#mock_id_ident, #input_ident_tuple) {
@@ -581,6 +596,7 @@ struct MockStruct {
 //         }
 //     ]
 // );
+
 impl Parse for MockStruct {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let path = input.parse::<Path>()?;
@@ -610,12 +626,11 @@ impl Parse for MockStruct {
             syn::Fields::Unnamed(_fields) => {
                 todo!()
             }
-            syn::Fields::Unit => {
-                todo!()
-            }
+            syn::Fields::Unit => { todo!() }
         }
 
-        let constructor: MockMethod2 = input.parse()?;
+        let constructor: = input.parse::<syn::Ex()?;
+
 
         let methods: Vec<MockMethod2> = {
             let content;
@@ -637,7 +652,6 @@ impl Parse for MockStruct {
 }
 
 pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
-    //println!("Inside syn {}", input);
     let mock = match parse2::<MockStruct>(input) {
         Ok(m) => m,
         Err(e) => panic!("invalid mock_def! input for struct: {}", e),
@@ -663,13 +677,13 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         #[mocked( #path )]
-        struct #name { #(#fields),* , pub mock_hash: String }
+        struct #name { #(#fields),* , pub mock_id: String }
         impl #name {
             #constructor
             #(#methods)*
         }
     };
-
+    
     expanded
 }
 
@@ -683,9 +697,14 @@ fn quote_method(
     let name = mock.name;
     let name_str = quote! {#name}.to_string();
     let ret_type = mock.ret_type;
-    let mut ret_val;
+    let ret_val;
     let hash_id_getter;
-    //The constructor needs to be modified to include our hidden fields (currently only mock_hash)
+    let is_constructor = if let Type::Path(type_path) = mock.ret_type {
+        if let Some(ident) = type_path.path.get_ident() {ident == "Self" || return ident == mock.name}
+    }
+    false
+}
+    //if our method is a constructor we need to fetch a new id for the initialization 
     if is_constructor {
         let mut visitor = RetvalFinder;
         ret_val = mock.ret_val.clone();
@@ -694,10 +713,9 @@ fn quote_method(
 
         //Get the context to assign a mock_hash id
         hash_id_getter = quote! {
-            let mock_hash = context::get_id();
-
-            //Currently just a print, but should be some form of logging in context
-            println!{"New instance of {} initialized with id {}", #struct_string, mock_hash};
+            let mock_hash = context::get_new_id();
+            eprintln!{"[INFO] New instance of {} initialized with id {}", #struct_string, mock_hash};
+            mock_hash
         };
     } else {
         ret_val = mock.ret_val;
@@ -718,14 +736,33 @@ fn quote_method(
         .iter()
         .zip(mock.input_types.iter())
         .map(|(ident, ty)| quote! { #ident: #ty });
-
+    
     let expanded = quote! {
+            fn #name(#receiver_quote #(#driver_params),*) -> #driver_ret_type {
+                std::println!("Mocked version of method {} was used", #name_str);
+                let mock_id_ident_string : String = format!("{}{}", stringify!(#mock_id), self.mock_id)
+                let #mock_id_ident = context::MockId::new(stringify!(#mock_id));
+                if context::ctx_built_and_contains_id(&#mock_id_ident) {
+                    match context::run_mock::<#driver_input_type_tuple, #driver_ret_type>(#mock_id_ident, #input_ident_tuple) {
+                        Ok(res) => res,
+                        Err(e) => match e {
+                            context::MockError::Other(e) => panic!("unexpected Error: {:?}", e),
+                            context::MockError::PredicateError(e) => panic!("{:?}", e.0),
+                            context::MockError::NoMatchingId => panic!("failed to find mock id"),
+                        }
+                    }
+                } else { #fallback }
+            }
+        };
+    
+
+    /*let expanded = quote! {
         #[mocked( #path )]
         fn #name(#receiver #(#params),*) -> #ret_type {
             #hash_id_getter
             #ret_val
         }
-    };
+    };*/
 
     expanded
 }

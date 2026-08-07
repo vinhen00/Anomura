@@ -1,19 +1,20 @@
-
 #[derive(Debug)]
 pub struct Bar {
     pub field1: u32,
-    field2: u32
+    field2: u32,
 }
 
-
 impl Bar {
-    pub fn new() -> Bar{
-        Bar {field1: 0, field2: 1}
+    pub fn new() -> Bar {
+        Bar {
+            field1: 0,
+            field2: 1,
+        }
     }
 
-    pub fn method1 (&self) {}
+    pub fn method1(&self) {}
 
-    pub fn method2 (&self) {}
+    pub fn method2(&self) {}
 }
 
 pub fn foo(a: u32) -> u32 {
@@ -67,4 +68,13 @@ impl std::fmt::Display for TestStruct2 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {})", self.n, self.m)
     }
+}
+
+// for seq test
+pub fn red(input: i32) -> i32 {
+    input * input
+}
+
+pub fn blue(input: i32) -> i32 {
+    input * input
 }

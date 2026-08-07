@@ -1,339 +1,323 @@
-mod builder;
 mod closure_wrappers;
 mod errors;
+pub mod new_expectations;
 pub mod time_mod;
-mod types;
+mod mock;
+
+#[cfg(test)]
 mod unit_tests;
-pub use crate::builder::ContextBuilder;
 pub use crate::closure_wrappers::{ConditionDoublePointer, ReturnValDoublePointer};
 use crate::errors::PredicateResult;
 pub use crate::time_mod::TimeModifier;
-pub use crate::types::mock::MockId;
-use crate::types::{
-    edges::{Edge, EdgeTransitionInfo},
-    mock::{MockHead, MockState},
-    nodes::{Node, NodeIndex, Nodes},
-    sequences::{SequenceHead, SequenceHeads, SequenceIndex},
-    slices::Slices,
+pub use crate::mock::MockId;
+use crate::mock::{MockHead, StrictnessKind};
+use crate::new_expectations::{
+    Checkpoint, CheckpointIndex, CheckpointName, GlobalContext, PredicateIndex, SequenceIdx,
+    SequenceName, TimesModifier,
 };
 
-use errors::Result;
-pub use errors::{MockError, PredicateError};
+pub use errors::{MockError, PredicateError, Result};
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::mem;
 
+// ─── Context State Machine ──────────────────────────────────────────────────
+
+/// The context lives in one of two states:
+/// - `Building`: accepting mock registrations, expectations, sequences, checkpoints
+/// - `Active`: ready to evaluate mock calls
+/// - `Processing`: transient state during finish()
 pub enum CtxState {
-    Builder(ContextBuilder),
-    Ctx(GlobalContext),
+    Building(BuildingContext),
+    Active(GlobalContext),
     Processing,
+}
+
+/// State during the build phase. Holds a `GlobalContext` being constructed.
+/// When `finish()` is called, sequences are finalized and the context becomes Active.
+pub struct BuildingContext {
+    ctx: GlobalContext,
+    /// Default return values for mocks, keyed by MockId.
+    default_returns: HashMap<MockId, ReturnValDoublePointer>,
+}
+
+impl BuildingContext {
+    pub fn new() -> Self {
+        // Start with one default (unnamed) checkpoint
+        let mut ctx = GlobalContext::new();
+        ctx.add_checkpoint(Checkpoint::new());
+        Self {
+            ctx,
+            default_returns: HashMap::new(),
+        }
+    }
+
+    /// Finalize: convert all sequence builders to sequences, transition to Active.
+    pub fn finish(mut self) -> GlobalContext {
+        // Finalize sequences in all checkpoints
+        for cp in self.ctx.checkpoints_mut() {
+            let _warnings = cp.finalize_sequences();
+            // TODO: surface warnings to user
+        }
+        self.ctx
+    }
 }
 
 impl CtxState {
     pub fn finish(&mut self) {
-        // Swap out the existing value with `Empty`
         let old_self = mem::replace(self, CtxState::Processing);
-
-        // Match on the extracted owned value
         *self = match old_self {
-            CtxState::Builder(builder) => {
-                let ctx = builder.finish();
-                CtxState::Ctx(ctx)
-            }
-            other => panic!("finish was called on state more than once before a teardown"),
+            CtxState::Building(builder) => CtxState::Active(builder.finish()),
+            _ => panic!("finish was called on state that is not Building"),
         }
     }
 }
+
+// ─── Thread-Local Global Context ────────────────────────────────────────────
+
+thread_local! {
+    pub static GLOBAL_CONTEXT: RefCell<CtxState> =
+        RefCell::new(CtxState::Building(BuildingContext::new()));
+}
+
+// ─── Public API ─────────────────────────────────────────────────────────────
+
+/// Finalize the build phase: all sequence builders are converted to sequences,
+/// and the context becomes ready for evaluation.
 pub fn finish_building_context() {
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
         ctx.finish();
     });
 }
+
+/// Tear down the context and reset to a fresh build state.
 pub fn teardown() {
-    println!("tearing down context");
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| *ctx = CtxState::Builder(ContextBuilder::new()))
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        *ctx = CtxState::Building(BuildingContext::new());
+    });
 }
 
+/// Register a mock with an optional default return value.
+/// Must be called during the build phase.
 pub fn add_mock<Input, ReturnVal>(
     mock_id: MockId,
     default_return_val_closure: Option<Box<dyn Fn(Input) -> ReturnVal>>,
-) -> errors::Result<()> {
+) -> Result<()> {
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Builder(context_builder) => {
-            context_builder.add_mock(mock_id, default_return_val_closure)
+        CtxState::Building(builder) => {
+            if builder.ctx.mocks().contains_key(&mock_id) {
+                return Err(format!("mock {:?} registered twice", mock_id).into());
+            }
+            let default_ret =
+                default_return_val_closure.map(|c| ReturnValDoublePointer::from_fn(c));
+            let head = MockHead {
+                default_return_val: default_ret.clone(),
+                strictness: StrictnessKind::default(),
+            };
+            builder.ctx.register_mock(mock_id.clone(), head);
+            if let Some(ret) = default_ret {
+                builder.default_returns.insert(mock_id, ret);
+            }
+            Ok(())
         }
-        other => panic!("context not in build mode during add_mock call"),
+        _ => panic!("add_mock called outside of build phase"),
     })
 }
 
-pub fn get_id() -> u32 {
-        GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Ctx(global_context) => {
-            global_context.get_incr_id()
-        }
-        other => panic!("context not in build mode during add_mock call"),
-    })
-}
-
+/// Returns true if the context is in Active state and contains the given mock id.
 pub fn ctx_built_and_contains_id(id: &MockId) -> bool {
     GLOBAL_CONTEXT.with_borrow(|ctx| match ctx {
-        CtxState::Ctx(global_context) => global_context.check_id(id),
-        other => false,
+        CtxState::Active(global_context) => global_context.mocks().contains_key(id),
+        _ => false,
     })
 }
+
+// ─── Checkpoint operations ──────────────────────────────────────────────────
+
+/// Create a new named checkpoint. Expectations added after this call
+/// go into this checkpoint (the latest one).
+pub fn new_checkpoint(name: impl Into<CheckpointName>) -> Result<()> {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Building(builder) => {
+            builder
+                .ctx
+                .add_named_checkpoint(name, Checkpoint::new())?;
+            Ok(())
+        }
+        _ => panic!("new_checkpoint called outside of build phase"),
+    })
+}
+
+/// Check that all top-level predicates in the current checkpoint have been fulfilled.
+/// If yes, advance to the next checkpoint.
+/// If no, return an error with details of what's unsatisfied.
+pub fn control_checkpoint() -> Result<()> {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Active(global_context) => {
+            let cp = global_context
+                .active_checkpoint()
+                .ok_or_else(|| MockError::from("no active checkpoint"))?;
+
+            if !cp.is_complete() {
+                let unsatisfied_exp = cp.unsatisfied_expectations();
+                let unsatisfied_seq = cp.unsatisfied_sequences();
+                return Err(format!(
+                    "checkpoint not complete: {} unsatisfied expectations, {} unsatisfied sequences",
+                    unsatisfied_exp.len(),
+                    unsatisfied_seq.len(),
+                )
+                .into());
+            }
+
+            global_context.advance_checkpoint();
+            Ok(())
+        }
+        _ => panic!("control_checkpoint called outside of active phase"),
+    })
+}
+
+// ─── Sequence operations ────────────────────────────────────────────────────
+
+/// Create a named sequence with a declared length in the specified (or latest) checkpoint.
+pub fn new_sequence(
+    name: impl Into<String>,
+    size: usize,
+    modifier: TimesModifier,
+    checkpoint_name: Option<CheckpointName>,
+) -> Result<()> {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Building(builder) => {
+            let cp = resolve_or_latest_checkpoint_mut(&mut builder.ctx, checkpoint_name.as_ref())?;
+            cp.create_named_sequence(name.into(), size, modifier)?;
+            Ok(())
+        }
+        _ => panic!("new_sequence called outside of build phase"),
+    })
+}
+
+/// Add an expectation to a specific position in a named sequence.
+pub fn add_expectation_to_sequence<Input, ReturnVal>(
+    mock_id: &MockId,
+    condition: Box<dyn Fn(&Input) -> PredicateResult<()> + 'static>,
+    return_val_closure: Option<Box<dyn Fn(Input) -> ReturnVal>>,
+    sequence_name: impl Into<SequenceName>,
+    sequence_index: usize,
+    checkpoint_name: Option<CheckpointName>,
+) -> Result<()> {
+    let sequence_name = sequence_name.into();
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Building(builder) => {
+            let cp = resolve_or_latest_checkpoint_mut(&mut builder.ctx, checkpoint_name.as_ref())?;
+
+            // Create the predicate in the arena
+            let pred_idx = cp.create_single::<Input>(mock_id, condition);
+
+            // Resolve the sequence by name
+            let seq_idx = cp
+                .resolve_sequence_name(&sequence_name)
+                .ok_or_else(|| {
+                    format!("sequence '{}' not found", sequence_name.0)
+                })?;
+
+            // Set the step at the given index
+            cp.set_sequence_step::<Input, ReturnVal>(
+                seq_idx,
+                sequence_index,
+                mock_id,
+                pred_idx,
+                return_val_closure,
+            )?;
+
+            Ok(())
+        }
+        _ => panic!("add_expectation_to_sequence called outside of build phase"),
+    })
+}
+
+// ─── Expectation operations ─────────────────────────────────────────────────
+
+/// Add an expectation to the specified (or latest) checkpoint.
+/// Cardinality is wrapped into the predicate tree via a Times node.
 pub fn add_expectation<Input, ReturnVal>(
     mock_id: &MockId,
     condition: Box<dyn Fn(&Input) -> PredicateResult<()> + 'static>,
     return_val_closure: Option<Box<dyn Fn(Input) -> ReturnVal>>,
-    modifier: TimeModifier,
-) -> errors::Result<()> {
+    checkpoint_name: Option<CheckpointName>,
+    modifier: TimesModifier,
+) -> Result<()> {
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Builder(context_builder) => {
-            context_builder.add_expectation(mock_id, condition, return_val_closure, modifier)
+        CtxState::Building(builder) => {
+            let cp = resolve_or_latest_checkpoint_mut(&mut builder.ctx, checkpoint_name.as_ref())?;
+
+            // Create predicate in arena
+            let pred_idx = cp.create_single::<Input>(mock_id, condition);
+
+            // Wrap with cardinality in the predicate tree
+            let timed_pred = cp.times(pred_idx, modifier);
+
+            // Commit it as an expectation (cardinality lives in the tree)
+            cp.expect::<Input, ReturnVal>(mock_id, timed_pred, return_val_closure);
+
+            Ok(())
         }
-        other => panic!("context not in build mode during add_mock call"),
+        _ => panic!("add_expectation called outside of build phase"),
     })
 }
 
-pub fn run_mock<Input, ReturnVal>(mock_id: MockId, input: Input) -> errors::Result<ReturnVal> {
+// ─── Mock execution ─────────────────────────────────────────────────────────
+
+/// Execute a mock call. Evaluates the active checkpoint's expectations/sequences.
+///
+/// # Safety
+/// This is unsafe because it relies on the caller ensuring that `Input` and `ReturnVal`
+/// match the types used when registering expectations.
+pub fn run_mock<Input, ReturnVal>(mock_id: MockId, input: Input) -> Result<ReturnVal> {
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Ctx(ctx) => ctx.run_mock::<Input, ReturnVal>(mock_id, input),
-        other => panic!("context not in build mode during add_mock call"),
+        CtxState::Active(global_context) => {
+            // Check that mock is registered
+            if !global_context.mocks().contains_key(&mock_id) {
+                return Err(MockError::NoMatchingId);
+            }
+
+            let cp = global_context
+                .active_checkpoint_mut()
+                .ok_or_else(|| MockError::from("no active checkpoint"))?;
+
+            // Safety: caller must ensure types match
+            let result = unsafe { cp.evaluate::<Input, ReturnVal>(&mock_id, input) };
+
+            match result {
+                Ok(Some(ret)) => Ok(ret),
+                Ok(None) => {
+                    // No return value from expectation — try default
+                    // Note: we can't easily access the default here without consuming input.
+                    // For now, this is an error. The expectation should always provide a return.
+                    Err("expectation matched but no return value provided and no default available".into())
+                }
+                Err(e) => Err(e),
+            }
+        }
+        _ => panic!("run_mock called outside of active phase"),
     })
 }
-thread_local! {
-    pub static GLOBAL_CONTEXT: RefCell<CtxState> =
-    RefCell::new(CtxState::Builder(ContextBuilder::new()));
-}
-//Slices are (for now) defined as sequences with a fixed start and end point.
 
-#[derive(Debug)]
-pub struct GlobalContext {
-    slices: Slices,
-    sequences: SequenceHeads,
-    mock_heads: HashMap<MockId, MockHead>,
-    nodes: Nodes,
-    id_count: u32,
-}
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-impl GlobalContext {
-    pub fn get_node_mut(&mut self, node_index: NodeIndex) -> Option<&mut Node> {
-        self.nodes.get_node_mut(node_index)
-    }
-    pub fn get_node_ref(&mut self, node_index: NodeIndex) -> Option<&Node> {
-        self.nodes.get_node_ref(node_index)
-    }
-    pub fn get_dot(&self) -> String {
-        //let dot = petgraph::dot::Dot::new(&self.graph);
-        //format!("{dot:?}")
-        todo!()
-    }
-    pub fn get_sequence_head(&self, index: SequenceIndex) -> Option<&SequenceHead> {
-        self.sequences.edge_ref(index)
-    }
-
-    pub fn get_incr_id(&mut self) -> u32 {
-        let x = self.id_count;
-        self.id_count+= 1;
-        x
-    }
-
-    pub fn mut_sequence_head(&mut self, index: SequenceIndex) -> Option<&mut SequenceHead> {
-        self.sequences.edge_mut(index)
-    }
-
-    pub fn enter_sequence(&mut self, seq_head_index: SequenceIndex) -> Result<()> {
-        let seq_head_vec = self
-            .get_sequence_head(seq_head_index)
-            .unwrap()
-            .effected_mocks
-            .clone();
-        for id in &seq_head_vec {
-            let mock_head_index = match self.mock_heads.get(id).map(|h| &h.state) {
-                Some(MockState::Locked {
-                    sequence_head_index,
-                }) => {
-                    return Err(format!(
-                        "mock with id {:?} wanted to enter sequence with index {:?} 
-                        but it was already in sequence with index{:?}",
-                        id, seq_head_index, sequence_head_index
-                    )
-                    .into());
-                }
-                Some(MockState::Unlocked { mock_head_index }) => *mock_head_index,
-                None => {
-                    return Err(format!(
-                        "mock_id {:?} not found when trying to enter sequence with index {:?}",
-                        id, seq_head_index
-                    )
-                    .into());
-                }
-            };
-            let mut instant_stack: Vec<NodeIndex> = vec![mock_head_index];
-            let mut visited: HashSet<NodeIndex> = HashSet::new();
-            let mut sequence_node_found = false;
-            while !sequence_node_found && let Some(node_index) = instant_stack.pop() {
-                let Some(node) = self.get_node_ref(node_index) else {
-                    panic!(
-                        "no node with id {:?} found when trying to enter sequence with index {:?}",
-                        &id, seq_head_index
-                    )
-                };
-
-                sequence_node_found = node.iter_conditions().any(|e| match e {
-                    Edge::SequenceEnter(sequence_head_index)
-                        if *sequence_head_index == seq_head_index =>
-                    {
-                        true
-                    }
-                    Edge::Instant { target, .. } => {
-                        if !visited.contains(&target) {
-                            instant_stack.push(*target);
-                            visited.insert(*target);
-                        }
-                        false
-                    }
-                    _ => false,
-                });
-            }
-            if !sequence_node_found {
-                return Err(format!(
-                    "Mock with id {:?} couldn't find a valid entry point for entering sequence{:?}",
-                    id, seq_head_index
-                )
-                .into());
-            }
+/// Resolve a checkpoint by name, or return the latest (last) checkpoint.
+fn resolve_or_latest_checkpoint_mut<'a>(
+    ctx: &'a mut GlobalContext,
+    name: Option<&CheckpointName>,
+) -> Result<&'a mut Checkpoint> {
+    match name {
+        Some(cp_name) => {
+            let idx = ctx
+                .resolve_checkpoint(&cp_name.0)
+                .ok_or_else(|| format!("checkpoint '{}' not found", cp_name.0))?;
+            ctx.get_checkpoint_mut(idx)
+                .ok_or_else(|| format!("checkpoint '{}' index invalid", cp_name.0).into())
         }
-        // All related mocks were in the correct position, so we move their heads and return success
-        for id in seq_head_vec {
-            self.mock_heads.entry(id.clone()).and_modify(|h| {
-                h.state = MockState::Locked {
-                    sequence_head_index: seq_head_index,
-                }
-            });
-        }
-        Ok(())
-    }
-    ///returns true if mock id exists in context
-    pub fn check_id(&self, mock_id: &MockId) -> bool {
-        self.mock_heads.contains_key(mock_id)
-    }
-    pub fn run_mock<Input, ReturnVal>(
-        &mut self,
-        mock_id: MockId,
-        input: Input,
-    ) -> errors::Result<ReturnVal> {
-        let (node_index, maybe_sequence_head_ids) = match self
-            .mock_heads
-            .get(&mock_id)
-            .map(|mock_head| &mock_head.state)
-        {
-            Some(MockState::Locked {
-                sequence_head_index,
-            }) => {
-                let seq_head = self
-                    .get_sequence_head(*sequence_head_index)
-                    .clone()
-                    .unwrap();
-                //This is bad performance and memory consumption wise... lets try to find a way to avoid cloning here.
-                (seq_head.node_index, Some(seq_head.effected_mocks.clone()))
-            }
-            Some(MockState::Unlocked { mock_head_index }) => (*mock_head_index, None),
-            None => return Err(MockError::NoMatchingId),
-        };
-        let mut sequence_head_indices: Vec<(NodeIndex, SequenceIndex)> = vec![];
-        let mut sequence_stack_append: Vec<NodeIndex> = vec![];
-        let mut instant_stack_append: Vec<NodeIndex> = vec![];
-        let mut node_index_stack = vec![node_index];
-        let mut visited = vec![];
-        let mut failed_conditionals: Vec<PredicateError> = vec![];
-        let mut successful_conditionals: Vec<_> = vec![];
-        //traverses graph until we find a valid condition
-        while let Some(node_index) = node_index_stack.pop() {
-            if let Some(node) = self.get_node_ref(node_index) {
-                if !node.contains_id(&mock_id) {
-                    return Err(format!(
-                        "node with index {:?} expected {:?} but received {:?}",
-                        node_index, mock_id, node.ids
-                    )
-                    .into());
-                };
-                node.iter_conditions().for_each(|e| match e {
-                    Edge::Instant { target, .. } => instant_stack_append.push(*target),
-                    Edge::Condition(conditional_edge) => {
-                        let condition = unsafe { conditional_edge.condition.into_fn::<Input>() };
-                        let res = condition(&input);
-                        match res {
-                            Ok(()) => successful_conditionals.push(EdgeTransitionInfo {
-                                priority: conditional_edge.priority,
-                                return_val: conditional_edge.return_val.clone(),
-                                target_node: conditional_edge.target,
-                            }),
-                            Err(e) => {
-                                failed_conditionals.push(e);
-                            }
-                        }
-                    }
-                    Edge::SequenceEnter(index) => sequence_head_indices.push((node_index, *index)),
-                    Edge::SequenceExit { id, target }
-                        if maybe_sequence_head_ids
-                            .clone()
-                            .map(|ids| ids.contains(id))
-                            .unwrap_or(false) =>
-                    {
-                        if *id == mock_id {
-                            sequence_stack_append.push(*target)
-                        }
-                    }
-                    _ => {}
-                });
-            } else {
-                return Err("node not found".into());
-            };
-
-            for (target, seq_head) in sequence_head_indices.drain(0..) {
-                if let Ok(()) = self.enter_sequence(seq_head) {
-                    sequence_stack_append.push(target)
-                }
-            }
-            //if valid conditions were found, pick the edge with the highest priority
-            if !successful_conditionals.is_empty() {
-                successful_conditionals.sort_by(|e, f| e.priority.cmp(&f.priority));
-                let edge = successful_conditionals
-                    .last()
-                    .expect("we have already checked that edges is not empty");
-                let return_val_ptr = edge.return_val.as_ref().unwrap_or(
-                    self.mock_heads[&mock_id]
-                        .default_return_val
-                        .as_ref()
-                        .expect("no return value found"),
-                );
-                let return_val = unsafe { return_val_ptr.into_fn::<Input, ReturnVal>()(input) };
-                let new_node_index = edge.target_node;
-                if self.get_node_ref(new_node_index).is_none() {
-                    return Err(format!("new node index {:?} is invalid", new_node_index).into());
-                }
-                self.mock_heads.entry(mock_id.clone()).and_modify(|h| {
-                    h.state = MockState::Unlocked {
-                        mock_head_index: new_node_index,
-                    }
-                });
-                return Ok(return_val);
-            }
-            node_index_stack.append(&mut instant_stack_append);
-            node_index_stack.append(&mut sequence_stack_append);
-            visited.push(node_index);
-        }
-        //failed to find any valid conditions
-        let joined = failed_conditionals
-            .into_iter()
-            .map(|e| e.0)
-            .collect::<Vec<_>>()
-            .join(",\n");
-        Err(format!(
-            "No matching condition found for input tried the following:  {}",
-            joined
-        )
-        .into())
+        None => ctx
+            .latest_checkpoint_mut()
+            .ok_or_else(|| "no checkpoints exist".into()),
     }
 }
