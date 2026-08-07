@@ -1,4 +1,4 @@
-use crate::errors::PredicateResult;
+use crate::errors::{PredicateResult, Result};
 use std::{any::Any, collections::HashMap};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -79,6 +79,19 @@ impl ConditionDoublePointer {
         let wraref: *mut &mut dyn Fn(&Input) -> PredicateResult<()> = self.thin_ptr as _;
         let cloref: &mut dyn Fn(&Input) -> PredicateResult<()> = unsafe { *wraref };
         cloref
+    }
+
+    /// # Safety
+    /// special drop that should be operated by the AST instance.
+    /// 
+    /// will panic if called with the wrong type signature
+    /// 
+    /// Make sure that it is only called by a method/function tied to expectations mock id
+    pub unsafe fn id_drop<Input>(self) {
+        let wrabox: Box<&mut (dyn Fn(&Input) -> PredicateResult<()> + 'static)> =
+            unsafe { Box::from_raw(self.thin_ptr as _) };
+        let cloref: Box<dyn Fn(&Input) -> PredicateResult<()>> = unsafe { Box::from_raw(*wrabox) };
+        //the closure is dropped
     }
 }
 //Our DoublePointers will live through the remainder of the program, and they will not be modified in any way.

@@ -629,7 +629,6 @@ impl Parse for MockStruct {
             syn::Fields::Unit => { todo!() }
         }
 
-        let constructor: = input.parse::<syn::Ex()?;
 
 
         let methods: Vec<MockMethod2> = {

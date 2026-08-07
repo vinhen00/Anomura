@@ -1,20 +1,21 @@
 mod closure_wrappers;
 mod errors;
+mod mock;
+pub mod mockable;
 pub mod new_expectations;
 pub mod time_mod;
-mod mock;
 
 #[cfg(test)]
 mod unit_tests;
 pub use crate::closure_wrappers::{ConditionDoublePointer, ReturnValDoublePointer};
 use crate::errors::PredicateResult;
-pub use crate::time_mod::TimeModifier;
 pub use crate::mock::MockId;
 use crate::mock::{MockHead, StrictnessKind};
 use crate::new_expectations::{
     Checkpoint, CheckpointIndex, CheckpointName, GlobalContext, PredicateIndex, SequenceIdx,
     SequenceName, TimesModifier,
 };
+pub use crate::time_mod::TimeModifier;
 
 pub use errors::{MockError, PredicateError, Result};
 use std::cell::RefCell;
@@ -139,9 +140,7 @@ pub fn ctx_built_and_contains_id(id: &MockId) -> bool {
 pub fn new_checkpoint(name: impl Into<CheckpointName>) -> Result<()> {
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
         CtxState::Building(builder) => {
-            builder
-                .ctx
-                .add_named_checkpoint(name, Checkpoint::new())?;
+            builder.ctx.add_named_checkpoint(name, Checkpoint::new())?;
             Ok(())
         }
         _ => panic!("new_checkpoint called outside of build phase"),
@@ -215,9 +214,7 @@ pub fn add_expectation_to_sequence<Input, ReturnVal>(
             // Resolve the sequence by name
             let seq_idx = cp
                 .resolve_sequence_name(&sequence_name)
-                .ok_or_else(|| {
-                    format!("sequence '{}' not found", sequence_name.0)
-                })?;
+                .ok_or_else(|| format!("sequence '{}' not found", sequence_name.0))?;
 
             // Set the step at the given index
             cp.set_sequence_step::<Input, ReturnVal>(
@@ -292,7 +289,10 @@ pub fn run_mock<Input, ReturnVal>(mock_id: MockId, input: Input) -> Result<Retur
                     // No return value from expectation — try default
                     // Note: we can't easily access the default here without consuming input.
                     // For now, this is an error. The expectation should always provide a return.
-                    Err("expectation matched but no return value provided and no default available".into())
+                    Err(
+                        "expectation matched but no return value provided and no default available"
+                            .into(),
+                    )
                 }
                 Err(e) => Err(e),
             }
