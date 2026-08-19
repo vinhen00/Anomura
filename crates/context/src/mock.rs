@@ -11,6 +11,7 @@ pub struct MockHead {
 
 /// How to handle calls that don't match any expectation.
 #[derive(Clone, Copy, Debug, Default)]
+
 pub enum StrictnessKind {
     /// Warning on uninteresting call.
     #[default]

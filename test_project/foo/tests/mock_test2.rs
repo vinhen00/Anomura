@@ -13,8 +13,8 @@ fn macro_test_2() {
                     false
                 }),
             );
-            expect(*prob < 0.9, TimeModifier::AtMostOnce);
-            expect(*prob > 20.0, TimeModifier::Once);
+            expect(*prob < 0.9, TimesModifier::AtMost(1));
+            expect(*prob > 20.0, TimesModifier::Once);
         }
     );
     context::finish_building_context();

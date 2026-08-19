@@ -626,11 +626,11 @@ impl Parse for MockStruct {
             syn::Fields::Unnamed(_fields) => {
                 todo!()
             }
-            syn::Fields::Unit => { todo!() }
+            syn::Fields::Unit => {
+                todo!()
+            }
         }
-
-
-
+        let constructor: MockMethod2 = input.parse()?;
         let methods: Vec<MockMethod2> = {
             let content;
             syn::bracketed!(content in input);
@@ -682,7 +682,7 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
             #(#methods)*
         }
     };
-    
+
     expanded
 }
 
@@ -696,14 +696,9 @@ fn quote_method(
     let name = mock.name;
     let name_str = quote! {#name}.to_string();
     let ret_type = mock.ret_type;
-    let ret_val;
+    let mut ret_val;
     let hash_id_getter;
-    let is_constructor = if let Type::Path(type_path) = mock.ret_type {
-        if let Some(ident) = type_path.path.get_ident() {ident == "Self" || return ident == mock.name}
-    }
-    false
-}
-    //if our method is a constructor we need to fetch a new id for the initialization 
+    //The constructor needs to be modified to include our hidden fields (currently only mock_hash)
     if is_constructor {
         let mut visitor = RetvalFinder;
         ret_val = mock.ret_val.clone();
@@ -712,9 +707,10 @@ fn quote_method(
 
         //Get the context to assign a mock_hash id
         hash_id_getter = quote! {
-            let mock_hash = context::get_new_id();
-            eprintln!{"[INFO] New instance of {} initialized with id {}", #struct_string, mock_hash};
-            mock_hash
+            let mock_hash = context::get_id();
+
+            //Currently just a print, but should be some form of logging in context
+            println!{"New instance of {} initialized with id {}", #struct_string, mock_hash};
         };
     } else {
         ret_val = mock.ret_val;
@@ -735,33 +731,14 @@ fn quote_method(
         .iter()
         .zip(mock.input_types.iter())
         .map(|(ident, ty)| quote! { #ident: #ty });
-    
-    let expanded = quote! {
-            fn #name(#receiver_quote #(#driver_params),*) -> #driver_ret_type {
-                std::println!("Mocked version of method {} was used", #name_str);
-                let mock_id_ident_string : String = format!("{}{}", stringify!(#mock_id), self.mock_id)
-                let #mock_id_ident = context::MockId::new(stringify!(#mock_id));
-                if context::ctx_built_and_contains_id(&#mock_id_ident) {
-                    match context::run_mock::<#driver_input_type_tuple, #driver_ret_type>(#mock_id_ident, #input_ident_tuple) {
-                        Ok(res) => res,
-                        Err(e) => match e {
-                            context::MockError::Other(e) => panic!("unexpected Error: {:?}", e),
-                            context::MockError::PredicateError(e) => panic!("{:?}", e.0),
-                            context::MockError::NoMatchingId => panic!("failed to find mock id"),
-                        }
-                    }
-                } else { #fallback }
-            }
-        };
-    
 
-    /*let expanded = quote! {
+    let expanded = quote! {
         #[mocked( #path )]
         fn #name(#receiver #(#params),*) -> #ret_type {
             #hash_id_getter
             #ret_val
         }
-    };*/
+    };
 
     expanded
 }

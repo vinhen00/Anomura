@@ -1,21 +1,17 @@
 use std::io::Read;
 
-
 use proc_macro2::TokenStream;
-use rustc_ast::tokenstream::TokenTree;
 use rustc_ast::token::TokenKind;
-use rustc_span::symbol::Symbol;
+use rustc_ast::tokenstream::TokenTree;
 use rustc_ast::visit::Visitor;
 use rustc_ast_pretty::pprust;
+use rustc_span::symbol::Symbol;
 use std::str::FromStr;
 
 use rustc_driver::Compilation;
 use rustc_interface::interface::Compiler;
 
 use crate::expand_macro::{expand_mock_fn, expand_mock_method, expand_mock_struct};
-
-
-
 
 pub struct MockFileLoader {
     pub file: String,
@@ -47,8 +43,6 @@ impl rustc_span::source_map::FileLoader for MockFileLoader {
     // }
 }
 
-
-
 #[derive(Debug)]
 pub struct ParseMocks {
     used_in_plugin: bool,
@@ -57,14 +51,13 @@ pub struct ParseMocks {
 }
 
 impl ParseMocks {
-    pub fn new( used_in_plugin: bool ) -> Self {
+    pub fn new(used_in_plugin: bool) -> Self {
         ParseMocks {
             program: String::new(),
             used_in_plugin,
             crates: Vec::new(),
         }
     }
-
 
     pub fn get_program(&self) -> String {
         self.program.clone()
@@ -73,7 +66,6 @@ impl ParseMocks {
     pub fn get_crates(&self) -> Vec<String> {
         self.crates.clone()
     }
-
 
     fn handle_mod(&mut self, mod_items: &rustc_ast::ModKind) {
         if let rustc_ast::ModKind::Loaded(items, ..) = mod_items {
@@ -118,17 +110,12 @@ impl ParseMocks {
 
         self.program.push_str(&result);
     }
-
 }
-
-
-
 
 //Compile mocks is a compiler setting the compiles the file that the mocked functions reside in.
 //Will grab all functions defined therein, and store them as a field in the mocks.
 //Stops compilation when done
 impl rustc_driver::Callbacks for ParseMocks {
-
     fn after_crate_root_parsing(
         &mut self,
         _compiler: &Compiler,
@@ -158,31 +145,42 @@ impl rustc_driver::Callbacks for ParseMocks {
 }
 
 fn extract_path_value(mac_call: &rustc_ast::MacCall) -> Option<Symbol> {
-
     if let Some(path) = mac_call.path.segments.last() {
         match path.ident.name.as_str() {
-            "mock_fn" => { 
+            "mock_fn" => {
                 let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
-                let TokenTree::Token(val_tok, _) = tokens[0] else { return None};
-                let TokenKind::Ident(value, _) = val_tok.kind else {return None}; 
-                return Some(value)
+                let TokenTree::Token(val_tok, _) = tokens[0] else {
+                    return None;
+                };
+                let TokenKind::Ident(value, _) = val_tok.kind else {
+                    return None;
+                };
+                Some(value)
             }
-            "mock_method" => { 
+            "mock_method" => {
                 let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
-                let TokenTree::Token(val_tok, _) = tokens[0] else { return None};
-                let TokenKind::Ident(value, _) = val_tok.kind else {return None}; 
-                return Some(value)
+                let TokenTree::Token(val_tok, _) = tokens[0] else {
+                    return None;
+                };
+                let TokenKind::Ident(value, _) = val_tok.kind else {
+                    return None;
+                };
+                Some(value)
             }
-            "mock_struct" => { 
+            "mock_struct" => {
                 let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
-                let TokenTree::Token(val_tok, _) = tokens[0] else { return None};
-                let TokenKind::Ident(value, _) = val_tok.kind else {return None}; 
-                return Some(value)
+                let TokenTree::Token(val_tok, _) = tokens[0] else {
+                    return None;
+                };
+                let TokenKind::Ident(value, _) = val_tok.kind else {
+                    return None;
+                };
+                Some(value)
             }
-            _ => { return None }
+            _ => None,
         }
     } else {
-        return None;
+        None
     }
 }
 
@@ -191,7 +189,7 @@ impl<'a> Visitor<'a> for ParseMocks {
     #[doc = r" or `ControlFlow<T>`."]
     type Result = ();
     fn visit_mac_call(&mut self, node: &'_ rustc_ast::MacCall) -> Self::Result {
-        if let Some(path) = extract_path_value(node){
+        if let Some(path) = extract_path_value(node) {
             self.crates.push(path.as_str().to_string());
         }
         self.handle_maccall(node);

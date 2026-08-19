@@ -20,14 +20,14 @@ fn main() {
             );
             expect(
                 input.text.len() <= 7,
-                TimeModifier::Any,
+                TimesModifier::Any,
                 with_return({ TestStruct2 { n: 0, m: 1 } }),
             );
 
-            expect(input.text == "01234567", TimeModifier::Once);
+            expect(input.text == "01234567", TimesModifier::Once);
             expect(
                 input.text.ends_with("goodbye"),
-                TimeModifier::AtLeastOnce,
+                TimesModifier::AtLeast(1),
                 with_return(TestStruct2 { n: 1, m: 33 }),
             );
         }

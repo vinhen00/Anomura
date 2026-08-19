@@ -11,12 +11,11 @@ pub use crate::closure_wrappers::{ConditionDoublePointer, ReturnValDoublePointer
 use crate::errors::PredicateResult;
 pub use crate::mock::MockId;
 use crate::mock::{MockHead, StrictnessKind};
-use crate::new_expectations::{
-    Checkpoint, CheckpointIndex, CheckpointName, GlobalContext, PredicateIndex, SequenceIdx,
-    SequenceName, TimesModifier,
+pub use crate::new_expectations::Expectation;
+pub use crate::new_expectations::{
+    Checkpoint, CheckpointIndex, CheckpointName, GlobalContext, Predicate, PredicateIndex,
+    PredicateKind, SequenceIdx, SequenceName, TimesModifier,
 };
-pub use crate::time_mod::TimeModifier;
-
 pub use errors::{MockError, PredicateError, Result};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -40,6 +39,7 @@ pub struct BuildingContext {
     ctx: GlobalContext,
     /// Default return values for mocks, keyed by MockId.
     default_returns: HashMap<MockId, ReturnValDoublePointer>,
+    adt_instance_counter: AdtMockId,
 }
 
 impl BuildingContext {
@@ -50,6 +50,7 @@ impl BuildingContext {
         Self {
             ctx,
             default_returns: HashMap::new(),
+            adt_instance_counter: AdtMockId::default(),
         }
     }
 
@@ -61,6 +62,12 @@ impl BuildingContext {
             // TODO: surface warnings to user
         }
         self.ctx
+    }
+}
+
+impl Default for BuildingContext {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -132,6 +139,18 @@ pub fn ctx_built_and_contains_id(id: &MockId) -> bool {
         _ => false,
     })
 }
+#[derive(Clone, Copy, Debug, Default)]
+pub struct AdtMockId(pub u64);
+pub fn new_id() -> AdtMockId {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Building(global_context) => {
+            let r = global_context.adt_instance_counter;
+            global_context.adt_instance_counter.0 += 1;
+            r
+        }
+        _ => panic!("add_mock called outside of build phase"),
+    })
+}
 
 // ─── Checkpoint operations ──────────────────────────────────────────────────
 
@@ -197,7 +216,7 @@ pub fn new_sequence(
 /// Add an expectation to a specific position in a named sequence.
 pub fn add_expectation_to_sequence<Input, ReturnVal>(
     mock_id: &MockId,
-    condition: Box<dyn Fn(&Input) -> PredicateResult<()> + 'static>,
+    condition: ConditionDoublePointer,
     return_val_closure: Option<Box<dyn Fn(Input) -> ReturnVal>>,
     sequence_name: impl Into<SequenceName>,
     sequence_index: usize,
@@ -237,8 +256,8 @@ pub fn add_expectation_to_sequence<Input, ReturnVal>(
 /// Cardinality is wrapped into the predicate tree via a Times node.
 pub fn add_expectation<Input, ReturnVal>(
     mock_id: &MockId,
-    condition: Box<dyn Fn(&Input) -> PredicateResult<()> + 'static>,
-    return_val_closure: Option<Box<dyn Fn(Input) -> ReturnVal>>,
+    condition: ConditionDoublePointer,
+    return_val_closure: Option<ReturnValDoublePointer>,
     checkpoint_name: Option<CheckpointName>,
     modifier: TimesModifier,
 ) -> Result<()> {
@@ -250,7 +269,7 @@ pub fn add_expectation<Input, ReturnVal>(
             let pred_idx = cp.create_single::<Input>(mock_id, condition);
 
             // Wrap with cardinality in the predicate tree
-            let timed_pred = cp.times(pred_idx, modifier);
+            let timed_pred = cp.times_arena(pred_idx, modifier);
 
             // Commit it as an expectation (cardinality lives in the tree)
             cp.expect::<Input, ReturnVal>(mock_id, timed_pred, return_val_closure);
@@ -301,6 +320,48 @@ pub fn run_mock<Input, ReturnVal>(mock_id: MockId, input: Input) -> Result<Retur
     })
 }
 
+// ─── Checkpoint queries ─────────────────────────────────────────────────────
+
+/// Returns a reference to the latest (most recently added) checkpoint.
+/// Works in both build and active phases.
+///
+/// Panics if no checkpoints exist (should never happen as one is created by default).
+pub fn latest_checkpoint(f: impl FnOnce(&Checkpoint)) {
+    GLOBAL_CONTEXT.with_borrow(|ctx| {
+        let global = match ctx {
+            CtxState::Building(builder) => &builder.ctx,
+            CtxState::Active(global_context) => global_context,
+            CtxState::Processing => panic!("latest_checkpoint called during processing"),
+        };
+        let cp = global
+            .latest_checkpoint()
+            .expect("no checkpoints exist");
+        f(cp);
+    });
+}
+
+/// Returns a reference to a checkpoint looked up by name.
+/// Works in both build and active phases.
+///
+/// Returns an error if no checkpoint with the given name exists.
+pub fn checkpoint_by_name(name: &str, f: impl FnOnce(&Checkpoint)) -> Result<()> {
+    GLOBAL_CONTEXT.with_borrow(|ctx| {
+        let global = match ctx {
+            CtxState::Building(builder) => &builder.ctx,
+            CtxState::Active(global_context) => global_context,
+            CtxState::Processing => panic!("checkpoint_by_name called during processing"),
+        };
+        let idx = global
+            .resolve_checkpoint(name)
+            .ok_or_else(|| MockError::from(format!("checkpoint '{}' not found", name)))?;
+        let cp = global
+            .get_checkpoint(idx)
+            .ok_or_else(|| MockError::from(format!("checkpoint '{}' index invalid", name)))?;
+        f(cp);
+        Ok(())
+    })
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /// Resolve a checkpoint by name, or return the latest (last) checkpoint.
@@ -320,4 +381,44 @@ fn resolve_or_latest_checkpoint_mut<'a>(
             .latest_checkpoint_mut()
             .ok_or_else(|| "no checkpoints exist".into()),
     }
+}
+
+/// Mutable access to the latest checkpoint via a closure.
+/// Works only in the build phase.
+///
+/// Panics if no checkpoints exist or if called outside the build phase.
+pub fn latest_checkpoint_mut(f: impl FnOnce(&mut Checkpoint)) {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Building(builder) => {
+            let cp = builder
+                .ctx
+                .latest_checkpoint_mut()
+                .expect("no checkpoints exist");
+            f(cp);
+        }
+        _ => panic!("latest_checkpoint_mut called outside of build phase"),
+    });
+}
+
+/// Mutable access to a checkpoint looked up by name via a closure.
+/// Works only in the build phase.
+///
+/// Panics if called outside the build phase.
+/// Returns an error if no checkpoint with the given name exists.
+pub fn checkpoint_by_name_mut(name: &str, f: impl FnOnce(&mut Checkpoint)) -> Result<()> {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Building(builder) => {
+            let idx = builder
+                .ctx
+                .resolve_checkpoint(name)
+                .ok_or_else(|| MockError::from(format!("checkpoint '{}' not found", name)))?;
+            let cp = builder
+                .ctx
+                .get_checkpoint_mut(idx)
+                .ok_or_else(|| MockError::from(format!("checkpoint '{}' index invalid", name)))?;
+            f(cp);
+            Ok(())
+        }
+        _ => panic!("checkpoint_by_name_mut called outside of build phase"),
+    })
 }

@@ -1,4 +1,4 @@
-use context::time_mod::TimeModifier;
+use context::TimesModifier;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
@@ -8,7 +8,7 @@ use syn::{
 
 struct Expectation {
     condition: ExprClosure,
-    time: TimeModifier,
+    time: TimesModifier,
     ret: syn::Expr,
     exit: bool,
 }
@@ -17,7 +17,7 @@ impl Expectation {
     fn from_exprs(input_idents: &[Ident], exprs: Punctuated<Expr, Comma>) -> Self {
         let mut exit = false;
         let mut ret: Expr = parse_quote! { None };
-        let mut time = TimeModifier::Once;
+        let mut time = TimesModifier::Once;
         let mut exprs = exprs.into_iter();
         let Some(expr) = exprs.next() else {
             panic!("no expr");
@@ -46,13 +46,13 @@ impl Expectation {
                                 ret = parse_quote! { Some(Box::new(|#input_tuple| #expr)) }
                             });
                         } else if ident == "once" {
-                            time = context::time_mod::TimeModifier::Once
+                            time = TimesModifier::Once
                         } else if ident == "any" {
-                            time = context::time_mod::TimeModifier::Any
+                            time = TimesModifier::Any
                         } else if ident == "at_least_once" {
-                            time = context::time_mod::TimeModifier::AtLeastOnce
+                            time = TimesModifier::AtLeast(1)
                         } else if ident == "at_most_once" {
-                            time = context::time_mod::TimeModifier::AtMostOnce
+                            time = TimesModifier::AtMost(1)
                         } else if ident == "exit" {
                             exit = true;
                         };
@@ -67,13 +67,13 @@ impl Expectation {
                         .map(|i| i.ident.clone())
                     {
                         if ident == "Once" {
-                            time = context::time_mod::TimeModifier::Once
+                            time = TimesModifier::Once
                         } else if ident == "Any" {
-                            time = context::time_mod::TimeModifier::Any
+                            time = TimesModifier::Any
                         } else if ident == "AtLeastOnce" {
-                            time = context::time_mod::TimeModifier::AtLeastOnce
+                            time = TimesModifier::AtLeast(1)
                         } else if ident == "AtMostOnce" {
-                            time = context::time_mod::TimeModifier::AtMostOnce
+                            time = TimesModifier::AtMost(1)
                         }
                     }
                 }
@@ -266,11 +266,11 @@ fn add_expectation_to_context(
     input_type: proc_macro2::TokenStream,
     ret: Expr,
     cond: ExprClosure,
-    time: TimeModifier,
+    time: TimesModifier,
 ) {
     let append = quote! {
     if let Err(e) = context::add_expectation::<#input_type, #return_type>(&#mock_id_ident, Box::new( #cond ), #ret, #time) {
-        panic!("failed to add mock, got error {:?}", e);
+        panic!("failed to add expectation, got error {:?}", e);
         };
     };
     appended.extend(append);
@@ -279,7 +279,7 @@ fn add_expectation_to_context(
 struct SliceData {
     name: Ident,
     expectations: Vec<Expectation>,
-    time_mod: TimeModifier,
+    time_mod: TimesModifier,
 }
 
 #[proc_macro]

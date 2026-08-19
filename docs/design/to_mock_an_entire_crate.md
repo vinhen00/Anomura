@@ -20,6 +20,21 @@ all public methods be mocked by default?
 All private fields in ADTs should be replaced with phantom data versions of their types. 
 All public fields must stay, additional fields could be added. 
 All traits must still be implemented. 
+
+
+regarding Ids, how do we keep track of instances?
+
+If we are to mock all the ADTs in the crate. There are some problematic cases that will not allow us to differentiate instances by adding an id as a field without modifying the api. 
+structs with all public fields.
+enum variants
+
+one thought was to use the unstable allocator_api to use the address of an object instead of its id. however, this would only work for heap allocated mock objects, there is no way to track stack allocated instances through their addresses. The same goes for zero-sized structs.
+
+If we were to stick with using private ids added to the structs, then we cannot mock structs with public fields or literals, or there can at least not be a way to differentiate instances. We would otherwise be breaking the public Api. Same thing goes for Enums with variants that don't wrap a single definition that also does not contain all public fields. How do we deal with these? for the sake of testing implementation we simply don't differentiate instances for them.
+zero-sized structs should be fine, adding a private field should not change the api.
+
+
+
 the id added to the ADT is not public and the user should not be able to initialize it. 
 All constructor methods needs to implement logic to sync the instance with the context
 
@@ -58,7 +73,6 @@ method id: path to method
 In most cases (unless there is a negative trait bound for example) there should not be issues caused by adding simple quality of life traits such as default. And in case of such a conflict, the error will be caught at compile time. 
 
 
-
 ## Benefits in terms of mocking api vs current solution. 
 We would not have to rely on macros to generate mocked ADTs (structs, enums, unions) instances. 
 It should be possible to let all ADTs implement a new trait "Mockable" or something similar, that allows for interaction with the global context, instanciation. 
@@ -71,3 +85,159 @@ we could perhaps more easily integrate with google test match dsl
 
 
 ### creating a minimal proof of concept
+
+
+
+
+```rust
+    mock_crate!(krate);
+    //mock object is created
+    let example_mock = Example::new(2.0,1.0);
+    example_mock.on_call_meth1(|&self, a: &f32, b: &f32|)
+    example_mock.expect_meth1(
+        |slf: &Example, a: &f32, b: &f32| {a >= self.a, b >= self.b },
+        |&self, a: f32, b: f32|           {a >= self.a, b >= self.b },
+        None
+        )
+
+
+´´´
+
+
+all structs will implement their own unique traits mock<structname>
+
+```rust
+    // in crate named krate
+    mod Mod {
+        pub Struct Example {
+            a : f32,
+            b : pub f32
+        }
+
+        pub trait ExTrait {
+            pub fn meth2(&mut self, text : String) -> bool {
+
+            } 
+        }
+        impl ExTrait for Example {
+            ..
+        }
+        //original impl
+        impl Example {
+            fn meth1(&self, a: f32, b : f32) -> usize;
+            fn new(a: f32, b: f32) -> Self;
+        }
+        impl From<(f32,f32)> for Example {
+            ...
+        }
+
+        should generate something like
+        // Example is given an id field, all private fields are made into PhantomData
+        pub Struct Example {
+            a : PhantomData<f32>,
+            b : pub f32,
+            adt_mock_id : context::MockId, 
+        }
+
+
+
+        impl Mockable for Example {
+            /// can only be called once
+            fn add_on_call<Return>(expr : Fn);
+
+            fn create_expectation<Input, Ret>(expr : Fn<Input> -> Result<()>) -> Expectation<Input,Ret>;
+            fn add_expectation<Input,Ret>(expr : Expectation<Input>, ret : Option<Ret>, time_modifier : Option<TimeModifier>);
+        }
+
+        impl Drop for Example {
+            fn drop(self) {
+                //lookup context, find all the saved expectations, cast to closures using the right ids and drop them
+            }
+        }
+
+        pub struct PredicateExampleMeth1(context::Predicate);
+        pub struct ExpectationExampleMeth1(context::Expectation);
+        pub struct ReturnExampleMeth1(context::ReturnValPointer);
+        pub struct PredicateExampleNew;
+        pub struct ExpectationExampleNew;
+        pub struct ReturnExampleNew;
+        //trait impls    
+        pub struct PredicateExampleInto(context::Predicate);
+        pub struct ExpectationExampleInto(context::Expectation);
+        pub struct ReturnExampleInto(context::ReturnValPointer);
+        
+        pub struct PredicateExampleImplExTraitMeth2(context::Predicate);
+        pub struct ExpectationExampleImplExTraitMeth2(context::Expectation);
+        pub struct ReturnExampleImplExTraitMeth2(context::ReturnValPointer);
+
+        impl PredicateExampleMeth1 {
+            pub fn new(F : impl Fn<&Example, &f32, &f32>) -> bool {
+                context::add_expectation(MockId::new("PredicateExampleMeth1"))
+            }
+        }
+        impl <F : impl Fn<&Example, &f32,&f32> -> bool> From<F> for PredicateExampleMeth1 {
+            ..  
+        }
+        impl <F : impl Fn<Example, f32,f32> -> usize> From<F> for ReturnExampleMeth1 {
+            ..   
+        }
+        impl From<PredicateExampleMeth1> for ExpectationExampleMeth1 {
+            ..
+        }
+
+        impl Example {
+            ... added for all methods
+
+            pub fn meth1(&self, a : f32, b : f32) -> usize {
+                ..
+            }
+            pub fn on_call_meth1(ret : impl Into<ReturnExampleInto>) {
+                ..
+            }
+            pub fn create_predicate_for_meth1() -> Predicate<(&Self,f32,f32), usize> {
+                ..
+            }
+
+            pub fn expect_meth1(expect : impl Into<ExpectationExampleMeth1>, Option<impl Into<ReturnExampleMeth1>>, time_mod : Option<TimeModifier>) -> ret {
+                ..
+            }
+
+
+
+            pub fn new(a :f32, b : f32) -> Self {
+                std::println!("Mocked version of method {} was used", #name_str);
+                //since new is a constructor we must first initialize the mock object
+                let slf = Self {
+                    a : f32,
+                    b : PhantomData::new(),
+                    adt_mock_id : context::new_id()
+
+                    }
+                context::add_mock<(a: f32, b: f32), Self>()
+                if context::ctx_built_and_contains_id(&#mock_id_ident) {
+                    match context::run_mock::<(f32,f32), Self>(#mock_id_ident, #input_ident_tuple) {
+                        Ok(res) => res,
+                        Err(e) => match e {
+                            context::MockError::Other(e) => panic!("unexpected Error: {:?}", e),
+                            context::MockError::PredicateError(e) => panic!("{:?}", e.0),
+                            context::MockError::NoMatchingId => panic!("failed to find mock id"),
+                        }
+                    }
+                }
+              
+        }
+                
+            }        
+            pub fn on_call_new(ret : impl Fn<f32,f32> -> usize);
+            
+            pub fn create_predicate_for_new(expectation : impl Into<PredicateExampleNew>) -> PredicateExampleNew {
+                // initialize mock object
+            }
+
+            pub fn expect_new(expectation, ret, time_mod : Option<TimeModifier>) -> ret {
+                ..
+            }
+        
+    }
+
+´´´

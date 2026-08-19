@@ -7,6 +7,13 @@ mod tests {
         new_expectations::{Checkpoint, TimesModifier},
     };
 
+    /// Helper to create a ConditionDoublePointer from a closure.
+    fn cond<Input: 'static>(
+        f: Box<dyn Fn(&Input) -> PredicateResult<()> + 'static>,
+    ) -> ConditionDoublePointer {
+        ConditionDoublePointer::from_fn::<Input>(f)
+    }
+
     #[test]
     fn pointers1() {
         let a: Box<dyn Fn(&u32) -> PredicateResult<()> + 'static> =
@@ -41,13 +48,21 @@ mod tests {
         // Create a condition: input must equal 7
         let pred = cp.create_single::<u32>(
             &mock_id,
-            Box::new(|a| if *a == 7 { Ok(()) } else { Err("not 7".into()) }),
+            cond::<u32>(Box::new(
+                |a| if *a == 7 { Ok(()) } else { Err("not 7".into()) },
+            )),
         );
-        // Wrap with Times(1) for once-only semantics
-        let pred_once = cp.times(pred, TimesModifier::Once);
+        // Wrap with times_arena(1) for once-only semantics
+        let pred_once = cp.times_arena(pred, TimesModifier::Once);
 
         // Commit with a return value
-        cp.expect::<u32, Foo>(&mock_id, pred_once, Some(Box::new(|a: u32| Foo(a * 10))));
+        cp.expect::<u32, Foo>(
+            &mock_id,
+            pred_once,
+            Some(ReturnValDoublePointer::from_fn::<u32, Foo>(Box::new(
+                |a: u32| Foo(a * 10),
+            ))),
+        );
 
         // Evaluate — should match
         let result: Option<Foo> = unsafe { cp.evaluate::<u32, Foo>(&mock_id, 7).unwrap() };
@@ -67,24 +82,38 @@ mod tests {
         // First expectation: input == 7
         let pred1 = cp.create_single::<u32>(
             &mock_id,
-            Box::new(|a| if *a == 7 { Ok(()) } else { Err("not 7".into()) }),
+            cond::<u32>(Box::new(
+                |a| if *a == 7 { Ok(()) } else { Err("not 7".into()) },
+            )),
         );
-        let pred1_once = cp.times(pred1, TimesModifier::Once);
-        cp.expect::<u32, Foo>(&mock_id, pred1_once, Some(Box::new(|_: u32| Foo(100))));
+        let pred1_once = cp.times_arena(pred1, TimesModifier::Once);
+        cp.expect::<u32, Foo>(
+            &mock_id,
+            pred1_once,
+            Some(ReturnValDoublePointer::from_fn::<u32, Foo>(Box::new(
+                |_: u32| Foo(100),
+            ))),
+        );
 
         // Second expectation: input == 42
         let pred2 = cp.create_single::<u32>(
             &mock_id,
-            Box::new(|a| {
+            cond::<u32>(Box::new(|a| {
                 if *a == 42 {
                     Ok(())
                 } else {
                     Err("not 42".into())
                 }
-            }),
+            })),
         );
-        let pred2_once = cp.times(pred2, TimesModifier::Once);
-        cp.expect::<u32, Foo>(&mock_id, pred2_once, Some(Box::new(|_: u32| Foo(200))));
+        let pred2_once = cp.times_arena(pred2, TimesModifier::Once);
+        cp.expect::<u32, Foo>(
+            &mock_id,
+            pred2_once,
+            Some(ReturnValDoublePointer::from_fn::<u32, Foo>(Box::new(
+                |_: u32| Foo(200),
+            ))),
+        );
 
         // First call: 7 matches pred1
         let result: Foo = unsafe { cp.evaluate::<u32, Foo>(&mock_id, 7).unwrap().unwrap() };
@@ -107,27 +136,37 @@ mod tests {
         // Foo expectation: input == 7
         let pred_foo = cp.create_single::<u32>(
             &mock_foo,
-            Box::new(|a| if *a == 7 { Ok(()) } else { Err("not 7".into()) }),
+            cond::<u32>(Box::new(
+                |a| if *a == 7 { Ok(()) } else { Err("not 7".into()) },
+            )),
         );
-        let pred_foo_once = cp.times(pred_foo, TimesModifier::Once);
-        cp.expect::<u32, Foo>(&mock_foo, pred_foo_once, Some(Box::new(|_: u32| Foo(42))));
+        let pred_foo_once = cp.times_arena(pred_foo, TimesModifier::Once);
+        cp.expect::<u32, Foo>(
+            &mock_foo,
+            pred_foo_once,
+            Some(ReturnValDoublePointer::from_fn::<u32, Foo>(Box::new(
+                |_: u32| Foo(42),
+            ))),
+        );
 
         // Bar expectation: input == "hello"
         let pred_bar = cp.create_single::<String>(
             &mock_bar,
-            Box::new(|a| {
+            cond::<String>(Box::new(|a| {
                 if a == "hello" {
                     Ok(())
                 } else {
                     Err("not hello".into())
                 }
-            }),
+            })),
         );
-        let pred_bar_once = cp.times(pred_bar, TimesModifier::Once);
+        let pred_bar_once = cp.times_arena(pred_bar, TimesModifier::Once);
         cp.expect::<String, Bar>(
             &mock_bar,
             pred_bar_once,
-            Some(Box::new(|_: String| Bar("goodbye".into()))),
+            Some(ReturnValDoublePointer::from_fn::<String, Bar>(Box::new(
+                |_: String| Bar("goodbye".into()),
+            ))),
         );
 
         // Run foo
@@ -150,11 +189,17 @@ mod tests {
 
         let pred = cp.create_single::<u32>(
             &mock_id,
-            Box::new(|_| Ok(())), // always matches
+            cond::<u32>(Box::new(|_| Ok(()))), // always matches
         );
-        // Wrap with Times(Any) for unlimited calls
-        let pred_any = cp.times(pred, TimesModifier::Any);
-        cp.expect::<u32, u32>(&mock_id, pred_any, Some(Box::new(|x: u32| x + 1)));
+        // Wrap with times_arena(Any) for unlimited calls
+        let pred_any = cp.times_arena(pred, TimesModifier::Any);
+        cp.expect::<u32, u32>(
+            &mock_id,
+            pred_any,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x + 1,
+            ))),
+        );
 
         // Can call many times
         for i in 0..2 {
@@ -171,18 +216,28 @@ mod tests {
         // Condition: > 5
         let gt5 = cp.create_single::<u32>(
             &mock_id,
-            Box::new(|a| if *a > 5 { Ok(()) } else { Err("> 5".into()) }),
+            cond::<u32>(Box::new(
+                |a| if *a > 5 { Ok(()) } else { Err("> 5".into()) },
+            )),
         );
         // Condition: < 10
         let lt10 = cp.create_single::<u32>(
             &mock_id,
-            Box::new(|a| if *a < 10 { Ok(()) } else { Err("< 10".into()) }),
+            cond::<u32>(Box::new(
+                |a| if *a < 10 { Ok(()) } else { Err("< 10".into()) },
+            )),
         );
 
         // AND: must be > 5 AND < 10
         let combined = cp.and(vec![gt5, lt10]);
-        let combined_any = cp.times(combined, TimesModifier::Any);
-        cp.expect::<u32, bool>(&mock_id, combined_any, Some(Box::new(|_: u32| true)));
+        let combined_any = cp.times_arena(combined, TimesModifier::Any);
+        cp.expect::<u32, bool>(
+            &mock_id,
+            combined_any,
+            Some(ReturnValDoublePointer::from_fn::<u32, bool>(Box::new(
+                |_: u32| true,
+            ))),
+        );
 
         // 7 passes both
         let result = unsafe { cp.evaluate::<u32, bool>(&mock_id, 7) };
@@ -205,17 +260,27 @@ mod tests {
         // Condition: == 1
         let eq1 = cp.create_single::<u32>(
             &mock_id,
-            Box::new(|a| if *a == 1 { Ok(()) } else { Err("!= 1".into()) }),
+            cond::<u32>(Box::new(
+                |a| if *a == 1 { Ok(()) } else { Err("!= 1".into()) },
+            )),
         );
         // Condition: == 2
         let eq2 = cp.create_single::<u32>(
             &mock_id,
-            Box::new(|a| if *a == 2 { Ok(()) } else { Err("!= 2".into()) }),
+            cond::<u32>(Box::new(
+                |a| if *a == 2 { Ok(()) } else { Err("!= 2".into()) },
+            )),
         );
 
         let combined = cp.or(vec![eq1, eq2]);
-        let combined_any = cp.times(combined, TimesModifier::Any);
-        cp.expect::<u32, bool>(&mock_id, combined_any, Some(Box::new(|_: u32| true)));
+        let combined_any = cp.times_arena(combined, TimesModifier::Any);
+        cp.expect::<u32, bool>(
+            &mock_id,
+            combined_any,
+            Some(ReturnValDoublePointer::from_fn::<u32, bool>(Box::new(
+                |_: u32| true,
+            ))),
+        );
 
         // 1 or 2 should pass
         assert!(unsafe {
@@ -234,13 +299,13 @@ mod tests {
 
         let pred = cp.create_single::<u32>(
             &mock_id,
-            Box::new(|a| {
+            cond::<u32>(Box::new(|a| {
                 if *a == 99 {
                     Ok(())
                 } else {
                     Err("not 99".into())
                 }
-            }),
+            })),
         );
         cp.name_predicate("my_pred", pred).unwrap();
 
@@ -249,7 +314,7 @@ mod tests {
         assert_eq!(resolved, Some(pred));
 
         // Duplicate name should error
-        let pred2 = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
+        let pred2 = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
         assert!(cp.name_predicate("my_pred", pred2).is_err());
     }
 
@@ -260,8 +325,8 @@ mod tests {
         let mut cp = Checkpoint::new();
 
         // Create predicates
-        let pred_a = cp.create_single::<u32>(&mock_a, Box::new(|_| Ok(())));
-        let pred_b = cp.create_single::<u32>(&mock_b, Box::new(|_| Ok(())));
+        let pred_a = cp.create_single::<u32>(&mock_a, cond::<u32>(Box::new(|_| Ok(()))));
+        let pred_b = cp.create_single::<u32>(&mock_b, cond::<u32>(Box::new(|_| Ok(()))));
 
         // Create sequence: a then b
         let seq = cp.create_sequence(2, TimesModifier::Once);
@@ -293,8 +358,8 @@ mod tests {
         let mock_b = MockId::new("b");
         let mut cp = Checkpoint::new();
 
-        let pred_a = cp.create_single::<u32>(&mock_a, Box::new(|_| Ok(())));
-        let pred_b = cp.create_single::<u32>(&mock_b, Box::new(|_| Ok(())));
+        let pred_a = cp.create_single::<u32>(&mock_a, cond::<u32>(Box::new(|_| Ok(()))));
+        let pred_b = cp.create_single::<u32>(&mock_b, cond::<u32>(Box::new(|_| Ok(()))));
 
         let seq = cp.create_sequence(2, TimesModifier::Once);
         cp.set_sequence_step::<u32, u32>(seq, 0, &mock_a, pred_a, Some(Box::new(|x| x)))
@@ -315,7 +380,7 @@ mod tests {
         let mock_a = MockId::new("a");
         let mut cp = Checkpoint::new();
 
-        let pred = cp.create_single::<u32>(&mock_a, Box::new(|_| Ok(())));
+        let pred = cp.create_single::<u32>(&mock_a, cond::<u32>(Box::new(|_| Ok(()))));
 
         let seq = cp.create_sequence(3, TimesModifier::Once);
         // Fill slot 0
@@ -331,9 +396,15 @@ mod tests {
         let mock_id = MockId::new("foo");
         let mut cp = Checkpoint::new();
 
-        let pred = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-        let pred_once = cp.times(pred, TimesModifier::Once);
-        cp.expect::<u32, u32>(&mock_id, pred_once, Some(Box::new(|x: u32| x)));
+        let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+        let pred_once = cp.times_arena(pred, TimesModifier::Once);
+        cp.expect::<u32, u32>(
+            &mock_id,
+            pred_once,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
+        );
 
         // Not complete yet
         assert!(!cp.is_complete());
@@ -363,8 +434,12 @@ mod tests {
 
         add_expectation::<u32, Foo>(
             &mock_id,
-            Box::new(|a| if *a == 5 { Ok(()) } else { Err("not 5".into()) }),
-            Some(Box::new(|x: u32| Foo(x * 2))),
+            cond::<u32>(Box::new(
+                |a| if *a == 5 { Ok(()) } else { Err("not 5".into()) },
+            )),
+            Some(ReturnValDoublePointer::from_fn::<u32, Foo>(Box::new(
+                |x: u32| Foo(x * 2),
+            ))),
             None,
             TimesModifier::Once,
         )
@@ -389,17 +464,31 @@ mod tests {
         // Dependency expectation: only matches input == 1, once
         let dep = cp.create_single::<u32>(
             &mock_id,
-            Box::new(|a| if *a == 1 { Ok(()) } else { Err("not 1".into()) }),
+            cond::<u32>(Box::new(
+                |a| if *a == 1 { Ok(()) } else { Err("not 1".into()) },
+            )),
         );
-        let dep_once = cp.times(dep, TimesModifier::Once);
-        cp.expect::<u32, u32>(&mock_id, dep_once, Some(Box::new(|x: u32| x)));
+        let dep_once = cp.times_arena(dep, TimesModifier::Once);
+        cp.expect::<u32, u32>(
+            &mock_id,
+            dep_once,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
+        );
         // dep expectation is at index 0 for mock_id "test"
 
         // Guarded predicate: matches any input, but only after dep expectation is completed
-        let guarded_inner = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
+        let guarded_inner = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
         let guarded = cp.after((mock_id.clone(), 0), guarded_inner);
-        let guarded_once = cp.times(guarded, TimesModifier::Once);
-        cp.expect::<u32, u32>(&mock_id, guarded_once, Some(Box::new(|x: u32| x * 10)));
+        let guarded_once = cp.times_arena(guarded, TimesModifier::Once);
+        cp.expect::<u32, u32>(
+            &mock_id,
+            guarded_once,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x * 10,
+            ))),
+        );
 
         // Try to trigger the guarded expectation before dep is satisfied — should fail
         // Input 99 won't match dep (needs 1), and guarded won't fire (dep not completed)
@@ -423,20 +512,27 @@ mod tests {
 
     #[test]
     fn nested_times_is_multiplicative() {
-        // Verify that Times(n, Times(m, a)) allows exactly n*m calls,
-        // same as Times(n*m, a). Cardinality lives entirely in the predicate tree.
+        // Verify that times_arena(n, Times(m, a)) allows exactly n*m calls,
+        // same as times_arena(n*m, a). Cardinality lives entirely in the predicate tree.
         let n = 3u32;
         let m = 2u32;
 
-        // ─── Nested: Times(n, Times(m, a)) ───
+        // ─── Nested: times_arena(n, Times(m, a)) ───
         let mock_id = MockId::new("nested");
         let mut cp_nested = Checkpoint::new();
 
-        let inner_pred = cp_nested.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-        let times_m = cp_nested.times(inner_pred, TimesModifier::Times(m));
-        let times_n_m = cp_nested.times(times_m, TimesModifier::Times(n));
+        let inner_pred =
+            cp_nested.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+        let times_m = cp_nested.times_arena(inner_pred, TimesModifier::Times(m));
+        let times_n_m = cp_nested.times_arena(times_m, TimesModifier::Times(n));
 
-        cp_nested.expect::<u32, u32>(&mock_id, times_n_m, Some(Box::new(|x: u32| x + 1)));
+        cp_nested.expect::<u32, u32>(
+            &mock_id,
+            times_n_m,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x + 1,
+            ))),
+        );
 
         let mut nested_count = 0u32;
         for i in 0..20 {
@@ -446,14 +542,20 @@ mod tests {
             }
         }
 
-        // ─── Flat: Times(n*m, a) ───
+        // ─── Flat: times_arena(n*m, a) ───
         let mock_id2 = MockId::new("flat");
         let mut cp_flat = Checkpoint::new();
 
-        let flat_pred = cp_flat.create_single::<u32>(&mock_id2, Box::new(|_| Ok(())));
-        let times_nm = cp_flat.times(flat_pred, TimesModifier::Times(n * m));
+        let flat_pred = cp_flat.create_single::<u32>(&mock_id2, cond::<u32>(Box::new(|_| Ok(()))));
+        let times_nm = cp_flat.times_arena(flat_pred, TimesModifier::Times(n * m));
 
-        cp_flat.expect::<u32, u32>(&mock_id2, times_nm, Some(Box::new(|x: u32| x + 1)));
+        cp_flat.expect::<u32, u32>(
+            &mock_id2,
+            times_nm,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x + 1,
+            ))),
+        );
 
         let mut flat_count = 0u32;
         for i in 0..20 {
@@ -466,20 +568,20 @@ mod tests {
         assert_eq!(
             nested_count,
             n * m,
-            "Times({n}, Times({m}, a)) should allow exactly {n}*{m} = {} calls",
+            "times_arena({n}, Times({m}, a)) should allow exactly {n}*{m} = {} calls",
             n * m
         );
         assert_eq!(
             flat_count,
             n * m,
-            "Times({}, a) should allow exactly {} calls",
+            "times_arena({}, a) should allow exactly {} calls",
             n * m,
             n * m
         );
         assert_eq!(
             nested_count,
             flat_count,
-            "nested Times({n}, Times({m}, a)) should equal flat Times({}, a)",
+            "nested times_arena({n}, Times({m}, a)) should equal flat Times({}, a)",
             n * m
         );
     }
@@ -495,15 +597,15 @@ mod tests {
     //
     // Nestings fall into two categories:
     //   1. Productive: inner doesn't start completed. Requires real calls.
-    //      E.g. Times(n, Times(m, P)), AtLeast(n, Times(m, P)), AtMost(n, Times(m, P))
+    //      E.g. times_arena(n, Times(m, P)), AtLeast(n, Times(m, P)), AtMost(n, Times(m, P))
     //   2. Degenerate: inner starts completed (Any, AtMost have min=0).
     //      Outer cycles through phantom iterations at construction time.
-    //      E.g. Times(n, Any(P)), AtLeast(n, AtMost(m, P))
+    //      E.g. times_arena(n, Any(P)), AtLeast(n, AtMost(m, P))
 
     #[test]
     fn times_atleast_is_productive_and_bounded() {
-        // Times(n, AtLeast(m, P)): inner completes after m calls, outer needs n
-        // completions → requires n×m calls. Times(n) exhausts at n completions
+        // times_arena(n, AtLeast(m, P)): inner completes after m calls, outer needs n
+        // completions → requires n×m calls. times_arena(n) exhausts at n completions
         // → exactly n×m calls accepted.
         let n = 2u32;
         let m = 3u32;
@@ -511,16 +613,22 @@ mod tests {
         let mock_id = MockId::new("test");
         let mut cp = Checkpoint::new();
 
-        let pred = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-        let atleast_m = cp.times(pred, TimesModifier::AtLeast(m));
-        let times_n_atleast = cp.times(atleast_m, TimesModifier::Times(n));
+        let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+        let atleast_m = cp.times_arena(pred, TimesModifier::AtLeast(m));
+        let times_n_atleast = cp.times_arena(atleast_m, TimesModifier::Times(n));
 
-        cp.expect::<u32, u32>(&mock_id, times_n_atleast, Some(Box::new(|x: u32| x)));
+        cp.expect::<u32, u32>(
+            &mock_id,
+            times_n_atleast,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
+        );
 
         // Not complete at birth (inner requires real calls)
         assert!(
             !cp.is_complete(),
-            "Times({n}, AtLeast({m}, P)) should NOT be complete at birth"
+            "times_arena({n}, AtLeast({m}, P)) should NOT be complete at birth"
         );
 
         // After n*m calls, should be complete and exhausted
@@ -530,22 +638,22 @@ mod tests {
         }
         assert!(
             cp.is_complete(),
-            "Times({n}, AtLeast({m}, P)) should be complete after {} calls",
+            "times_arena({n}, AtLeast({m}, P)) should be complete after {} calls",
             n * m
         );
 
-        // Next call should fail (Times(n) exhausted)
+        // Next call should fail (times_arena(n) exhausted)
         let result = unsafe { cp.evaluate::<u32, u32>(&mock_id, 99) };
         assert!(
             result.is_err(),
-            "Times({n}, AtLeast({m}, P)) should exhaust after {} calls",
+            "times_arena({n}, AtLeast({m}, P)) should exhaust after {} calls",
             n * m
         );
     }
 
     #[test]
     fn times_atmost_is_degenerate() {
-        // Times(n, AtMost(m, P)): AtMost starts completed (0 ≤ m), so the outer
+        // times_arena(n, AtMost(m, P)): AtMost starts completed (0 ≤ m), so the outer
         // loops at construction. If n ≤ m, all n cycles succeed → completed +
         // exhausted at birth. If n > m, inner exhausts before outer finishes →
         // not completed + exhausted (failed).
@@ -558,20 +666,26 @@ mod tests {
             let mock_id = MockId::new("test");
             let mut cp = Checkpoint::new();
 
-            let pred = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-            let atmost_m = cp.times(pred, TimesModifier::AtMost(m));
-            let times_n_atmost = cp.times(atmost_m, TimesModifier::Times(n));
+            let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+            let atmost_m = cp.times_arena(pred, TimesModifier::AtMost(m));
+            let times_n_atmost = cp.times_arena(atmost_m, TimesModifier::Times(n));
 
-            cp.expect::<u32, u32>(&mock_id, times_n_atmost, Some(Box::new(|x: u32| x)));
+            cp.expect::<u32, u32>(
+                &mock_id,
+                times_n_atmost,
+                Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                    |x: u32| x,
+                ))),
+            );
 
             assert!(
                 cp.is_complete(),
-                "Times({n}, AtMost({m}, P)) with n≤m should be immediately complete"
+                "times_arena({n}, AtMost({m}, P)) with n≤m should be immediately complete"
             );
             let result = unsafe { cp.evaluate::<u32, u32>(&mock_id, 0) };
             assert!(
                 result.is_err(),
-                "Times({n}, AtMost({m}, P)) should be exhausted at birth"
+                "times_arena({n}, AtMost({m}, P)) should be exhausted at birth"
             );
         }
 
@@ -583,27 +697,33 @@ mod tests {
             let mock_id = MockId::new("test");
             let mut cp = Checkpoint::new();
 
-            let pred = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-            let atmost_m = cp.times(pred, TimesModifier::AtMost(m));
-            let times_n_atmost = cp.times(atmost_m, TimesModifier::Times(n));
+            let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+            let atmost_m = cp.times_arena(pred, TimesModifier::AtMost(m));
+            let times_n_atmost = cp.times_arena(atmost_m, TimesModifier::Times(n));
 
-            cp.expect::<u32, u32>(&mock_id, times_n_atmost, Some(Box::new(|x: u32| x)));
+            cp.expect::<u32, u32>(
+                &mock_id,
+                times_n_atmost,
+                Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                    |x: u32| x,
+                ))),
+            );
 
             assert!(
                 !cp.is_complete(),
-                "Times({n}, AtMost({m}, P)) with n>m should NOT be complete (failed)"
+                "times_arena({n}, AtMost({m}, P)) with n>m should NOT be complete (failed)"
             );
             let result = unsafe { cp.evaluate::<u32, u32>(&mock_id, 0) };
             assert!(
                 result.is_err(),
-                "Times({n}, AtMost({m}, P)) with n>m should be exhausted"
+                "times_arena({n}, AtMost({m}, P)) with n>m should be exhausted"
             );
         }
     }
 
     #[test]
     fn atleast_times_is_productive_and_unlimited() {
-        // AtLeast(n, Times(m, P)): inner completes after m calls. Outer needs n
+        // AtLeast(n, times_arena(m, P)): inner completes after m calls. Outer needs n
         // completions = n×m calls to satisfy. AtLeast never exhausts → unlimited.
         let n = 2u32;
         let m = 3u32;
@@ -611,16 +731,22 @@ mod tests {
         let mock_id = MockId::new("test");
         let mut cp = Checkpoint::new();
 
-        let pred = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-        let times_m = cp.times(pred, TimesModifier::Times(m));
-        let atleast_n_times = cp.times(times_m, TimesModifier::AtLeast(n));
+        let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+        let times_m = cp.times_arena(pred, TimesModifier::Times(m));
+        let atleast_n_times = cp.times_arena(times_m, TimesModifier::AtLeast(n));
 
-        cp.expect::<u32, u32>(&mock_id, atleast_n_times, Some(Box::new(|x: u32| x)));
+        cp.expect::<u32, u32>(
+            &mock_id,
+            atleast_n_times,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
+        );
 
         // Not complete at birth
         assert!(
             !cp.is_complete(),
-            "AtLeast({n}, Times({m}, P)) should NOT be complete at birth"
+            "AtLeast({n}, times_arena({m}, P)) should NOT be complete at birth"
         );
 
         // After n*m calls, should be complete
@@ -630,7 +756,7 @@ mod tests {
         }
         assert!(
             cp.is_complete(),
-            "AtLeast({n}, Times({m}, P)) should be complete after {} calls",
+            "AtLeast({n}, times_arena({m}, P)) should be complete after {} calls",
             n * m
         );
 
@@ -639,7 +765,7 @@ mod tests {
             let result = unsafe { cp.evaluate::<u32, u32>(&mock_id, i) };
             assert!(
                 result.is_ok(),
-                "AtLeast({n}, Times({m}, P)) should accept unlimited calls, failed at extra call {i}"
+                "AtLeast({n}, times_arena({m}, P)) should accept unlimited calls, failed at extra call {i}"
             );
         }
     }
@@ -655,11 +781,17 @@ mod tests {
         let mock_id = MockId::new("test");
         let mut cp = Checkpoint::new();
 
-        let pred = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-        let atmost_m = cp.times(pred, TimesModifier::AtMost(m));
-        let atleast_n_atmost = cp.times(atmost_m, TimesModifier::AtLeast(n));
+        let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+        let atmost_m = cp.times_arena(pred, TimesModifier::AtMost(m));
+        let atleast_n_atmost = cp.times_arena(atmost_m, TimesModifier::AtLeast(n));
 
-        cp.expect::<u32, u32>(&mock_id, atleast_n_atmost, Some(Box::new(|x: u32| x)));
+        cp.expect::<u32, u32>(
+            &mock_id,
+            atleast_n_atmost,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
+        );
 
         // Immediately complete
         assert!(
@@ -679,8 +811,8 @@ mod tests {
 
     #[test]
     fn atmost_times_is_productive_and_bounded() {
-        // AtMost(n, Times(m, P)): AtMost starts completed (min=0). Inner Times(m)
-        // requires m calls to complete. Since Times(m) exhausts, outer exhausts
+        // AtMost(n, times_arena(m, P)): AtMost starts completed (min=0). Inner Times(m)
+        // requires m calls to complete. Since times_arena(m) exhausts, outer exhausts
         // at n completions → exactly n×m calls accepted.
         let n = 3u32;
         let m = 2u32;
@@ -688,16 +820,22 @@ mod tests {
         let mock_id = MockId::new("test");
         let mut cp = Checkpoint::new();
 
-        let pred = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-        let times_m = cp.times(pred, TimesModifier::Times(m));
-        let atmost_n_times = cp.times(times_m, TimesModifier::AtMost(n));
+        let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+        let times_m = cp.times_arena(pred, TimesModifier::Times(m));
+        let atmost_n_times = cp.times_arena(times_m, TimesModifier::AtMost(n));
 
-        cp.expect::<u32, u32>(&mock_id, atmost_n_times, Some(Box::new(|x: u32| x)));
+        cp.expect::<u32, u32>(
+            &mock_id,
+            atmost_n_times,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
+        );
 
         // Immediately complete (AtMost: 0 ≤ n)
         assert!(
             cp.is_complete(),
-            "AtMost({n}, Times({m}, P)) should be immediately complete"
+            "AtMost({n}, times_arena({m}, P)) should be immediately complete"
         );
 
         // Should accept exactly n*m calls
@@ -710,7 +848,7 @@ mod tests {
         let result = unsafe { cp.evaluate::<u32, u32>(&mock_id, 99) };
         assert!(
             result.is_err(),
-            "AtMost({n}, Times({m}, P)) should exhaust after {} calls",
+            "AtMost({n}, times_arena({m}, P)) should exhaust after {} calls",
             n * m
         );
     }
@@ -726,11 +864,17 @@ mod tests {
         let mock_id = MockId::new("test");
         let mut cp = Checkpoint::new();
 
-        let pred = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-        let atleast_m = cp.times(pred, TimesModifier::AtLeast(m));
-        let atmost_n_atleast = cp.times(atleast_m, TimesModifier::AtMost(n));
+        let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+        let atleast_m = cp.times_arena(pred, TimesModifier::AtLeast(m));
+        let atmost_n_atleast = cp.times_arena(atleast_m, TimesModifier::AtMost(n));
 
-        cp.expect::<u32, u32>(&mock_id, atmost_n_atleast, Some(Box::new(|x: u32| x)));
+        cp.expect::<u32, u32>(
+            &mock_id,
+            atmost_n_atleast,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
+        );
 
         // Immediately complete (AtMost min=0)
         assert!(
@@ -758,18 +902,24 @@ mod tests {
 
     #[test]
     fn once_atleast_is_productive_and_bounded() {
-        // Once(AtLeast(m, P)) = Times(1, AtLeast(m, P)): requires m calls to
+        // Once(AtLeast(m, P)) = times_arena(1, AtLeast(m, P)): requires m calls to
         // complete. Once exhausts after 1 completion → exactly m calls.
         let m = 4u32;
 
         let mock_id = MockId::new("test");
         let mut cp = Checkpoint::new();
 
-        let pred = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-        let atleast_m = cp.times(pred, TimesModifier::AtLeast(m));
-        let once_atleast = cp.times(atleast_m, TimesModifier::Once);
+        let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+        let atleast_m = cp.times_arena(pred, TimesModifier::AtLeast(m));
+        let once_atleast = cp.times_arena(atleast_m, TimesModifier::Once);
 
-        cp.expect::<u32, u32>(&mock_id, once_atleast, Some(Box::new(|x: u32| x)));
+        cp.expect::<u32, u32>(
+            &mock_id,
+            once_atleast,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
+        );
 
         // Not complete yet
         assert!(!cp.is_complete());
@@ -793,36 +943,42 @@ mod tests {
 
     #[test]
     fn never_times_is_immediately_exhausted() {
-        // Never(Times(m, P)): Never means "must be satisfied 0 times". It starts
+        // Never(times_arena(m, P)): Never means "must be satisfied 0 times". It starts
         // completed (0 == 0) and exhausted (no calls allowed). The inner is irrelevant.
         let m = 3u32;
 
         let mock_id = MockId::new("test");
         let mut cp = Checkpoint::new();
 
-        let pred = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-        let times_m = cp.times(pred, TimesModifier::Times(m));
-        let never_times = cp.times(times_m, TimesModifier::Never);
+        let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+        let times_m = cp.times_arena(pred, TimesModifier::Times(m));
+        let never_times = cp.times_arena(times_m, TimesModifier::Never);
 
-        cp.expect::<u32, u32>(&mock_id, never_times, Some(Box::new(|x: u32| x)));
+        cp.expect::<u32, u32>(
+            &mock_id,
+            never_times,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
+        );
 
         // Immediately complete and exhausted
         assert!(
             cp.is_complete(),
-            "Never(Times({m}, P)) should be immediately complete"
+            "Never(times({m}, P)) should be immediately complete"
         );
 
         // No calls accepted
         let result = unsafe { cp.evaluate::<u32, u32>(&mock_id, 1) };
         assert!(
             result.is_err(),
-            "Never(Times({m}, P)) should reject all calls"
+            "Never(times({m}, P)) should reject all calls"
         );
     }
 
     #[test]
     fn times_any_exhausts_after_n() {
-        // Times(n, Any(P)): Any(P) starts completed (no minimum), so the outer
+        // times_arena(n, Any(P)): Any(P) starts completed (no minimum), so the outer
         // loops n times at construction → completed + exhausted immediately.
         // No runtime calls are accepted.
         let n = 3u32;
@@ -830,46 +986,58 @@ mod tests {
         let mock_id = MockId::new("times_any");
         let mut cp = Checkpoint::new();
 
-        let pred = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-        let any_pred = cp.times(pred, TimesModifier::Any);
-        let times_n_any = cp.times(any_pred, TimesModifier::Times(n));
+        let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+        let any_pred = cp.times_arena(pred, TimesModifier::Any);
+        let times_n_any = cp.times_arena(any_pred, TimesModifier::Times(n));
 
-        cp.expect::<u32, u32>(&mock_id, times_n_any, Some(Box::new(|x: u32| x)));
+        cp.expect::<u32, u32>(
+            &mock_id,
+            times_n_any,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
+        );
 
         // Immediately complete and exhausted
         assert!(
             cp.is_complete(),
-            "Times({n}, Any(P)) should be immediately complete"
+            "times({n}, Any(P)) should be immediately complete"
         );
 
         // No calls accepted (already exhausted)
         let result = unsafe { cp.evaluate::<u32, u32>(&mock_id, 0) };
         assert!(
             result.is_err(),
-            "Times({n}, Any(P)) should be exhausted at birth, rejecting all calls"
+            "times({n}, Any(P)) should be exhausted at birth, rejecting all calls"
         );
     }
 
     #[test]
     fn any_times_is_unlimited() {
-        // Any(Times(n, P)): Any has no minimum → immediately complete. Any never
-        // exhausts → unlimited calls. Inner Times(n) cycles: accepts n calls,
+        // Any(times_arena(n, P)): Any has no minimum → immediately complete. Any never
+        // exhausts → unlimited calls. Inner times_arena(n) cycles: accepts n calls,
         // exhausts, gets reset by outer. Repeats indefinitely.
         let n = 3u32;
 
         let mock_id = MockId::new("any_times");
         let mut cp = Checkpoint::new();
 
-        let pred = cp.create_single::<u32>(&mock_id, Box::new(|_| Ok(())));
-        let times_n = cp.times(pred, TimesModifier::Times(n));
-        let any_times = cp.times(times_n, TimesModifier::Any);
+        let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
+        let times_n = cp.times_arena(pred, TimesModifier::Times(n));
+        let any_times = cp.times_arena(times_n, TimesModifier::Any);
 
-        cp.expect::<u32, u32>(&mock_id, any_times, Some(Box::new(|x: u32| x)));
+        cp.expect::<u32, u32>(
+            &mock_id,
+            any_times,
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
+        );
 
         // Immediately complete (Any has no minimum)
         assert!(
             cp.is_complete(),
-            "Any(Times({n}, P)) should be immediately complete"
+            "Any(times({n}, P)) should be immediately complete"
         );
 
         // Accepts unlimited calls (Any never exhausts, inner Times resets each cycle)
@@ -878,7 +1046,7 @@ mod tests {
             let result = unsafe { cp.evaluate::<u32, u32>(&mock_id, i) };
             assert!(
                 result.is_ok(),
-                "Any(Times({n}, P)) should accept unlimited calls, failed at call {i}"
+                "Any(times({n}, P)) should accept unlimited calls, failed at call {i}"
             );
         }
     }

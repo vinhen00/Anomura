@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ConditionDoublePointer, MockId, ReturnValDoublePointer,
+    ConditionDoublePointer, MockId, ReturnValDoublePointer, closure_wrappers,
     errors::{PredicateResult, Result},
     mock::MockHead,
 };
@@ -187,7 +187,18 @@ pub struct Predicate {
     pub kind: PredicateKind,
     pub state: PredicateState,
 }
-
+impl Predicate {
+    pub fn create_single<Input>(
+        mock_id: &MockId,
+        condition: closure_wrappers::ConditionDoublePointer,
+    ) -> Predicate {
+        let single = SingleExpectation {
+            mock_id: mock_id.clone(),
+            condition,
+        };
+        Predicate::new(PredicateKind::Single(single))
+    }
+}
 /// Runtime state kept separate from structure so the same logical shape
 /// can be reasoned about independently of execution progress.
 pub struct PredicateState {
@@ -281,7 +292,10 @@ impl PredicateState {
                     // This lets bounded inners (AtMost) track consumed capacity.
                     inner.state.call_count += 1;
                     let ic = inner.state.call_count;
-                    if let PredicateKind::Times { modifier: ref m, .. } = inner.kind {
+                    if let PredicateKind::Times {
+                        modifier: ref m, ..
+                    } = inner.kind
+                    {
                         inner.state.completed = match m {
                             TimesModifier::Once => ic >= 1,
                             TimesModifier::Times(n) => ic >= *n,
@@ -505,6 +519,12 @@ impl GlobalContext {
     }
 }
 
+impl Default for GlobalContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct Checkpoint {
     /// The arena holding all predicates for this checkpoint.
     /// Logical combinators reference other predicates by PredicateIndex into this arena.
@@ -634,7 +654,7 @@ impl Checkpoint {
         &mut self,
         mock_id: &MockId,
         predicate: PredicateIndex,
-        return_val_closure: Option<Box<dyn Fn(Input) -> ReturnVal>>,
+        return_val_closure: Option<ReturnValDoublePointer>,
     ) {
         // Read initial state from the root predicate in the arena.
         let (completed, exhausted) = self
@@ -645,7 +665,7 @@ impl Checkpoint {
 
         let root = Expectation {
             predicate,
-            return_val: return_val_closure.map(|c| ReturnValDoublePointer::from_fn(c)),
+            return_val: return_val_closure,
             completed,
             exhausted,
         };
@@ -662,11 +682,11 @@ impl Checkpoint {
     pub fn create_single<Input>(
         &mut self,
         mock_id: &MockId,
-        condition: Box<dyn Fn(&Input) -> PredicateResult<()> + 'static>,
+        condition: closure_wrappers::ConditionDoublePointer,
     ) -> PredicateIndex {
         let single = SingleExpectation {
             mock_id: mock_id.clone(),
-            condition: ConditionDoublePointer::from_fn(condition),
+            condition,
         };
         self.arena
             .insert(Predicate::new(PredicateKind::Single(single)))
@@ -677,9 +697,9 @@ impl Checkpoint {
         &mut self,
         name: impl Into<PredicateName>,
         mock_id: &MockId,
-        condition: Box<dyn Fn(&Input) -> PredicateResult<()> + 'static>,
+        condition: ConditionDoublePointer,
     ) -> Result<PredicateIndex> {
-        let index = self.create_single(mock_id, condition);
+        let index = self.create_single::<Input>(mock_id, condition);
         self.name_predicate(name, index)
     }
 
@@ -754,15 +774,23 @@ impl Checkpoint {
 
     /// Wrap a predicate with a cardinality constraint (within the predicate tree).
     /// Consumes the inner predicate from the arena.
-    pub fn times(&mut self, inner: PredicateIndex, modifier: TimesModifier) -> PredicateIndex {
+    pub fn times(&mut self, inner: Predicate, modifier: TimesModifier) -> Predicate {
+        let predicate = Predicate::new(PredicateKind::Times {
+            inner: Box::new(inner),
+            modifier,
+        });
+        predicate
+    }
+    pub fn times_arena(
+        &mut self,
+        inner: PredicateIndex,
+        modifier: TimesModifier,
+    ) -> PredicateIndex {
         let child = self
             .arena
             .take(inner)
             .expect("predicate already consumed or invalid");
-        let predicate = Predicate::new(PredicateKind::Times {
-            inner: Box::new(child),
-            modifier,
-        });
+        let predicate = self.times(child, modifier);
         self.arena.insert(predicate)
     }
 
@@ -1433,6 +1461,12 @@ impl Checkpoint {
             .filter(|(_, seq)| !seq.is_completed())
             .map(|(i, _)| SequenceIdx(i as u32))
             .collect()
+    }
+}
+
+impl Default for Checkpoint {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
