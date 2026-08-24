@@ -58,6 +58,19 @@ impl ReturnValDoublePointer {
         let cloref: &mut dyn Fn(Input) -> ReturnVal = unsafe { *wraref };
         cloref
     }
+
+    /// # Safety
+    /// Special drop that should be operated by the AST instance.
+    ///
+    /// Will panic if called with the wrong type signature.
+    ///
+    /// Make sure that it is only called by a method/function tied to the expectations mock id.
+    pub unsafe fn id_drop<Input, ReturnVal>(self) {
+        let wrabox: Box<&mut (dyn Fn(Input) -> ReturnVal + 'static)> =
+            unsafe { Box::from_raw(self.thin_ptr as _) };
+        let _cloref: Box<dyn Fn(Input) -> ReturnVal> = unsafe { Box::from_raw(*wrabox) };
+        // the closure is dropped
+    }
 }
 
 #[derive(Debug, Clone)]

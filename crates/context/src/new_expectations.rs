@@ -1223,7 +1223,7 @@ impl Checkpoint {
             PredicateKind::Single(single) => {
                 match unsafe { single.check::<Input>(mock_id, input) } {
                     Ok(()) => Ok(true),
-                    Err(_) => Ok(false),
+                    Err(e) => Err(e.0.into()),
                 }
             }
 
@@ -1726,6 +1726,11 @@ impl Sequence {
 
             // Reset for next iteration
             self.run_state.as_mut().unwrap().current_step = 0;
+
+            // Reset all step predicates so they can match again in the next iteration
+            for step in self.steps.iter_mut() {
+                step.predicate.state = PredicateState::initial_for(&mut step.predicate.kind);
+            }
         }
 
         true

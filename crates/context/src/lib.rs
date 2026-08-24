@@ -1,5 +1,5 @@
 mod closure_wrappers;
-mod errors;
+pub mod errors;
 mod mock;
 pub mod mockable;
 pub mod new_expectations;
@@ -8,7 +8,6 @@ pub mod time_mod;
 #[cfg(test)]
 mod unit_tests;
 pub use crate::closure_wrappers::{ConditionDoublePointer, ReturnValDoublePointer};
-use crate::errors::PredicateResult;
 pub use crate::mock::MockId;
 use crate::mock::{MockHead, StrictnessKind};
 pub use crate::new_expectations::Expectation;
@@ -250,6 +249,29 @@ pub fn add_expectation_to_sequence<Input, ReturnVal>(
     })
 }
 
+/// Activate a named sequence in the active checkpoint.
+/// Must be called after `finish_building_context`.
+/// The sequence will hijack all mocks that appear in its steps.
+pub fn activate_sequence(
+    sequence_name: impl Into<SequenceName>,
+) -> Result<()> {
+    let sequence_name = sequence_name.into();
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Active(global_context) => {
+            let cp = global_context
+                .active_checkpoint_mut()
+                .ok_or_else(|| MockError::from("no active checkpoint"))?;
+
+            let seq_idx = cp
+                .resolve_sequence_name(&sequence_name)
+                .ok_or_else(|| format!("sequence '{}' not found", sequence_name.0))?;
+
+            cp.activate_sequence(seq_idx)
+        }
+        _ => panic!("activate_sequence called outside of active phase"),
+    })
+}
+
 // ─── Expectation operations ─────────────────────────────────────────────────
 
 /// Add an expectation to the specified (or latest) checkpoint.
@@ -333,9 +355,7 @@ pub fn latest_checkpoint(f: impl FnOnce(&Checkpoint)) {
             CtxState::Active(global_context) => global_context,
             CtxState::Processing => panic!("latest_checkpoint called during processing"),
         };
-        let cp = global
-            .latest_checkpoint()
-            .expect("no checkpoints exist");
+        let cp = global.latest_checkpoint().expect("no checkpoints exist");
         f(cp);
     });
 }
@@ -397,6 +417,30 @@ pub fn latest_checkpoint_mut(f: impl FnOnce(&mut Checkpoint)) {
             f(cp);
         }
         _ => panic!("latest_checkpoint_mut called outside of build phase"),
+    });
+}
+
+/// Mutable access to the active checkpoint regardless of context phase.
+/// In build phase, uses the latest checkpoint.
+/// In active phase, uses the currently active checkpoint.
+///
+/// Intended for cleanup operations (e.g. Drop impls) that may run in either phase.
+pub fn active_or_latest_checkpoint_mut(f: impl FnOnce(&mut Checkpoint)) {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Building(builder) => {
+            let cp = builder
+                .ctx
+                .latest_checkpoint_mut()
+                .expect("no checkpoints exist");
+            f(cp);
+        }
+        CtxState::Active(global_context) => {
+            let cp = global_context
+                .active_checkpoint_mut()
+                .expect("no active checkpoint");
+            f(cp);
+        }
+        CtxState::Processing => panic!("cannot access checkpoint during processing"),
     });
 }
 
