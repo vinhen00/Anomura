@@ -7,10 +7,10 @@ use std::{
 
 use crate::{SUBSTITUTION_MOCK_PATHS, Utf8Path};
 
-use mockingbird::{MockObject, compile_mocks::CompileMocks};
+use anomura_driver::{MockObject, compile_mocks::CompileMocks};
 
 use itertools::Itertools;
-use mockingbird::function_intercept::FunctionIntercept;
+use anomura_driver::function_intercept::FunctionIntercept;
 use rustc_plugin::{
     CrateFilter, PluginResult, RustcEnabledForNonFiltered, RustcPlugin, RustcPluginArgs,
     RustcWrapperType,
@@ -45,6 +45,7 @@ pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockObject>
 
     let mut crate_mock_map: HashMap<String, Vec<MockObject>> = HashMap::new();
     for mock in &callbacks.get_mocks() {
+        println!("mock fn path : {:?}", mock.get_path());
         crate_mock_map
             .entry(mock.get_path())
             .and_modify(|v| v.push(mock.clone()))
@@ -104,7 +105,6 @@ impl RustcPlugin for SubstitutePlugin {
         let program = std::env::var(SUBSTITUTION_MOCK_PATHS)
             .expect("should always be available at this point");
         let mut mock_map = mock_map_from_program(program);
-        println!("Removing {}", crate_name);
         let mocks = mock_map.remove(&crate_name).expect("should exist");
         let mut callbacks = FunctionIntercept::new(mocks);
         println!("runnin sugstitution plugin for crate {crate_name}");

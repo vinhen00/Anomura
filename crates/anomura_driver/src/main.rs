@@ -3,7 +3,7 @@
 #![feature(rustc_private)]
 use std::process::Command;
 extern crate rustc_driver;
-use mockingbird::{
+use anomura_driver::{
     compile_mocks::CompileMocks, function_intercept::FunctionIntercept, parse_mocks::ParseMocks,
 };
 use rustc_driver::run_compiler;

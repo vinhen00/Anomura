@@ -6,17 +6,20 @@ use syn::{
     punctuated::Punctuated, spanned::Spanned, token::Comma,
 };
 
+mod mock_adt;
+
 struct Expectation {
     condition: ExprClosure,
     time: TimesModifier,
-    ret: syn::Expr,
+    /// The return value expression body (if any). Not wrapped in Box/Some.
+    ret_body: Option<syn::Expr>,
     exit: bool,
 }
 
 impl Expectation {
     fn from_exprs(input_idents: &[Ident], exprs: Punctuated<Expr, Comma>) -> Self {
         let mut exit = false;
-        let mut ret: Expr = parse_quote! { None };
+        let mut ret_body: Option<Expr> = None;
         let mut time = TimesModifier::Once;
         let mut exprs = exprs.into_iter();
         let Some(expr) = exprs.next() else {
@@ -33,7 +36,7 @@ impl Expectation {
             .replace('}', "}}");
         let error_string = format!("condition {} failed for {}", expr_str, fmt_parts);
         let condition: ExprClosure = parse_quote! {
-            |#input_tuple| if #expr {Ok(())} else { Err(format!( #error_string , #error_format_args ).into())}
+            |__input| { let #input_tuple = __input; if #expr {Ok(())} else { Err(format!( #error_string , #error_format_args ).into())} }
         };
         for expr in exprs {
             match expr {
@@ -42,9 +45,7 @@ impl Expectation {
                         && let Some(ident) = expr_path.path.get_ident()
                     {
                         if ident == "with_return" {
-                            expr_call.args.first().cloned().inspect(|expr| {
-                                ret = parse_quote! { Some(Box::new(|#input_tuple| #expr)) }
-                            });
+                            ret_body = expr_call.args.first().cloned();
                         } else if ident == "once" {
                             time = TimesModifier::Once
                         } else if ident == "any" {
@@ -84,7 +85,7 @@ impl Expectation {
         Self {
             condition,
             time,
-            ret,
+            ret_body,
             exit,
         }
     }
@@ -242,7 +243,7 @@ pub fn mock_fn(item: TokenStream) -> TokenStream {
 
     };
     mock_fn_data.expectations.into_iter().for_each(|e| {
-        let ret = e.ret;
+        let ret_body = e.ret_body;
         let cond = e.condition;
         let exit = e.exit;
         let time = e.time;
@@ -251,7 +252,7 @@ pub fn mock_fn(item: TokenStream) -> TokenStream {
             return_type.clone(),
             mock_id_ident.clone(),
             input_type.clone(),
-            ret,
+            ret_body,
             cond,
             time,
         );
@@ -264,14 +265,44 @@ fn add_expectation_to_context(
     return_type: Type,
     mock_id_ident: Ident,
     input_type: proc_macro2::TokenStream,
-    ret: Expr,
+    ret_body: Option<Expr>,
     cond: ExprClosure,
     time: TimesModifier,
 ) {
+    let time_expr = match time {
+        TimesModifier::Once => quote! { context::TimesModifier::Once },
+        TimesModifier::Any => quote! { context::TimesModifier::Any },
+        TimesModifier::AtLeast(n) => quote! { context::TimesModifier::AtLeast(#n) },
+        TimesModifier::AtMost(n) => quote! { context::TimesModifier::AtMost(#n) },
+        TimesModifier::Times(n) => quote! { context::TimesModifier::Times(#n) },
+        TimesModifier::Never => quote! { context::TimesModifier::Never },
+    };
+
+    let input_idents_for_ret = format_ident!("__ret_input");
+    let ret_expr = match ret_body {
+        None => quote! { None },
+        Some(body) => {
+            quote! {
+                Some(context::ReturnValDoublePointer::from_fn::<#input_type, #return_type>(
+                    Box::new(|#input_idents_for_ret| #body)
+                ))
+            }
+        }
+    };
+
     let append = quote! {
-    if let Err(e) = context::add_expectation::<#input_type, #return_type>(&#mock_id_ident, Box::new( #cond ), #ret, #time) {
-        panic!("failed to add expectation, got error {:?}", e);
-        };
+        {
+            let cond = context::ConditionDoublePointer::from_fn::<#input_type>(Box::new(#cond));
+            if let Err(e) = context::add_expectation::<#input_type, #return_type>(
+                &#mock_id_ident,
+                cond,
+                #ret_expr,
+                None,
+                #time_expr,
+            ) {
+                panic!("failed to add expectation, got error {:?}", e);
+            }
+        }
     };
     appended.extend(append);
 }
@@ -298,7 +329,7 @@ pub fn slice(item: TokenStream) -> TokenStream {
     let mock_id_ident = format_ident!("{}_mock_id", mock_id);
     let mut expects = quote! {};
     fn_data.expectations.into_iter().for_each(|e| {
-        let ret = e.ret;
+        let ret_body = e.ret_body;
         let cond = e.condition;
         let time = e.time;
         add_expectation_to_context(
@@ -306,7 +337,7 @@ pub fn slice(item: TokenStream) -> TokenStream {
             fn_data.return_type.clone(),
             mock_id_ident.clone(),
             input_type.clone(),
-            ret,
+            ret_body,
             cond,
             time,
         );
@@ -348,8 +379,8 @@ impl Parse for ExpectData {
         let name = path.segments.last().unwrap().ident.to_string();
         input.parse::<Token![,]>()?;
         let exprs = Punctuated::<Expr, Token![,]>::parse_terminated(&input)?;
-        let program = std::env::var(driver_test::SUBSTITUTION_MOCK_PATHS).unwrap();
-        let map = driver_test::mock_map_from_program(program);
+        let program = std::env::var(anomura_plugins::SUBSTITUTION_MOCK_PATHS).unwrap();
+        let map = anomura_plugins::mock_map_from_program(program);
         let mocks = map
             .get(&krate)
             .expect(&format!("krate with string id {:?} wasnt found", krate));
@@ -393,7 +424,7 @@ pub fn expect(item: TokenStream) -> TokenStream {
     let mock_id = path_to_ident(&expect_data.path);
     let mock_id_string = format!("{}", quote! {#mock_id});
     let cond = expect_data.expectation.condition;
-    let ret = expect_data.expectation.ret;
+    let ret = expect_data.expectation.ret_body;
     let time = expect_data.expectation.time;
     quote! {
     if let Err(e) = context::add_expectation::<#input_type, #return_type>(&context::MockId::new(#mock_id_string), Box::new( #cond ), #ret, #time) {
@@ -566,7 +597,7 @@ pub fn mock_method(item: TokenStream) -> TokenStream {
         }
     };
     mock_method_data.expectations.into_iter().for_each(|e| {
-        let ret = e.ret;
+        let ret_body = e.ret_body;
         let cond = e.condition;
         let time = e.time;
         add_expectation_to_context(
@@ -574,7 +605,7 @@ pub fn mock_method(item: TokenStream) -> TokenStream {
             return_type.clone(),
             mock_id_ident.clone(),
             input_type.clone(),
-            ret,
+            ret_body,
             cond,
             time,
         );
@@ -584,4 +615,14 @@ pub fn mock_method(item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn mock_struct(_item: TokenStream) -> TokenStream {
     TokenStream::new()
+}
+
+/// Generates the full mock infrastructure for an ADT (struct) given its definition,
+/// trait impls, inherent methods, and From impls.
+///
+/// See `mock_adt` module documentation for the input syntax.
+#[proc_macro]
+pub fn mock_adt(item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as mock_adt::MockAdtInput);
+    mock_adt::expand_mock_adt(input).into()
 }

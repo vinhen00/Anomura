@@ -1,6 +1,6 @@
 #![feature(rustc_private)]
 
-use driver_test::substitution_pass;
+use anomura_plugins::substitution_pass;
 
 use rustc_plugin::RustcPlugin;
 pub fn main() {

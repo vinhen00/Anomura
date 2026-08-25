@@ -7,8 +7,8 @@ use interprocess::local_socket::{
 };
 use itertools::Itertools;
 
-use mockingbird::compile_mocks::CompileMocks;
-use mockingbird::parse_mocks::ParseMocks;
+use anomura_driver::compile_mocks::CompileMocks;
+use anomura_driver::parse_mocks::ParseMocks;
 
 use rustc_plugin::{
     CargoBuildCommand, CrateFilter, DefaultBuildCommand, RustcEnabledForNonFiltered, RustcPlugin,

@@ -25,7 +25,7 @@ impl rustc_span::source_map::FileLoader for MockFileLoader {
     fn read_file(&self, path: &std::path::Path) -> std::io::Result<String> {
         if path == std::path::Path::new(&self.file) {
             let mut file =
-                std::fs::File::open(format!("crates/mockingbird/test_files/{}", self.file))?;
+                std::fs::File::open(format!("crates/anomura_driver/test_files/{}", self.file))?;
             let mut contents = String::new();
             file.read_to_string(&mut contents)?;
             Ok(contents)

@@ -2,10 +2,11 @@
 resolver = "2"
 
 members = [
-	"crates/mockingbird",
+	"crates/anomura_driver",
 	"crates/mock-macro",
 	"crates/context",
-	"crates/driver_test",
+	"crates/anomura_plugins",
+	"crates/anomura_definitions",
 	"test_project/foo", "test_project/foobar",
 	"test-suite/mocks",
 	#"test_project/bar"

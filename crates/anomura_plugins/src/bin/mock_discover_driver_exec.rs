@@ -1,6 +1,6 @@
 #![feature(rustc_private)]
 
-use driver_test::mock_discover_pass::DiscoverPlugin;
+use anomura_plugins::mock_discover_pass::DiscoverPlugin;
 use rustc_plugin::RustcPlugin;
 
 fn main() {

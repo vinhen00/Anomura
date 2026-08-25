@@ -4,7 +4,7 @@ use std::process::exit;
 
 fn main() {
     env_logger::init();
-    let Some(res) = rustc_plugin::cli_main(driver_test::mock_discover_pass::DiscoverPlugin::new())
+    let Some(res) = rustc_plugin::cli_main(anomura_plugins::mock_discover_pass::DiscoverPlugin::new())
         .unwrap_or_else(|e| {
             eprintln!("discover pass failed with error {:?},", e);
             exit(1)
@@ -32,7 +32,7 @@ fn main() {
     //         .or_insert(vec![mock_fn.clone()]);
     // }
 
-    if let Err(e) = rustc_plugin::cli_main(driver_test::substitution_pass::SubstitutePlugin::new(
+    if let Err(e) = rustc_plugin::cli_main(anomura_plugins::substitution_pass::SubstitutePlugin::new(
         res.mocked_fns,
         res.crate_list,
     )) {

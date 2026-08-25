@@ -1,5 +1,5 @@
-use bar::{TestStruct1, TestStruct2, handler1, handler2, Bar};
-use mock_macro::{mock_fn, mock_struct, mock_method};
+use bar::{Bar, TestStruct1, TestStruct2, handler1, handler2};
+use mock_macro::{mock_fn, mock_method, mock_struct};
 
 use std::sync::Mutex;
 
@@ -76,4 +76,3 @@ fn main() {
     dbg!(&struct2_res2);
     handler2(struct2_res2);
 }
-

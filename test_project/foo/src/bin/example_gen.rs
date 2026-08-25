@@ -557,7 +557,7 @@ mod Mod {
             .expect("failed to add meth2 to sequence");
         }
 
-        //constructors don't
+        //constructors don't get mocked
         pub fn new(a: f32, b: f32) -> Self {
             // Initialize the mock object — private fields become PhantomData,
             // public fields are passed through, adt_mock_id tracks the instance.
@@ -575,6 +575,27 @@ mod Mod {
             ));
 
             // Register mocks for each method so the context knows about them
+            context::add_mock::<(*const Self, f32, f32), usize>(meth1_mock_id, None).unwrap();
+            context::add_mock::<(*const Self, String), bool>(meth2_mock_id, None).unwrap();
+            slf
+        }
+    }
+
+    impl From<(f32, f32)> for Example {
+        fn from(value: (f32, f32)) -> Self {
+            let slf = Self {
+                a: PhantomData,
+                b: value.1,
+                adt_mock_id: context::new_id(),
+            };
+
+            let meth1_mock_id =
+                context::MockId::new(format!("krate_Mod_Example_meth1{}", slf.adt_mock_id.0));
+            let meth2_mock_id = context::MockId::new(format!(
+                "krate_Mod_Example_ExTrait_meth2{}",
+                slf.adt_mock_id.0
+            ));
+
             context::add_mock::<(*const Self, f32, f32), usize>(meth1_mock_id, None).unwrap();
             context::add_mock::<(*const Self, String), bool>(meth2_mock_id, None).unwrap();
             slf
