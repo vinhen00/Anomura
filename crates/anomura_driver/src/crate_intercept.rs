@@ -151,12 +151,6 @@ impl CrateIntercept {
             trait_header.trait_ref.path.segments.last().map(|seg| seg.ident.name)
         });
 
-        // Skip external trait impls for now (Debug, Clone, etc.)
-        // TODO: support these once we handle the receiver/signature properly
-        if trait_name.is_some() {
-            return None;
-        }
-
         let methods = impl_data
             .items
             .iter()
@@ -307,8 +301,11 @@ impl CrateIntercept {
                         }
                     }
                 }
-                ast::ItemKind::Mod(_safety, _ident, mod_kind) => {
-                    self.handle_mod_mock_bodies(compiler, mod_kind, api);
+                ast::ItemKind::Mod(_safety, ident, mod_kind) => {
+                    // Find the matching child module model
+                    let child = api.root.children.iter()
+                        .find(|c| c.name == ident.name);
+                    self.handle_mod_mock_bodies(compiler, mod_kind, api, child);
                 }
                 _ => {}
             }
@@ -333,11 +330,21 @@ impl CrateIntercept {
         crate_name: &str,
         func: &FunctionModel,
     ) {
-        let mock_source = crate_mock_gen::gen_mock_fn_body(crate_name, func);
+        self.replace_fn_body_with_prefix(compiler, fn_data, crate_name, func);
+    }
+
+    /// Replace a function's body using a custom mock_id prefix (for submodule functions).
+    fn replace_fn_body_with_prefix(
+        &self,
+        compiler: &Compiler,
+        fn_data: &mut ast::Fn,
+        prefix: &str,
+        func: &FunctionModel,
+    ) {
+        let mock_source = crate_mock_gen::gen_mock_fn_body(prefix, func);
 
         // Parse the generated source as a complete function
         if let Some(parsed_fn) = self.parse_fn_item(compiler, &mock_source) {
-            // Replace sig and body entirely (keeps the original item's visibility/attrs)
             fn_data.sig = parsed_fn.sig;
             fn_data.body = parsed_fn.body;
         } else {
@@ -396,13 +403,26 @@ impl CrateIntercept {
         compiler: &Compiler,
         mod_kind: &mut ast::ModKind,
         api: &CrateApiModel,
+        child_module: Option<&ModuleModel>,
     ) {
         if let ast::ModKind::Loaded(items, ..) = mod_kind {
-            // For now, handle functions in submodules with the root API
-            // TODO: properly match submodule functions to child ModuleModels
+            let mod_prefix = child_module.map(|m| format!("{}_{}", api.crate_name, m.name.as_str()))
+                .unwrap_or_else(|| api.crate_name.clone());
+
             for item in items.iter_mut() {
-                if let ast::ItemKind::Impl(impl_data) = &mut item.kind {
-                    self.handle_impl_methods(compiler, impl_data, api);
+                match &mut item.kind {
+                    ast::ItemKind::Fn(fn_data) if self.is_pub(&item.vis) => {
+                        if let Some(mod_model) = child_module {
+                            let name = fn_data.ident.name.as_str().to_string();
+                            if let Some(func_model) = mod_model.functions.iter().find(|f| f.name.as_str() == name) {
+                                self.replace_fn_body_with_prefix(compiler, fn_data, &mod_prefix, func_model);
+                            }
+                        }
+                    }
+                    ast::ItemKind::Impl(impl_data) => {
+                        self.handle_impl_methods(compiler, impl_data, api);
+                    }
+                    _ => {}
                 }
             }
         }

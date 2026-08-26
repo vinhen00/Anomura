@@ -37,7 +37,7 @@ fn mock_crate_match_const() {
 #[test]
 fn mock_crate_foo_fallback_with_helper() {
     // Use the generated on_call helper for Foo::fallback
-    fns::Foo::on_call_fallback(fns::ReturnFooFallback::from_fn(|_self_ref, | 999u32));
+    fns::Foo::on_call_fallback(fns::ReturnFooFallback::from_fn(|_self_ref| 999u32));
     context::finish_building_context();
 
     let foo = fns::Foo { x: 5 };
@@ -83,4 +83,75 @@ fn mock_crate_multiple_mocks() {
 
     assert_eq!(fns::return_const(), 100);
     assert_eq!(fns::ret_call_w_args(5), 15);
+}
+
+// ─── Submodule function test ─────────────────────────────────────────────────
+
+#[test]
+fn mock_crate_submodule_function() {
+    fns::on_call_a_modules(fns::ReturnA_Modules::from_fn(|| 777u32));
+    context::finish_building_context();
+
+    let result = fns::a::modules();
+    assert_eq!(result, 777);
+}
+
+// ─── Sequence test ───────────────────────────────────────────────────────────
+
+#[test]
+fn mock_crate_sequence() {
+    // Create a sequence: calls return different values in order
+    fns::sequence_ret_call_w_args("counting", 3, context::TimesModifier::Once);
+
+    fns::expect_ret_call_w_args_at("counting", 0, |x| x + 100);
+    fns::expect_ret_call_w_args_at("counting", 1, |x| x + 200);
+    fns::expect_ret_call_w_args_at("counting", 2, |x| x + 300);
+
+    context::finish_building_context();
+    context::activate_sequence("counting").unwrap();
+
+    assert_eq!(fns::ret_call_w_args(1), 101);  // step 0: 1 + 100
+    assert_eq!(fns::ret_call_w_args(1), 201);  // step 1: 1 + 200
+    assert_eq!(fns::ret_call_w_args(1), 301);  // step 2: 1 + 300
+}
+
+// ─── Checkpoint test ─────────────────────────────────────────────────────────
+
+#[test]
+fn mock_crate_checkpoints() {
+    // Set up two checkpoints with different return values for the same function.
+    // We need to place expectations before creating the next checkpoint,
+    // since on_call_* adds to the latest checkpoint.
+
+    // Register the mock first
+    fns::on_call_return_const(fns::ReturnReturn_const::from_fn(|| 10i16));
+    // ^ this goes into the default/first checkpoint
+
+    context::new_checkpoint("phase2").unwrap();
+    fns::on_call_return_const(fns::ReturnReturn_const::from_fn(|| 20i16));
+    // ^ this goes into phase2
+
+    context::finish_building_context();
+
+    // In first checkpoint: should return 10
+    assert_eq!(fns::return_const(), 10);
+
+    // Advance to phase2
+    context::control_checkpoint().unwrap();
+    assert_eq!(fns::return_const(), 20);
+}
+
+// ─── Trait impl test ─────────────────────────────────────────────────────────
+
+#[test]
+fn mock_crate_trait_impl_debug() {
+    // Mock the Debug::fmt implementation for ClosureWrapper using the generated helper
+    fns::ClosureWrapper::on_call_fmt(fns::ReturnClosureWrapperFmt::from_fn(|_self_ref, f| {
+        f.write_str("MOCKED!")
+    }));
+    context::finish_building_context();
+
+    let cw = fns::ClosureWrapper(Box::new(|x| x));
+    let debug_output = format!("{:?}", cw);
+    assert_eq!(debug_output, "MOCKED!");
 }

@@ -208,14 +208,20 @@ pub fn gen_convenience_api(api: &CrateApiModel) -> String {
         source.push('\n');
     }
 
-    // Generate wrappers for inherent impl methods
+    // Generate wrappers for impl methods (both inherent and trait impls)
     for imp in &api.root.impls {
-        if imp.trait_name.is_some() {
-            continue; // skip trait impls for now
-        }
         let struct_name = imp.self_type_name.as_str();
         for method in &imp.methods {
             source.push_str(&gen_method_wrappers(&api.crate_name, struct_name, method));
+            source.push('\n');
+        }
+    }
+
+    // Generate wrappers for functions in child modules
+    for child in &api.root.children {
+        let mod_prefix = format!("{}_{}", api.crate_name, child.name.as_str());
+        for func in &child.functions {
+            source.push_str(&gen_fn_wrappers_with_prefix(&mod_prefix, func, child.name.as_str()));
             source.push('\n');
         }
     }
@@ -348,6 +354,25 @@ pub fn on_call_{fn_name}(ret: impl Into<Return{fn_cap}>) {{
         Some(inner.0),
         None,
         context::TimesModifier::Any,
+    ).unwrap();
+}}
+
+pub fn sequence_{fn_name}(name: &str, size: usize, modifier: context::TimesModifier) {{
+    let mock_id = context::MockId::new("{mock_id}");
+    match context::add_mock::<({type_tuple}), {ret_type_str}>(mock_id, None) {{
+        Ok(()) => {{}},
+        Err(e) if e.to_string().contains("registered twice") => {{}},
+        Err(e) => panic!("failed to add mock: {{:?}}", e),
+    }}
+    context::new_sequence(name, size, modifier, None).unwrap();
+}}
+
+pub fn expect_{fn_name}_at(seq_name: &str, index: usize, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static) {{
+    let mock_id = context::MockId::new("{mock_id}");
+    let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(Box::new(|_| Ok(())));
+    context::add_expectation_to_sequence::<({type_tuple}), {ret_type_str}>(
+        &mock_id, cond, Some(Box::new(move |{destructure_pattern}| ret({closure_args}))),
+        seq_name, index, None,
     ).unwrap();
 }}
 "#,
@@ -537,4 +562,115 @@ fn capitalize(s: &str) -> String {
         Some(c) => c.to_uppercase().to_string() + chars.as_str(),
         None => String::new(),
     }
+}
+
+/// Generate wrapper newtypes and on_call for a function inside a submodule.
+/// The mock_id uses the full path (crate_mod_fn), and the on_call function is
+/// placed inside a `mod` block so it's accessible as `fns::a::on_call_modules(...)`.
+fn gen_fn_wrappers_with_prefix(mock_id_prefix: &str, func: &FunctionModel, mod_name: &str) -> String {
+    let fn_name = func.name.as_str();
+    let fn_cap = format!("{}_{}", capitalize(mod_name), capitalize(fn_name));
+    let mock_id = format!("{}_{}", mock_id_prefix, fn_name);
+
+    let input_types_str = func.params.iter()
+        .map(|p| ty_to_string(&p.ty))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let ret_type_str = match &func.return_type {
+        Some(ty) => ty_to_string(ty),
+        None => "()".to_string(),
+    };
+
+    let type_tuple = if func.params.len() == 1 {
+        format!("{},", input_types_str)
+    } else {
+        input_types_str.clone()
+    };
+
+    let closure_type_params = func.params.iter()
+        .map(|p| ty_to_string(&p.ty))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let closure_args = func.params.iter()
+        .enumerate()
+        .map(|(i, _)| format!("_{}", i))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let destructure_pattern = if func.params.is_empty() {
+        "()".to_string()
+    } else {
+        let d = func.params.iter()
+            .enumerate()
+            .map(|(i, _)| format!("_{}", i))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("({},)", d)
+    };
+
+    let closure_type_params_ref = func.params.iter()
+        .map(|p| format!("&{}", ty_to_string(&p.ty)))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let input_access_ref = func.params.iter()
+        .enumerate()
+        .map(|(i, _)| format!("&input.{}", i))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    format!(
+r#"pub struct Predicate{fn_cap}(pub context::Predicate);
+pub struct Return{fn_cap}(pub context::ReturnValDoublePointer);
+
+impl Return{fn_cap} {{
+    pub fn from_fn(closure: impl Fn({closure_type_params}) -> {ret_type_str} + 'static) -> Self {{
+        Self(context::ReturnValDoublePointer::from_fn::<({type_tuple}), {ret_type_str}>(
+            Box::new(move |{destructure_pattern}| closure({closure_args}))
+        ))
+    }}
+}}
+
+impl Predicate{fn_cap} {{
+    pub fn from_fn(closure: impl Fn({closure_type_params_ref}) -> context::errors::PredicateResult<()> + 'static) -> Self {{
+        let mock_id = context::MockId::new("{mock_id}");
+        let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
+            Box::new(move |input: &({type_tuple})| closure({input_access_ref}))
+        );
+        Self(context::Predicate::create_single::<({type_tuple})>(&mock_id, cond))
+    }}
+}}
+
+pub fn on_call_{mod_name}_{fn_name}(ret: impl Into<Return{fn_cap}>) {{
+    let inner: Return{fn_cap} = ret.into();
+    let mock_id = context::MockId::new("{mock_id}");
+    match context::add_mock::<({type_tuple}), {ret_type_str}>(mock_id.clone(), None) {{
+        Ok(()) => {{}},
+        Err(e) if e.to_string().contains("registered twice") => {{}},
+        Err(e) => panic!("failed to add mock: {{:?}}", e),
+    }}
+    let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(Box::new(|_| Ok(())));
+    context::add_expectation::<({type_tuple}), {ret_type_str}>(
+        &mock_id,
+        cond,
+        Some(inner.0),
+        None,
+        context::TimesModifier::Any,
+    ).unwrap();
+}}
+"#,
+        fn_cap = fn_cap,
+        fn_name = fn_name,
+        mod_name = mod_name,
+        mock_id = mock_id,
+        closure_type_params = closure_type_params,
+        closure_type_params_ref = closure_type_params_ref,
+        closure_args = closure_args,
+        ret_type_str = ret_type_str,
+        type_tuple = type_tuple,
+        destructure_pattern = destructure_pattern,
+        input_access_ref = input_access_ref,
+    )
 }
