@@ -75,6 +75,7 @@ pub fn return_const() -> i16 {
     16i16
 }
 
+/// by default i don't panic. i don't do anything c:
 pub fn return_panic() {}
 
 pub fn foo(

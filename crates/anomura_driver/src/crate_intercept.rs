@@ -16,11 +16,12 @@ use crate::crate_mock_gen;
 #[derive(Debug)]
 pub struct CrateIntercept {
     crate_name: String,
+    parse_counter: std::cell::Cell<u32>,
 }
 
 impl CrateIntercept {
     pub fn new(crate_name: String) -> Self {
-        Self { crate_name }
+        Self { crate_name, parse_counter: std::cell::Cell::new(0) }
     }
 
     /// Walk a list of items (module contents) and collect the public API.
@@ -298,6 +299,14 @@ impl CrateIntercept {
                 ast::ItemKind::Impl(impl_data) => {
                     self.handle_impl_methods(compiler, impl_data, api);
                 }
+                ast::ItemKind::Struct(ident, _generics, fields) if self.is_pub(&item.vis) => {
+                    // Add adt_mock_id field to trackable structs (those with private fields)
+                    if let Some(struct_model) = api.root.structs.iter().find(|s| s.name == ident.name) {
+                        if !struct_model.all_public() {
+                            self.add_adt_mock_id_field(compiler, fields);
+                        }
+                    }
+                }
                 ast::ItemKind::Mod(_safety, _ident, mod_kind) => {
                     self.handle_mod_mock_bodies(compiler, mod_kind, api);
                 }
@@ -306,6 +315,12 @@ impl CrateIntercept {
         }
 
         println!("CrateIntercept: replaced {} function bodies", fn_count);
+
+        // Phase C: Generate and inject convenience API (PredicateXxx, ReturnXxx, on_call_*)
+        let convenience_source = crate_mock_gen::gen_convenience_api(api);
+        if !convenience_source.is_empty() {
+            self.inject_source_items(compiler, krate, &convenience_source);
+        }
     }
 
     /// Replace a function's body with the mock dispatch code.
@@ -393,10 +408,52 @@ impl CrateIntercept {
         }
     }
 
+    /// Add `pub adt_mock_id: context::AdtMockId` field to a struct.
+    fn add_adt_mock_id_field(&self, compiler: &Compiler, fields: &mut ast::VariantData) {
+        let ast::VariantData::Struct { fields: field_list, .. } = fields else {
+            return;
+        };
+
+        // Parse a struct with just the adt_mock_id field to get a proper FieldDef
+        let source = "pub struct _Tmp { pub adt_mock_id: context::AdtMockId }";
+        let psess = &compiler.sess.psess;
+        let filename = FileName::Custom("mock_field_gen".to_string());
+
+        let mut parser = match rustc_parse::new_parser_from_source_str(
+            psess,
+            filename,
+            source.to_string(),
+        ) {
+            Ok(p) => p,
+            Err(diags) => {
+                for d in diags { d.cancel(); }
+                eprintln!("CrateIntercept: failed to parse adt_mock_id field");
+                return;
+            }
+        };
+
+        if let Ok(Some(item)) = parser.parse_item(rustc_parse::parser::ForceCollect::No) {
+            if let ast::ItemKind::Struct(_, _, ast::VariantData::Struct { fields: parsed_fields, .. }) = item.kind {
+                if let Some(field) = parsed_fields.into_iter().next() {
+                    // Check if field already exists
+                    let exists = field_list.iter().any(|f| {
+                        f.ident.map(|i| i.name.as_str() == "adt_mock_id").unwrap_or(false)
+                    });
+                    if !exists {
+                        field_list.push(field);
+                        println!("CrateIntercept: added adt_mock_id field");
+                    }
+                }
+            }
+        }
+    }
+
     /// Parse a generated function source string and extract the full Fn data.
     fn parse_fn_item(&self, compiler: &Compiler, source: &str) -> Option<Box<ast::Fn>> {
         let psess = &compiler.sess.psess;
-        let filename = FileName::Custom("mock_generated".to_string());
+        let n = self.parse_counter.get();
+        self.parse_counter.set(n + 1);
+        let filename = FileName::Custom(format!("mock_gen_{}", n));
 
         let mut parser = match rustc_parse::new_parser_from_source_str(
             psess,
@@ -424,6 +481,44 @@ impl CrateIntercept {
             }
             _ => None,
         }
+    }
+
+    /// Parse a source string containing multiple items and inject them into the crate.
+    fn inject_source_items(&self, compiler: &Compiler, krate: &mut ast::Crate, source: &str) {
+        let psess = &compiler.sess.psess;
+        let filename = FileName::Custom("mock_convenience_api".to_string());
+
+        let mut parser = match rustc_parse::new_parser_from_source_str(
+            psess,
+            filename,
+            source.to_string(),
+        ) {
+            Ok(parser) => parser,
+            Err(diags) => {
+                for d in diags {
+                    d.cancel();
+                }
+                eprintln!("CrateIntercept: failed to parse convenience API source");
+                return;
+            }
+        };
+
+        let mut injected = 0;
+        loop {
+            match parser.parse_item(rustc_parse::parser::ForceCollect::No) {
+                Ok(Some(item)) => {
+                    krate.items.push(item);
+                    injected += 1;
+                }
+                Ok(None) => break, // end of input
+                Err(diag) => {
+                    diag.cancel();
+                    eprintln!("CrateIntercept: error parsing convenience API item");
+                    break;
+                }
+            }
+        }
+        println!("CrateIntercept: injected {} convenience API items", injected);
     }
 }
 

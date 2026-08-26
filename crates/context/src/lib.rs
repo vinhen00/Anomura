@@ -89,8 +89,8 @@ thread_local! {
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
-/// Finalize the build phase: all sequence builders are converted to sequences,
-/// and the context becomes ready for evaluation.
+/// Finalize the build phase:
+/// the context becomes ready for evaluation.
 pub fn finish_building_context() {
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
         ctx.finish();
@@ -258,9 +258,7 @@ pub fn add_expectation_to_sequence<Input, ReturnVal>(
 /// Activate a named sequence in the active checkpoint.
 /// Must be called after `finish_building_context`.
 /// The sequence will hijack all mocks that appear in its steps.
-pub fn activate_sequence(
-    sequence_name: impl Into<SequenceName>,
-) -> Result<()> {
+pub fn activate_sequence(sequence_name: impl Into<SequenceName>) -> Result<()> {
     let sequence_name = sequence_name.into();
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
         CtxState::Active(global_context) => {
