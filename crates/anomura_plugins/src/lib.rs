@@ -19,4 +19,6 @@ pub const DISCOVER_TMP: &str = "DISCOVER_BOOTSTRAP";
 pub const SELECTED_CRATES: &[&str] = &["memchr", "serde_json"];
 //Environment variable for mocks definitions in rustc
 pub const SUBSTITUTION_MOCK_PATHS: &str = "SUBSTITUTION_MOCK_PATHS";
+/// Environment variable listing crates targeted by mock_crate! (comma-separated)
+pub const MOCK_CRATE_TARGETS_ENV: &str = "MOCK_CRATE_TARGETS";
 pub use substitution_pass::mock_map_from_program;

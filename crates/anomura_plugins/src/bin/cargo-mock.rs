@@ -15,26 +15,14 @@ fn main() {
     };
 
     println!("CRATE LIST: {:#?}", res.crate_list);
-    // println!(
-    //     "Mocking done found {} functions to mock",
-    //     &res.mocked_fns.len()
-    // );
-    // for i in &res.mocked_fns {
-    //     println!("mocked fn: {} in path: {}", i.get_name(), i.get_path());
-    // }
-
-    // let mut crates_containing_mocks: HashMap<String, Vec<MockedFun>> = HashMap::new();
-    // for mock_fn in &res.mocked_fns {
-    //     println!("mock fn path : {:?}", mock_fn.get_path());
-    //     crates_containing_mocks
-    //         .entry(mock_fn.get_path())
-    //         .and_modify(|v| v.push(mock_fn.clone()))
-    //         .or_insert(vec![mock_fn.clone()]);
-    // }
+    if !res.mock_crate_targets.is_empty() {
+        println!("MOCK_CRATE TARGETS: {:#?}", res.mock_crate_targets);
+    }
 
     if let Err(e) = rustc_plugin::cli_main(anomura_plugins::substitution_pass::SubstitutePlugin::new(
         res.mocked_fns,
         res.crate_list,
+        res.mock_crate_targets,
     )) {
         eprintln!("substitute pass failed with error: {:?}", e);
         exit(1)

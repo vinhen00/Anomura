@@ -5,12 +5,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{SUBSTITUTION_MOCK_PATHS, Utf8Path};
+use crate::{MOCK_CRATE_TARGETS_ENV, SUBSTITUTION_MOCK_PATHS, Utf8Path};
 
 use anomura_driver::{MockObject, compile_mocks::CompileMocks};
 
 use itertools::Itertools;
 use anomura_driver::function_intercept::FunctionIntercept;
+use anomura_driver::crate_intercept::CrateIntercept;
 use rustc_plugin::{
     CrateFilter, PluginResult, RustcEnabledForNonFiltered, RustcPlugin, RustcPluginArgs,
     RustcWrapperType,
@@ -27,6 +28,7 @@ pub struct SubstitutePluginArgs {
 pub struct SubstitutePlugin {
     program: String,
     crate_list: Vec<String>,
+    mock_crate_targets: Vec<String>,
 }
 
 pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockObject>> {
@@ -56,10 +58,11 @@ pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockObject>
 }
 
 impl SubstitutePlugin {
-    pub fn new(program: String, crate_list: Vec<String>) -> Self {
+    pub fn new(program: String, crate_list: Vec<String>, mock_crate_targets: Vec<String>) -> Self {
         Self {
             program: program.clone(),
             crate_list,
+            mock_crate_targets,
         }
     }
 }
@@ -101,16 +104,17 @@ impl RustcPlugin for SubstitutePlugin {
         compiler_args: Vec<String>,
         plugin_args: &Vec<String>,
     ) -> rustc_interface::interface::Result<()> {
-        println!("Test");
-        let program = std::env::var(SUBSTITUTION_MOCK_PATHS)
-            .expect("should always be available at this point");
-        let mut mock_map = mock_map_from_program(program);
-        let mocks = mock_map.remove(&crate_name).expect("should exist");
-        let mut callbacks = FunctionIntercept::new(mocks);
-        println!("runnin sugstitution plugin for crate {crate_name}");
-        println!("plugin_args: {:?}", plugin_args);
+        // Check if this crate is a mock_crate target
+        let mock_crate_targets: Vec<String> = std::env::var(MOCK_CRATE_TARGETS_ENV)
+            .unwrap_or_default()
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+            .collect();
 
-        //link against context
+        let is_mock_crate_target = mock_crate_targets.contains(&crate_name);
+
+        // Link against context crate (needed for both paths)
         let l_index = compiler_args
             .iter()
             .enumerate()
@@ -129,14 +133,32 @@ impl RustcPlugin for SubstitutePlugin {
             format!("context={}", context_path.to_string_lossy()),
         );
 
-        log::debug!("sub new compiler args: {:?}", compiler_args);
-        rustc_driver::run_compiler(&compiler_args, &mut callbacks);
+        if is_mock_crate_target {
+            println!("Running CrateIntercept for mock_crate target: {crate_name}");
+            let mut callbacks = CrateIntercept::new(crate_name.clone());
+            log::debug!("crate_intercept compiler args: {:?}", compiler_args);
+            rustc_driver::run_compiler(&compiler_args, &mut callbacks);
+        } else {
+            println!("Running FunctionIntercept for crate: {crate_name}");
+            let program = std::env::var(SUBSTITUTION_MOCK_PATHS)
+                .expect("should always be available at this point");
+            let mut mock_map = mock_map_from_program(program);
+            let mocks = mock_map.remove(&crate_name).expect("should exist");
+            let mut callbacks = FunctionIntercept::new(mocks);
+            println!("plugin_args: {:?}", plugin_args);
+            log::debug!("sub new compiler args: {:?}", compiler_args);
+            rustc_driver::run_compiler(&compiler_args, &mut callbacks);
+        }
+
         Ok(())
     }
 
     fn modify_cargo(&self, cargo: &mut std::process::Command, args: &Vec<String>) {
         println!("cargo args: {:?}", &args);
         cargo.env(SUBSTITUTION_MOCK_PATHS, self.program.clone());
+        if !self.mock_crate_targets.is_empty() {
+            cargo.env(MOCK_CRATE_TARGETS_ENV, self.mock_crate_targets.join(","));
+        }
         cargo.args(args);
     }
 

@@ -48,6 +48,8 @@ pub struct ParseMocks {
     used_in_plugin: bool,
     pub program: String,
     pub crates: Vec<String>,
+    /// Crates targeted by mock_crate! (full-crate mocking)
+    pub mock_crate_targets: Vec<String>,
 }
 
 impl ParseMocks {
@@ -56,6 +58,7 @@ impl ParseMocks {
             program: String::new(),
             used_in_plugin,
             crates: Vec::new(),
+            mock_crate_targets: Vec::new(),
         }
     }
 
@@ -65,6 +68,10 @@ impl ParseMocks {
 
     pub fn get_crates(&self) -> Vec<String> {
         self.crates.clone()
+    }
+
+    pub fn get_mock_crate_targets(&self) -> Vec<String> {
+        self.mock_crate_targets.clone()
     }
 
     fn handle_mod(&mut self, mod_items: &rustc_ast::ModKind) {
@@ -99,6 +106,18 @@ impl ParseMocks {
                 "mock_fn" => result = expand_mock_fn(syn_ts).to_string(),
                 "mock_method" => result = expand_mock_method(syn_ts).to_string(),
                 "mock_struct" => result = expand_mock_struct(syn_ts).to_string(),
+                "mock_crate" => {
+                    // Extract crate name from first token and record it.
+                    // No program string generated — substitution pass handles everything.
+                    let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
+                    if let Some(TokenTree::Token(tok, _)) = tokens.first() {
+                        if let TokenKind::Ident(crate_name, _) = tok.kind {
+                            self.mock_crate_targets.push(crate_name.as_str().to_string());
+                            self.crates.push(crate_name.as_str().to_string());
+                        }
+                    }
+                    return;
+                }
 
                 _ => return,
             }
@@ -147,27 +166,7 @@ impl rustc_driver::Callbacks for ParseMocks {
 fn extract_path_value(mac_call: &rustc_ast::MacCall) -> Option<Symbol> {
     if let Some(path) = mac_call.path.segments.last() {
         match path.ident.name.as_str() {
-            "mock_fn" => {
-                let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
-                let TokenTree::Token(val_tok, _) = tokens[0] else {
-                    return None;
-                };
-                let TokenKind::Ident(value, _) = val_tok.kind else {
-                    return None;
-                };
-                Some(value)
-            }
-            "mock_method" => {
-                let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
-                let TokenTree::Token(val_tok, _) = tokens[0] else {
-                    return None;
-                };
-                let TokenKind::Ident(value, _) = val_tok.kind else {
-                    return None;
-                };
-                Some(value)
-            }
-            "mock_struct" => {
+            "mock_fn" | "mock_method" | "mock_struct" | "mock_crate" => {
                 let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
                 let TokenTree::Token(val_tok, _) = tokens[0] else {
                     return None;

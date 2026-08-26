@@ -1,5 +1,8 @@
 #![feature(rustc_private)]
 pub mod compile_mocks;
+pub mod crate_api;
+pub mod crate_intercept;
+pub mod crate_mock_gen;
 mod expand_macro;
 pub mod function_intercept;
 pub mod parse_mocks;

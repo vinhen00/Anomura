@@ -33,13 +33,15 @@ pub struct DiscoverPluginArgs {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum CallBackMessage {
     NewMocks(String, Vec<String>),
+    /// Crates targeted by mock_crate! for full-crate mocking
+    MockCrateTargets(Vec<String>),
     Done,
 }
 
 #[non_exhaustive]
 pub struct DiscoverPlugin {
     channel_name: String,
-    listener_handle: Option<JoinHandle<(Vec<String>, Vec<String>)>>,
+    listener_handle: Option<JoinHandle<(Vec<String>, Vec<String>, Vec<String>)>>,
 }
 
 pub const DISCOVER_BUILD_NORMALY: &[&str] = &[
@@ -106,9 +108,10 @@ impl DiscoverPlugin {
             x => x.unwrap(),
         };
 
-        let listener_handle: JoinHandle<(Vec<String>, Vec<String>)> = thread::spawn(move || {
+        let listener_handle: JoinHandle<(Vec<String>, Vec<String>, Vec<String>)> = thread::spawn(move || {
             let mut all_mocked_fns = Vec::new();
             let mut crate_list = Vec::new();
+            let mut mock_crate_targets = Vec::new();
             // listener
             //     .set_nonblocking(local_socket::ListenerNonblockingMode::Accept)
             //     .ok();
@@ -123,14 +126,17 @@ impl DiscoverPlugin {
                             all_mocked_fns.push(text);
                             crate_list.extend(crates.iter().cloned());
                         }
+                        CallBackMessage::MockCrateTargets(targets) => {
+                            mock_crate_targets.extend(targets);
+                        }
                         CallBackMessage::Done => {
                             println!("got message done");
-                            return (all_mocked_fns, crate_list);
+                            return (all_mocked_fns, crate_list, mock_crate_targets);
                         }
                     }
                 }
             }
-            (all_mocked_fns, crate_list)
+            (all_mocked_fns, crate_list, mock_crate_targets)
         });
         DiscoverPlugin {
             channel_name: name_string,
@@ -166,6 +172,8 @@ impl Default for DiscoverPlugin {
 pub struct DiscoverClientReturn {
     pub mocked_fns: String,
     pub crate_list: Vec<String>,
+    /// Crates targeted by mock_crate! for full-crate mocking
+    pub mock_crate_targets: Vec<String>,
 }
 
 impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
@@ -252,11 +260,16 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
 
         let program = mocked_fns.0.join("");
         let crate_list = mocked_fns.1;
+        let mock_crate_targets = mocked_fns.2;
 
         println!("After_execution: Found {} mocks", mocked_fns.0.len());
+        if !mock_crate_targets.is_empty() {
+            println!("mock_crate targets: {:?}", mock_crate_targets);
+        }
         Ok(DiscoverClientReturn {
             mocked_fns: program,
             crate_list,
+            mock_crate_targets,
         })
     }
 }
@@ -273,8 +286,7 @@ pub fn compile_maccalls(program: &str) -> CompileMocks {
 pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
     let cratelist = parse_mocks.get_crates();
     let mocks = parse_mocks.get_program();
-
-    let inline_result = CallBackMessage::NewMocks(mocks, cratelist);
+    let mock_crate_targets = parse_mocks.get_mock_crate_targets();
 
     let name_str = std::env::var(DISCOVER_TMP)
         .expect("there should be a discover tmp env var created in the main cargo command");
@@ -284,12 +296,25 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
         name_str.clone().to_fs_name::<GenericFilePath>()?
     };
 
+    // Send mock_fn/mock_method/mock_struct results
+    let inline_result = CallBackMessage::NewMocks(mocks, cratelist);
     println!("Sending mock {:?} to {}", inline_result, name_str);
-    let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
+    let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name.clone())?);
     let json = serde_json::to_string(&inline_result)?;
     conn.write_all(json.as_bytes())?;
     conn.write_all(b"\n")?;
     conn.flush()?;
+
+    // Send mock_crate targets if any
+    if !mock_crate_targets.is_empty() {
+        let crate_msg = CallBackMessage::MockCrateTargets(mock_crate_targets);
+        let mut conn2: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
+        let json2 = serde_json::to_string(&crate_msg)?;
+        conn2.write_all(json2.as_bytes())?;
+        conn2.write_all(b"\n")?;
+        conn2.flush()?;
+    }
+
     Ok(())
 }
 

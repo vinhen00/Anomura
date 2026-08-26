@@ -1,8 +1,10 @@
 use std::sync::Arc;
 use std::sync::Mutex;
-use mock_macro::{mock_fn, mock_method, mock_struct};
+use mock_macro::{mock_fn, mock_method, mock_struct, mock_crate};
 use fns::{ClosureWrapper, Pattern};
 use fns::Pattern::*;
+
+mock_crate!(fns);
 
 fn main() {}
 

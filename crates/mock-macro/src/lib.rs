@@ -617,6 +617,20 @@ pub fn mock_struct(_item: TokenStream) -> TokenStream {
     TokenStream::new()
 }
 
+/// Marks an entire crate for full mocking. The discover pass extracts the crate name,
+/// and the substitution pass generates all mock infrastructure by introspecting the
+/// target crate's AST.
+///
+/// # Usage
+/// ```ignore
+/// mock_crate!(crate_name);
+/// mock_crate!(crate_name, "version"); // version is optional, for disambiguation
+/// ```
+#[proc_macro]
+pub fn mock_crate(_item: TokenStream) -> TokenStream {
+    TokenStream::new()
+}
+
 /// Generates the full mock infrastructure for an ADT (struct) given its definition,
 /// trait impls, inherent methods, and From impls.
 ///
