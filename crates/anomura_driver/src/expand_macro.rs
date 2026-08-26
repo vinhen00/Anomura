@@ -451,7 +451,6 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
             #[mocked( #path )]
             fn #name(#receiver_quote #(#driver_params),*) -> #driver_ret_type {
                 std::println!("Mocked version of method {} was used", #name_str);
-                let mock_id_ident_string : String = format!("{}{}", stringify!(#mock_id), self.)
                 let #mock_id_ident = context::MockId::new(stringify!(#mock_id));
                 if context::ctx_built_and_contains_id(&#mock_id_ident) {
                     match context::run_mock::<#driver_input_type_tuple, #driver_ret_type>(#mock_id_ident, #input_ident_tuple) {
@@ -676,7 +675,7 @@ pub fn expand_mock_struct(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         #[mocked( #path )]
-        struct #name { #(#fields),* , pub mock_id: String }
+        struct #name { #(#fields),* , pub mock_hash: context::AdtMockId }
         impl #name {
             #constructor
             #(#methods)*
@@ -707,7 +706,7 @@ fn quote_method(
 
         //Get the context to assign a mock_hash id
         hash_id_getter = quote! {
-            let mock_hash = context::get_id();
+            let mock_hash = context::new_id();
 
             //Currently just a print, but should be some form of logging in context
             println!{"New instance of {} initialized with id {}", #struct_string, mock_hash};
@@ -750,7 +749,7 @@ impl VisitMut for RetvalFinder {
     fn visit_expr_mut(&mut self, node: &mut Expr) {
         if let Expr::Struct(inner) = node {
             //the variable mock_hash has already been initialized in quote_method
-            let hashval = syn::parse_str("mock_hash: mock_hash.to_string()").unwrap();
+            let hashval = syn::parse_str("mock_hash: mock_hash").unwrap();
             inner.fields.push(hashval)
         }
         visit_expr_mut(self, node)

@@ -140,6 +140,12 @@ pub fn ctx_built_and_contains_id(id: &MockId) -> bool {
 }
 #[derive(Clone, Copy, Debug, Default)]
 pub struct AdtMockId(pub u64);
+
+impl std::fmt::Display for AdtMockId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 pub fn new_id() -> AdtMockId {
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
         CtxState::Building(global_context) => {
