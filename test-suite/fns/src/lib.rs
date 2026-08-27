@@ -25,11 +25,15 @@ pub struct MockStruct {
 }
 
 impl MockStruct {
-    pub fn new() -> Self {
+    pub fn new() -> Self  {
         MockStruct {
             pubfield: 2,
             privfield: 1,
         }
+    }
+    pub fn foo() {()}
+    pub fn get_value(&self) -> u32 {
+        self.pubfield
     }
 }
 

@@ -159,6 +159,13 @@ impl RustcPlugin for SubstitutePlugin {
         if !self.mock_crate_targets.is_empty() {
             cargo.env(MOCK_CRATE_TARGETS_ENV, self.mock_crate_targets.join(","));
         }
+        // Forward debug env vars
+        if let Ok(v) = std::env::var("DUMP_AST") { cargo.env("DUMP_AST", v); }
+        if let Ok(v) = std::env::var("AST_WRITE") { cargo.env("AST_WRITE", v); }
+        // Propagate the user's working directory so the driver can resolve relative paths
+        if let Ok(cwd) = std::env::current_dir() {
+            cargo.env("ANOMURA_CWD", cwd);
+        }
         cargo.args(args);
     }
 

@@ -674,3 +674,134 @@ pub fn on_call_{mod_name}_{fn_name}(ret: impl Into<Return{fn_cap}>) {{
         input_access_ref = input_access_ref,
     )
 }
+
+/// Generate a constructor body that:
+/// 1. Constructs the struct (pub fields matched from params, private fields as PhantomData)
+/// 2. Calls add_mock for every mockable method
+/// 3. Returns the instance
+pub fn gen_constructor_body(
+    crate_name: &str,
+    struct_name: &str,
+    constructor: &MethodSigModel,
+    struct_model: &super::crate_api::StructModel,
+    all_methods: &[MethodSigModel],
+    all_public: bool,
+) -> String {
+    let ctor_name = constructor.name.as_str();
+
+    let params_str = constructor.params.iter()
+        .map(|p| format!("{}: {}", p.name.as_str(), ty_to_string(&p.ty)))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let ret_type_str = match &constructor.return_type {
+        Some(ty) => ty_to_string(ty),
+        None => "Self".to_string(),
+    };
+
+    // Build field initializers
+    let field_inits: Vec<String> = struct_model.fields.iter().map(|f| {
+        let field_name = f.name.as_str();
+        if f.is_pub {
+            // Check if a constructor param matches this field name
+            let has_param = constructor.params.iter().any(|p| p.name.as_str() == field_name);
+            if has_param {
+                format!("            {}", field_name)
+            } else {
+                format!("            {}: Default::default()", field_name)
+            }
+        } else {
+            // Private field → PhantomData
+            format!("            {}: std::marker::PhantomData", field_name)
+        }
+    }).collect();
+
+    // Add adt_mock_id for trackable structs
+    let adt_mock_id_init = if !all_public {
+        "            adt_mock_id: context::new_id(),\n"
+    } else {
+        ""
+    };
+
+    let field_inits_str = field_inits.join(",\n");
+
+    // Generate add_mock calls for every mockable method (methods with a self receiver)
+    let mock_registrations: Vec<String> = all_methods.iter()
+        .filter(|m| m.receiver != super::crate_api::ReceiverKind::None)
+        .map(|m| {
+            let method_name = m.name.as_str();
+            let mock_id_prefix = format!("{}_{}_{}", crate_name, struct_name, method_name);
+
+            let self_type = match m.receiver {
+                super::crate_api::ReceiverKind::Ref => format!("&{}", struct_name),
+                super::crate_api::ReceiverKind::RefMut => format!("&mut {}", struct_name),
+                super::crate_api::ReceiverKind::Owned => struct_name.to_string(),
+                super::crate_api::ReceiverKind::None => unreachable!(),
+            };
+
+            let input_types = m.params.iter()
+                .map(|p| ty_to_string(&p.ty))
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            let full_type_tuple = if input_types.is_empty() {
+                format!("{},", self_type)
+            } else {
+                format!("{}, {}", self_type, input_types)
+            };
+
+            let ret_type = match &m.return_type {
+                Some(ty) => ty_to_string(ty),
+                None => "()".to_string(),
+            };
+
+            if all_public {
+                format!(
+                    r#"        let _ = context::add_mock::<({full_type_tuple}), {ret_type}>(context::MockId::new("{mock_id_prefix}"), None);"#,
+                    full_type_tuple = full_type_tuple,
+                    ret_type = ret_type,
+                    mock_id_prefix = mock_id_prefix,
+                )
+            } else {
+                format!(
+                    r#"        context::add_mock::<({full_type_tuple}), {ret_type}>(context::MockId::new(format!("{{}}{{}}", "{mock_id_prefix}", slf.adt_mock_id.0)), None).unwrap();"#,
+                    full_type_tuple = full_type_tuple,
+                    ret_type = ret_type,
+                    mock_id_prefix = mock_id_prefix,
+                )
+            }
+        })
+        .collect();
+
+    let mock_registrations_str = mock_registrations.join("\n");
+
+    format!(
+        r#"pub fn {ctor_name}({params_str}) -> {ret_type_str} {{
+        let slf = Self {{
+{field_inits_str},
+{adt_mock_id_init}        }};
+{mock_registrations_str}
+        slf
+    }}"#,
+        ctor_name = ctor_name,
+        params_str = params_str,
+        ret_type_str = ret_type_str,
+        field_inits_str = field_inits_str,
+        adt_mock_id_init = adt_mock_id_init,
+        mock_registrations_str = mock_registrations_str,
+    )
+}
+
+/// Check if a method is a constructor (no self receiver, returns Self or the struct type)
+pub fn is_constructor(method: &MethodSigModel, struct_name: &str) -> bool {
+    if method.receiver != super::crate_api::ReceiverKind::None {
+        return false;
+    }
+    match &method.return_type {
+        Some(ty) => {
+            let ty_str = ty_to_string(ty);
+            ty_str == "Self" || ty_str == struct_name
+        }
+        None => false,
+    }
+}

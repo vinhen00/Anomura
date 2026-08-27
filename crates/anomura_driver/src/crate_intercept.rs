@@ -279,6 +279,10 @@ impl CrateIntercept {
         api: &CrateApiModel,
     ) {
         let mut fn_count = 0;
+        let dump_ast = std::env::var("DUMP_AST").is_ok();
+        let ast_write = std::env::var("AST_WRITE").ok();
+        let should_dump = dump_ast || ast_write.is_some();
+        let mut dump_buf = String::new();
 
         // Replace function and method bodies in place
         for item in krate.items.iter_mut() {
@@ -294,29 +298,55 @@ impl CrateIntercept {
                     self.handle_impl_methods(compiler, impl_data, api);
                 }
                 ast::ItemKind::Struct(ident, _generics, fields) if self.is_pub(&item.vis) => {
-                    // Add adt_mock_id field to trackable structs (those with private fields)
                     if let Some(struct_model) = api.root.structs.iter().find(|s| s.name == ident.name) {
-                        if !struct_model.all_public() {
-                            self.add_adt_mock_id_field(compiler, fields);
-                        }
+                        let trackable = !struct_model.all_public();
+                        self.modify_struct_fields(compiler, fields, trackable);
                     }
                 }
                 ast::ItemKind::Mod(_safety, ident, mod_kind) => {
-                    // Find the matching child module model
                     let child = api.root.children.iter()
                         .find(|c| c.name == ident.name);
                     self.handle_mod_mock_bodies(compiler, mod_kind, api, child);
                 }
                 _ => {}
             }
+
+            if should_dump {
+                dump_buf.push_str(&rustc_ast_pretty::pprust::item_to_string(item));
+                dump_buf.push_str("\n\n");
+            }
         }
 
         println!("CrateIntercept: replaced {} function bodies", fn_count);
+
+        if dump_ast {
+            println!("\n=== DUMP_AST: modified items ===\n{}\n=== end ===", dump_buf);
+        }
+
+        if let Some(path) = &ast_write {
+            let resolved = if std::path::Path::new(path).is_absolute() {
+                std::path::PathBuf::from(path)
+            } else {
+                let base = std::env::var("ANOMURA_CWD")
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default());
+                base.join(path)
+            };
+            if let Err(e) = std::fs::write(&resolved, &dump_buf) {
+                eprintln!("CrateIntercept: failed to write AST to {}: {}", resolved.display(), e);
+            } else {
+                println!("CrateIntercept: wrote modified AST to {}", resolved.display());
+            }
+        }
 
         // Phase C: Generate and inject convenience API (PredicateXxx, ReturnXxx, on_call_*)
         let convenience_source = crate_mock_gen::gen_convenience_api(api);
         if !convenience_source.is_empty() {
             self.inject_source_items(compiler, krate, &convenience_source);
+            if should_dump {
+                dump_buf.push_str("// ─── Generated convenience API ───\n\n");
+                dump_buf.push_str(&convenience_source);
+            }
         }
     }
 
@@ -376,21 +406,47 @@ impl CrateIntercept {
 
         let struct_name = self_type_name.as_str().to_string();
 
+        // Find the struct model for constructor generation
+        let struct_model = api.root.structs.iter().find(|s| s.name.as_str() == struct_name);
+        let all_public = struct_model.map(|s| s.all_public()).unwrap_or(true);
+
         // Replace method bodies
         for assoc_item in impl_data.items.iter_mut() {
             if let ast::AssocItemKind::Fn(fn_data) = &mut assoc_item.kind {
                 let method_name = fn_data.ident.name.as_str().to_string();
                 if let Some(method_model) = impl_model.methods.iter().find(|m| m.name.as_str() == method_name) {
-                    let mock_source = crate_mock_gen::gen_mock_method_body(
-                        &api.crate_name,
-                        &struct_name,
-                        method_model,
-                    );
+                    // Check if this is a constructor (no self, returns Self/StructName)
+                    let mock_source = if crate_mock_gen::is_constructor(method_model, &struct_name) {
+                        if let Some(sm) = struct_model {
+                            crate_mock_gen::gen_constructor_body(
+                                &api.crate_name,
+                                &struct_name,
+                                method_model,
+                                sm,
+                                &impl_model.methods,
+                                all_public,
+                            )
+                        } else {
+                            crate_mock_gen::gen_mock_method_body(
+                                &api.crate_name,
+                                &struct_name,
+                                method_model,
+                            )
+                        }
+                    } else {
+                        crate_mock_gen::gen_mock_method_body(
+                            &api.crate_name,
+                            &struct_name,
+                            method_model,
+                        )
+                    };
+
                     if let Some(parsed_fn) = self.parse_fn_item(compiler, &mock_source) {
                         fn_data.sig = parsed_fn.sig;
                         fn_data.body = parsed_fn.body;
                     } else {
                         eprintln!("CrateIntercept: failed to parse mock body for method {}.{}", struct_name, method_name);
+                        eprintln!("  source: {}", mock_source);
                     }
                 }
             }
@@ -428,44 +484,80 @@ impl CrateIntercept {
         }
     }
 
-    /// Add `pub adt_mock_id: context::AdtMockId` field to a struct.
-    fn add_adt_mock_id_field(&self, compiler: &Compiler, fields: &mut ast::VariantData) {
+    /// Modify a struct's fields:
+    /// - Private fields: keep the name and visibility, replace type with PhantomData<OriginalType>
+    /// - Trackable structs: append pub adt_mock_id: context::AdtMockId
+    fn modify_struct_fields(&self, compiler: &Compiler, fields: &mut ast::VariantData, trackable: bool) {
         let ast::VariantData::Struct { fields: field_list, .. } = fields else {
             return;
         };
 
-        // Parse a struct with just the adt_mock_id field to get a proper FieldDef
-        let source = "pub struct _Tmp { pub adt_mock_id: context::AdtMockId }";
-        let psess = &compiler.sess.psess;
-        let filename = FileName::Custom("mock_field_gen".to_string());
+        // Replace private field types with PhantomData<OriginalType>
+        let mut private_count = 0;
+        for field in field_list.iter_mut() {
+            if !matches!(field.vis.kind, ast::VisibilityKind::Public) {
+                let orig_ty_str = rustc_ast_pretty::pprust::ty_to_string(&field.ty);
+                let phantom_ty_str = format!("std::marker::PhantomData<{}>", orig_ty_str);
 
-        let mut parser = match rustc_parse::new_parser_from_source_str(
-            psess,
-            filename,
-            source.to_string(),
-        ) {
-            Ok(p) => p,
-            Err(diags) => {
-                for d in diags { d.cancel(); }
-                eprintln!("CrateIntercept: failed to parse adt_mock_id field");
-                return;
-            }
-        };
-
-        if let Ok(Some(item)) = parser.parse_item(rustc_parse::parser::ForceCollect::No) {
-            if let ast::ItemKind::Struct(_, _, ast::VariantData::Struct { fields: parsed_fields, .. }) = item.kind {
-                if let Some(field) = parsed_fields.into_iter().next() {
-                    // Check if field already exists
-                    let exists = field_list.iter().any(|f| {
-                        f.ident.map(|i| i.name.as_str() == "adt_mock_id").unwrap_or(false)
-                    });
-                    if !exists {
-                        field_list.push(field);
-                        println!("CrateIntercept: added adt_mock_id field");
-                    }
+                if let Some(new_ty) = self.parse_type(compiler, &phantom_ty_str) {
+                    field.ty = new_ty;
+                    private_count += 1;
                 }
             }
         }
+
+        if private_count > 0 {
+            println!("CrateIntercept: replaced {} private field(s) with PhantomData", private_count);
+        }
+
+        // Add adt_mock_id for trackable structs
+        if trackable {
+            let exists = field_list.iter().any(|f| {
+                f.ident.map(|i| i.name.as_str() == "adt_mock_id").unwrap_or(false)
+            });
+            if !exists {
+                if let Some(mock_id_field) = self.parse_struct_field(compiler, "pub adt_mock_id: context::AdtMockId") {
+                    field_list.push(mock_id_field);
+                    println!("CrateIntercept: added adt_mock_id field");
+                }
+            }
+        }
+    }
+
+    /// Parse a type string directly into an ast::Ty.
+    fn parse_type(&self, compiler: &Compiler, ty_str: &str) -> Option<Box<ast::Ty>> {
+        let n = self.parse_counter.get();
+        self.parse_counter.set(n + 1);
+        let psess = &compiler.sess.psess;
+        let filename = FileName::Custom(format!("mock_ty_{}", n));
+
+        let mut parser = match rustc_parse::new_parser_from_source_str(psess, filename, ty_str.to_string()) {
+            Ok(p) => p,
+            Err(diags) => { for d in diags { d.cancel(); } return None; }
+        };
+
+        parser.parse_ty().ok()
+    }
+
+    /// Parse a single struct field from a declaration like "pub name: Type".
+    fn parse_struct_field(&self, compiler: &Compiler, field_str: &str) -> Option<ast::FieldDef> {
+        let source = format!("pub struct _Tmp {{ {} }}", field_str);
+        let n = self.parse_counter.get();
+        self.parse_counter.set(n + 1);
+        let psess = &compiler.sess.psess;
+        let filename = FileName::Custom(format!("mock_field_{}", n));
+
+        let mut parser = match rustc_parse::new_parser_from_source_str(psess, filename, source) {
+            Ok(p) => p,
+            Err(diags) => { for d in diags { d.cancel(); } return None; }
+        };
+
+        if let Ok(Some(item)) = parser.parse_item(rustc_parse::parser::ForceCollect::No) {
+            if let ast::ItemKind::Struct(_, _, ast::VariantData::Struct { fields, .. }) = item.kind {
+                return fields.into_iter().next();
+            }
+        }
+        None
     }
 
     /// Parse a generated function source string and extract the full Fn data.

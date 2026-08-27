@@ -55,13 +55,15 @@ fn mock_crate_foo_static_method_with_helper() {
 }
 
 #[test]
-fn mock_crate_foo_ret_owned_with_helper() {
-    // Static method that returns Foo
-    fns::Foo::on_call_ret_owned(fns::ReturnFooRet_owned::from_fn(|| fns::Foo { x: 77 }));
+fn mock_crate_foo_constructor_registers_mocks() {
+    // ret_owned is a constructor — it creates a Foo and registers mocks for its methods.
+    // Must be called during build phase (before finish_building_context).
+    let foo = fns::Foo::ret_owned();
     context::finish_building_context();
 
-    let foo = fns::Foo::ret_owned();
-    assert_eq!(foo.x, 77);
+    // The constructor registered mocks for ret_ref, ret_mut_ref, fallback
+    // Foo has x: Default::default() = 0
+    assert_eq!(foo.x, 0);
 }
 
 // ─── Test unmocked functions panic with clear message ─────────────────────────
