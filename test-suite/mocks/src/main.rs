@@ -1,4 +1,5 @@
 use mock_macro::mock_crate;
+use fns::Computable;
 
 mock_crate!(fns);
 
@@ -156,4 +157,52 @@ fn mock_crate_trait_impl_debug() {
     let cw = fns::ClosureWrapper(Box::new(|x| x));
     let debug_output = format!("{:?}", cw);
     assert_eq!(debug_output, "MOCKED!");
+}
+
+// ─── Struct initialization + expectations ────────────────────────────────────
+
+#[test]
+fn mock_crate_mock_struct_instance_mock() {
+    // MockStruct is trackable (has private fields) → instance-specific mock IDs.
+    // Constructor registers mocks, on_call_get_value is an instance method.
+    let ms = fns::MockStruct::new();
+    ms.on_call_get_value(fns::ReturnMockStructGet_value::from_fn(|_self_ref| 42u32));
+    context::finish_building_context();
+
+    assert_eq!(ms.get_value(), 42);
+}
+
+#[test]
+fn mock_crate_foo_constructor_and_expectations() {
+    // Foo is all-public → shared mock IDs, on_call is static.
+    let _foo = fns::Foo::ret_owned(); // constructor registers mocks
+    fns::Foo::on_call_fallback(fns::ReturnFooFallback::from_fn(|_self_ref| 123u32));
+    context::finish_building_context();
+
+    let foo = fns::Foo { x: 5 };
+    assert_eq!(foo.fallback(), 123);
+}
+
+#[test]
+fn mock_crate_foo_computable_trait_mock() {
+    // Mock a crate-local trait impl via on_call
+    fns::Foo::on_call_compute(fns::ReturnFooCompute::from_fn(|_self_ref| 999u32));
+    context::finish_building_context();
+
+    let foo = fns::Foo { x: 1 };
+    assert_eq!(foo.compute(), 999);
+}
+
+#[test]
+fn mock_crate_two_mock_struct_instances() {
+    // Two instances of MockStruct should have independent mock IDs
+    let ms1 = fns::MockStruct::new();
+    let ms2 = fns::MockStruct::new();
+
+    ms1.on_call_get_value(fns::ReturnMockStructGet_value::from_fn(|_self_ref| 100u32));
+    ms2.on_call_get_value(fns::ReturnMockStructGet_value::from_fn(|_self_ref| 200u32));
+    context::finish_building_context();
+
+    assert_eq!(ms1.get_value(), 100);
+    assert_eq!(ms2.get_value(), 200);
 }

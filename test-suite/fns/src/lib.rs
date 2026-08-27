@@ -35,6 +35,9 @@ impl MockStruct {
     pub fn get_value(&self) -> u32 {
         self.pubfield
     }
+    fn private_helper(&self) -> u32 {
+        self.privfield
+    }
 }
 
 pub fn ret_call_w_args(x: i16) -> i16 {
@@ -137,3 +140,31 @@ pub fn closure_param(f: ClosureWrapper) -> u32 {
 }
 
 pub fn match_combination(key: i32) {}
+
+fn private_top_level_fn() -> u32 {
+    42
+}
+
+struct PrivateStruct {
+    data: u32,
+}
+
+trait InternalBehavior {
+    fn secret(&self) -> u32;
+}
+
+impl InternalBehavior for Foo {
+    fn secret(&self) -> u32 {
+        self.x + 100
+    }
+}
+
+pub trait Computable {
+    fn compute(&self) -> u32;
+}
+
+impl Computable for Foo {
+    fn compute(&self) -> u32 {
+        self.x * 2
+    }
+}

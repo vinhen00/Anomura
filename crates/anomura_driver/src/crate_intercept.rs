@@ -97,9 +97,11 @@ impl CrateIntercept {
                 ty: f.ty.clone(),
                 is_pub: matches!(f.vis.kind, ast::VisibilityKind::Public),
             })
-            .collect();
+            .collect::<Vec<_>>();
 
-        Some(StructModel { name, fields })
+        let trackable = fields.iter().any(|f: &FieldModel| !f.is_pub);
+
+        Some(StructModel { name, fields, trackable })
     }
 
     fn collect_enum(&self, name: Symbol, variants: &[ast::Variant]) -> Option<EnumModel> {
@@ -284,6 +286,46 @@ impl CrateIntercept {
         let should_dump = dump_ast || ast_write.is_some();
         let mut dump_buf = String::new();
 
+        // Strip private top-level items (functions, structs)
+        krate.items.retain(|item| {
+            match &item.kind {
+                ast::ItemKind::Fn(_) | ast::ItemKind::Struct(_, _, _)
+                    if !self.is_pub(&item.vis) => false,
+                _ => true,
+            }
+        });
+
+        // Private traits: keep the trait definition for bounds, but strip all methods.
+        // Also strip methods from impls of private traits.
+        let private_trait_names: Vec<Symbol> = krate.items.iter()
+            .filter_map(|item| {
+                if let ast::ItemKind::Trait(trait_data) = &item.kind {
+                    if !self.is_pub(&item.vis) {
+                        return Some(trait_data.ident.name);
+                    }
+                }
+                None
+            })
+            .collect();
+
+        for item in krate.items.iter_mut() {
+            match &mut item.kind {
+                ast::ItemKind::Trait(trait_data) if !self.is_pub(&item.vis) => {
+                    trait_data.items.clear();
+                }
+                ast::ItemKind::Impl(impl_data) => {
+                    if let Some(trait_header) = &impl_data.of_trait {
+                        if let Some(seg) = trait_header.trait_ref.path.segments.last() {
+                            if private_trait_names.contains(&seg.ident.name) {
+                                impl_data.items.clear();
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
         // Replace function and method bodies in place
         for item in krate.items.iter_mut() {
             match &mut item.kind {
@@ -299,8 +341,7 @@ impl CrateIntercept {
                 }
                 ast::ItemKind::Struct(ident, _generics, fields) if self.is_pub(&item.vis) => {
                     if let Some(struct_model) = api.root.structs.iter().find(|s| s.name == ident.name) {
-                        let trackable = !struct_model.all_public();
-                        self.modify_struct_fields(compiler, fields, trackable);
+                        self.modify_struct_fields(compiler, fields, struct_model.trackable);
                     }
                 }
                 ast::ItemKind::Mod(_safety, ident, mod_kind) => {
@@ -319,6 +360,17 @@ impl CrateIntercept {
 
         println!("CrateIntercept: replaced {} function bodies", fn_count);
 
+        // Phase C: Generate and inject convenience API (PredicateXxx, ReturnXxx, on_call_*)
+        let convenience_source = crate_mock_gen::gen_convenience_api(api);
+        if !convenience_source.is_empty() {
+            self.inject_source_items(compiler, krate, &convenience_source);
+            if should_dump {
+                dump_buf.push_str("// ─── Generated convenience API ───\n\n");
+                dump_buf.push_str(&convenience_source);
+            }
+        }
+
+        // Output the dump
         if dump_ast {
             println!("\n=== DUMP_AST: modified items ===\n{}\n=== end ===", dump_buf);
         }
@@ -336,16 +388,6 @@ impl CrateIntercept {
                 eprintln!("CrateIntercept: failed to write AST to {}: {}", resolved.display(), e);
             } else {
                 println!("CrateIntercept: wrote modified AST to {}", resolved.display());
-            }
-        }
-
-        // Phase C: Generate and inject convenience API (PredicateXxx, ReturnXxx, on_call_*)
-        let convenience_source = crate_mock_gen::gen_convenience_api(api);
-        if !convenience_source.is_empty() {
-            self.inject_source_items(compiler, krate, &convenience_source);
-            if should_dump {
-                dump_buf.push_str("// ─── Generated convenience API ───\n\n");
-                dump_buf.push_str(&convenience_source);
             }
         }
     }
@@ -408,7 +450,13 @@ impl CrateIntercept {
 
         // Find the struct model for constructor generation
         let struct_model = api.root.structs.iter().find(|s| s.name.as_str() == struct_name);
-        let all_public = struct_model.map(|s| s.all_public()).unwrap_or(true);
+        let all_public = struct_model.map(|s| !s.trackable).unwrap_or(true);
+
+        // Remove private methods from inherent impls.
+        // Trait impls: all methods are public by definition, nothing to strip.
+        if trait_name.is_none() {
+            impl_data.items.retain(|assoc_item| self.is_pub(&assoc_item.vis));
+        }
 
         // Replace method bodies
         for assoc_item in impl_data.items.iter_mut() {
@@ -431,6 +479,7 @@ impl CrateIntercept {
                                 &api.crate_name,
                                 &struct_name,
                                 method_model,
+                                !all_public,
                             )
                         }
                     } else {
@@ -438,6 +487,7 @@ impl CrateIntercept {
                             &api.crate_name,
                             &struct_name,
                             method_model,
+                            !all_public,
                         )
                     };
 

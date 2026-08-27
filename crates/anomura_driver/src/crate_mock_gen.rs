@@ -87,6 +87,7 @@ pub fn gen_mock_method_body(
     crate_name: &str,
     struct_name: &str,
     method: &MethodSigModel,
+    trackable: bool,
 ) -> String {
     let method_name = method.name.as_str();
     let mock_id = format!("{}_{}_{}", crate_name, struct_name, method_name);
@@ -150,9 +151,16 @@ pub fn gen_mock_method_body(
         _ => full_input_values.clone(),
     };
 
+    // Mock ID: instance-specific for trackable structs with self, static otherwise
+    let mock_id_expr = if trackable && method.receiver != ReceiverKind::None {
+        format!("format!(\"{{}}{{}}\", \"{}\", self.adt_mock_id.0)", mock_id)
+    } else {
+        format!("stringify!({})", mock_id)
+    };
+
     format!(
         r#"pub fn {method_name}({receiver_str}{params_str}) -> {ret_type_str} {{
-    let {mock_id}_mock_id = context::MockId::new(stringify!({mock_id}));
+    let {mock_id}_mock_id = context::MockId::new({mock_id_expr});
     if context::ctx_built_and_contains_id(&{mock_id}_mock_id) {{
         match context::run_mock::<({full_input_types}), {ret_type_str}>({mock_id}_mock_id, ({full_input_values_tuple})) {{
             Ok(res) => res,
@@ -171,6 +179,7 @@ pub fn gen_mock_method_body(
         params_str = params_str,
         ret_type_str = ret_type_str,
         mock_id = mock_id,
+        mock_id_expr = mock_id_expr,
         full_input_types = full_input_types,
         full_input_values_tuple = full_input_values_tuple,
     )
@@ -211,8 +220,12 @@ pub fn gen_convenience_api(api: &CrateApiModel) -> String {
     // Generate wrappers for impl methods (both inherent and trait impls)
     for imp in &api.root.impls {
         let struct_name = imp.self_type_name.as_str();
+        let trackable = api.root.structs.iter()
+            .find(|s| s.name.as_str() == struct_name)
+            .map(|s| s.trackable)
+            .unwrap_or(false);
         for method in &imp.methods {
-            source.push_str(&gen_method_wrappers(&api.crate_name, struct_name, method));
+            source.push_str(&gen_method_wrappers(&api.crate_name, struct_name, method, trackable));
             source.push('\n');
         }
     }
@@ -390,7 +403,7 @@ pub fn expect_{fn_name}_at(seq_name: &str, index: usize, ret: impl Fn({closure_t
 }
 
 /// Generate wrapper newtypes and on_call for an impl method.
-fn gen_method_wrappers(crate_name: &str, struct_name: &str, method: &MethodSigModel) -> String {
+fn gen_method_wrappers(crate_name: &str, struct_name: &str, method: &MethodSigModel, trackable: bool) -> String {
     let method_name = method.name.as_str();
     let suffix = format!("{}{}", capitalize(struct_name), capitalize(method_name));
     let mock_id = format!("{}_{}_{}", crate_name, struct_name, method_name);
@@ -500,6 +513,14 @@ fn gen_method_wrappers(crate_name: &str, struct_name: &str, method: &MethodSigMo
         .collect::<Vec<_>>()
         .join(", ");
 
+    // on_call: instance method for trackable, static for non-trackable
+    let on_call_self_param = if trackable { "&self, " } else { "" };
+    let on_call_mock_id_expr = if trackable {
+        format!("format!(\"{{}}{{}}\", \"{}\", self.adt_mock_id.0)", mock_id)
+    } else {
+        format!("\"{}\"", mock_id)
+    };
+
     format!(
 r#"pub struct Predicate{suffix}(pub context::Predicate);
 pub struct Return{suffix}(pub context::ReturnValDoublePointer);
@@ -523,9 +544,9 @@ impl Predicate{suffix} {{
 }}
 
 impl {struct_name} {{
-    pub fn on_call_{method_name}(ret: impl Into<Return{suffix}>) {{
+    pub fn on_call_{method_name}({on_call_self_param}ret: impl Into<Return{suffix}>) {{
         let inner: Return{suffix} = ret.into();
-        let mock_id = context::MockId::new("{mock_id}");
+        let mock_id = context::MockId::new({on_call_mock_id_expr});
         match context::add_mock::<({full_type_tuple}), {ret_type_str}>(mock_id.clone(), None) {{
             Ok(()) => {{}},
             Err(e) if e.to_string().contains("registered twice") => {{}},
@@ -553,6 +574,8 @@ impl {struct_name} {{
         full_type_tuple = full_type_tuple,
         destructure_pattern = destructure_pattern,
         input_access_ref = input_access_ref,
+        on_call_self_param = on_call_self_param,
+        on_call_mock_id_expr = on_call_mock_id_expr,
     )
 }
 

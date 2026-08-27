@@ -627,3 +627,34 @@ pub fn match_combination(key: i32) -> () {
     }
 }
 
+trait InternalBehavior {}
+
+impl InternalBehavior for Foo {}
+
+pub trait Computable {
+    fn compute(&self)
+    -> u32;
+}
+
+impl Computable for Foo {
+    fn compute(&self) -> u32 {
+        let fns_Foo_compute_mock_id =
+            context::MockId::new(stringify!(fns_Foo_compute));
+        if context::ctx_built_and_contains_id(&fns_Foo_compute_mock_id) {
+            match context::run_mock::<(&Foo,),
+                        u32>(fns_Foo_compute_mock_id, (self,)) {
+                Ok(res) => res,
+                Err(e) =>
+                    match e {
+                        context::MockError::Other(e) =>
+                            panic!("unexpected Error: {:?}", e),
+                        context::MockError::PredicateError(e) =>
+                            panic!("{:?}", e.0),
+                        context::MockError::NoMatchingId =>
+                            panic!("failed to find mock id"),
+                    },
+            }
+        } else { panic!("mock_crate: no mock context built for compute"); }
+    }
+}
+

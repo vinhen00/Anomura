@@ -45,6 +45,7 @@ impl ModuleModel {
 pub struct StructModel {
     pub name: Symbol,
     pub fields: Vec<FieldModel>,
+    pub trackable: bool,
 }
 
 impl StructModel {
