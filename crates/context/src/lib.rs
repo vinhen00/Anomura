@@ -113,7 +113,7 @@ pub fn add_mock<Input, ReturnVal>(
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
         CtxState::Building(builder) => {
             if builder.ctx.mocks().contains_key(&mock_id) {
-                return Err(format!("mock {:?} registered twice", mock_id).into());
+                return Err(MockError::AlreadyRegistered);
             }
             let default_ret =
                 default_return_val_closure.map(|c| ReturnValDoublePointer::from_fn(c));

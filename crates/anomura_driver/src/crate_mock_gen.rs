@@ -67,6 +67,7 @@ pub fn gen_mock_fn_body(
                 context::MockError::NoMatchingId => {{
                     panic!("failed to find mock id");
                 }}
+                context::MockError::AlreadyRegistered => unreachable!(),
             }}
         }}
     }} else {{
@@ -168,6 +169,7 @@ pub fn gen_mock_method_body(
                 context::MockError::Other(e) => panic!("unexpected Error: {{:?}}", e),
                 context::MockError::PredicateError(e) => panic!("{{:?}}", e.0),
                 context::MockError::NoMatchingId => panic!("failed to find mock id"),
+                context::MockError::AlreadyRegistered => unreachable!(),
             }}
         }}
     }} else {{
@@ -225,21 +227,53 @@ pub fn gen_convenience_api(api: &CrateApiModel) -> String {
             .map(|s| s.trackable)
             .unwrap_or(false);
         for method in &imp.methods {
-            source.push_str(&gen_method_wrappers(&api.crate_name, struct_name, method, trackable));
+            source.push_str(&gen_method_wrappers(&api.crate_name, struct_name, method, trackable, struct_name));
             source.push('\n');
         }
     }
 
-    // Generate wrappers for functions in child modules
+    // Generate wrappers for functions in child modules (recursively)
     for child in &api.root.children {
         let mod_prefix = format!("{}_{}", api.crate_name, child.name.as_str());
-        for func in &child.functions {
-            source.push_str(&gen_fn_wrappers_with_prefix(&mod_prefix, func, child.name.as_str()));
-            source.push('\n');
-        }
+        let mod_path = child.name.as_str().to_string();
+        gen_module_convenience_wrappers(child, &mod_prefix, &mod_path, &mut source);
     }
 
     source
+}
+
+/// Recursively generate convenience API wrappers for a module's contents.
+/// `prefix` is the accumulated mock_id prefix (e.g. "fns_a" or "fns_a_nested").
+/// `mod_path` is the Rust module path (e.g. "a::nested") for qualifying type names
+/// since convenience items are injected at the crate root.
+fn gen_module_convenience_wrappers(module: &ModuleModel, prefix: &str, mod_path: &str, source: &mut String) {
+    // Free functions in this module
+    for func in &module.functions {
+        source.push_str(&gen_fn_wrappers_with_prefix(prefix, func, module.name.as_str()));
+        source.push('\n');
+    }
+
+    // Impl methods in this module
+    for imp in &module.impls {
+        let struct_name = imp.self_type_name.as_str();
+        // Qualify the struct name with the module path so it resolves at the crate root
+        let qualified_struct_name = format!("{}::{}", mod_path, struct_name);
+        let trackable = module.structs.iter()
+            .find(|s| s.name.as_str() == struct_name)
+            .map(|s| s.trackable)
+            .unwrap_or(false);
+        for method in &imp.methods {
+            source.push_str(&gen_method_wrappers(prefix, struct_name, method, trackable, &qualified_struct_name));
+            source.push('\n');
+        }
+    }
+
+    // Recurse into child modules
+    for child in &module.children {
+        let child_prefix = format!("{}_{}", prefix, child.name.as_str());
+        let child_mod_path = format!("{}::{}", mod_path, child.name.as_str());
+        gen_module_convenience_wrappers(child, &child_prefix, &child_mod_path, source);
+    }
 }
 
 /// Generate wrapper newtypes and on_call for a free function.
@@ -357,7 +391,7 @@ pub fn on_call_{fn_name}(ret: impl Into<Return{fn_cap}>) {{
     let mock_id = context::MockId::new("{mock_id}");
     match context::add_mock::<({type_tuple}), {ret_type_str}>(mock_id.clone(), None) {{
         Ok(()) => {{}},
-        Err(e) if e.to_string().contains("registered twice") => {{}},
+        Err(context::MockError::AlreadyRegistered) => {{}},
         Err(e) => panic!("failed to add mock: {{:?}}", e),
     }}
     let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(Box::new(|_| Ok(())));
@@ -370,19 +404,36 @@ pub fn on_call_{fn_name}(ret: impl Into<Return{fn_cap}>) {{
     ).unwrap();
 }}
 
-pub fn sequence_{fn_name}(name: &str, size: usize, modifier: context::TimesModifier) {{
+pub fn expect_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> context::errors::PredicateResult<()> + 'static, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static, modifier: context::TimesModifier, checkpoint: Option<&str>) {{
     let mock_id = context::MockId::new("{mock_id}");
-    match context::add_mock::<({type_tuple}), {ret_type_str}>(mock_id, None) {{
+    match context::add_mock::<({type_tuple}), {ret_type_str}>(mock_id.clone(), None) {{
         Ok(()) => {{}},
-        Err(e) if e.to_string().contains("registered twice") => {{}},
+        Err(context::MockError::AlreadyRegistered) => {{}},
         Err(e) => panic!("failed to add mock: {{:?}}", e),
     }}
-    context::new_sequence(name, size, modifier, None).unwrap();
+    let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
+        Box::new(move |input: &({type_tuple})| condition({input_access_ref}))
+    );
+    let ret_ptr = context::ReturnValDoublePointer::from_fn::<({type_tuple}), {ret_type_str}>(
+        Box::new(move |{destructure_pattern}| ret({closure_args}))
+    );
+    context::add_expectation::<({type_tuple}), {ret_type_str}>(
+        &mock_id, cond, Some(ret_ptr),
+        checkpoint.map(|s| context::CheckpointName(s.to_string())),
+        modifier,
+    ).unwrap();
 }}
 
-pub fn expect_{fn_name}_at(seq_name: &str, index: usize, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static) {{
+pub fn sequence_{fn_name}(seq_name: &str, index: usize, condition: impl Fn({closure_type_params_ref}) -> context::errors::PredicateResult<()> + 'static, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static) {{
     let mock_id = context::MockId::new("{mock_id}");
-    let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(Box::new(|_| Ok(())));
+    match context::add_mock::<({type_tuple}), {ret_type_str}>(mock_id.clone(), None) {{
+        Ok(()) => {{}},
+        Err(context::MockError::AlreadyRegistered) => {{}},
+        Err(e) => panic!("failed to add mock: {{:?}}", e),
+    }}
+    let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
+        Box::new(move |input: &({type_tuple})| condition({input_access_ref}))
+    );
     context::add_expectation_to_sequence::<({type_tuple}), {ret_type_str}>(
         &mock_id, cond, Some(Box::new(move |{destructure_pattern}| ret({closure_args}))),
         seq_name, index, None,
@@ -403,7 +454,9 @@ pub fn expect_{fn_name}_at(seq_name: &str, index: usize, ret: impl Fn({closure_t
 }
 
 /// Generate wrapper newtypes and on_call for an impl method.
-fn gen_method_wrappers(crate_name: &str, struct_name: &str, method: &MethodSigModel, trackable: bool) -> String {
+/// `struct_name` is the bare struct name (for mock IDs and wrapper type names).
+/// `struct_type_path` is the fully qualified path for use in generated code (e.g., "a::nested::Inner").
+fn gen_method_wrappers(crate_name: &str, struct_name: &str, method: &MethodSigModel, trackable: bool, struct_type_path: &str) -> String {
     let method_name = method.name.as_str();
     let suffix = format!("{}{}", capitalize(struct_name), capitalize(method_name));
     let mock_id = format!("{}_{}_{}", crate_name, struct_name, method_name);
@@ -418,11 +471,11 @@ fn gen_method_wrappers(crate_name: &str, struct_name: &str, method: &MethodSigMo
         None => "()".to_string(),
     };
 
-    // Self type for the type tuple
+    // Self type for the type tuple (use qualified path for code generation)
     let self_type = match method.receiver {
-        ReceiverKind::Ref => format!("&{}", struct_name),
-        ReceiverKind::RefMut => format!("&mut {}", struct_name),
-        ReceiverKind::Owned => struct_name.to_string(),
+        ReceiverKind::Ref => format!("&{}", struct_type_path),
+        ReceiverKind::RefMut => format!("&mut {}", struct_type_path),
+        ReceiverKind::Owned => struct_type_path.to_string(),
         ReceiverKind::None => "".to_string(),
     };
 
@@ -543,13 +596,13 @@ impl Predicate{suffix} {{
     }}
 }}
 
-impl {struct_name} {{
+impl {struct_type_path} {{
     pub fn on_call_{method_name}({on_call_self_param}ret: impl Into<Return{suffix}>) {{
         let inner: Return{suffix} = ret.into();
         let mock_id = context::MockId::new({on_call_mock_id_expr});
         match context::add_mock::<({full_type_tuple}), {ret_type_str}>(mock_id.clone(), None) {{
             Ok(()) => {{}},
-            Err(e) if e.to_string().contains("registered twice") => {{}},
+            Err(context::MockError::AlreadyRegistered) => {{}},
             Err(e) => panic!("failed to add mock: {{:?}}", e),
         }}
         let cond = context::ConditionDoublePointer::from_fn::<({full_type_tuple})>(Box::new(|_| Ok(())));
@@ -565,7 +618,7 @@ impl {struct_name} {{
 "#,
         suffix = suffix,
         mock_id = mock_id,
-        struct_name = struct_name,
+        struct_type_path = struct_type_path,
         method_name = method_name,
         closure_type_params_str = closure_type_params_str,
         closure_type_params_ref_str = closure_type_params_ref_str,
@@ -671,7 +724,7 @@ pub fn on_call_{mod_name}_{fn_name}(ret: impl Into<Return{fn_cap}>) {{
     let mock_id = context::MockId::new("{mock_id}");
     match context::add_mock::<({type_tuple}), {ret_type_str}>(mock_id.clone(), None) {{
         Ok(()) => {{}},
-        Err(e) if e.to_string().contains("registered twice") => {{}},
+        Err(context::MockError::AlreadyRegistered) => {{}},
         Err(e) => panic!("failed to add mock: {{:?}}", e),
     }}
     let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(Box::new(|_| Ok(())));

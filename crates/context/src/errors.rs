@@ -22,6 +22,7 @@ pub type Result<T> = result::Result<T, MockError>;
 #[derive(Debug, Clone)]
 pub enum MockError {
     NoMatchingId,
+    AlreadyRegistered,
     PredicateError(PredicateError),
     Other(String),
 }
@@ -30,6 +31,7 @@ impl std::fmt::Display for MockError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MockError::NoMatchingId => write!(f, "no matching id"),
+            MockError::AlreadyRegistered => write!(f, "mock already registered"),
             MockError::PredicateError(predicate_error) => {
                 write!(f, "{predicate_error}")
             }

@@ -25,13 +25,15 @@ pub struct MockStruct {
 }
 
 impl MockStruct {
-    pub fn new() -> Self  {
+    pub fn new() -> Self {
         MockStruct {
             pubfield: 2,
             privfield: 1,
         }
     }
-    pub fn foo() {()}
+    pub fn foo() {
+        ()
+    }
     pub fn get_value(&self) -> u32 {
         self.pubfield
     }
@@ -75,6 +77,29 @@ pub fn ret_param(x: &mut u32) {}
 pub mod a {
     pub fn modules() -> u32 {
         0
+    }
+
+    pub mod nested {
+        pub struct Inner {
+            pub value: i32,
+        }
+
+        impl Inner {
+            pub fn new(value: i32) -> Self {
+                Inner { value }
+            }
+
+            pub fn double(&self) -> i32 {
+                self.value * 2
+            }
+            pub fn tripple(&self) -> i32 {
+                self.value * 3
+            }
+        }
+
+        pub fn deep_fn() -> &'static str {
+            "deep"
+        }
     }
 }
 

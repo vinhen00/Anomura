@@ -104,11 +104,11 @@ fn mock_crate_submodule_function() {
 #[test]
 fn mock_crate_sequence() {
     // Create a sequence: calls return different values in order
-    fns::sequence_ret_call_w_args("counting", 3, context::TimesModifier::Once);
+    context::new_sequence("counting", 3, context::TimesModifier::Once, None).unwrap();
 
-    fns::expect_ret_call_w_args_at("counting", 0, |x| x + 100);
-    fns::expect_ret_call_w_args_at("counting", 1, |x| x + 200);
-    fns::expect_ret_call_w_args_at("counting", 2, |x| x + 300);
+    fns::sequence_ret_call_w_args("counting", 0, |_x| Ok(()), |x| x + 100);
+    fns::sequence_ret_call_w_args("counting", 1, |_x| Ok(()), |x| x + 200);
+    fns::sequence_ret_call_w_args("counting", 2, |_x| Ok(()), |x| x + 300);
 
     context::finish_building_context();
     context::activate_sequence("counting").unwrap();
