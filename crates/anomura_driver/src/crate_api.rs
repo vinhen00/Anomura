@@ -132,3 +132,50 @@ pub struct ImplModel {
     /// Methods in this impl block
     pub methods: Vec<MethodSigModel>,
 }
+
+/// A module path represented as a crate name and a list of module segments.
+/// Provides conversions to both the mock ID prefix format (underscore-separated)
+/// and the Rust module path format (`::` separated).
+#[derive(Debug, Clone)]
+pub struct ModPath {
+    pub crate_name: String,
+    pub segments: Vec<String>,
+}
+
+impl ModPath {
+    /// Create a root-level path (no modules).
+    pub fn root(crate_name: &str) -> Self {
+        Self {
+            crate_name: crate_name.to_string(),
+            segments: Vec::new(),
+        }
+    }
+
+    /// Create a child path by appending a module segment.
+    pub fn child(&self, segment: &str) -> Self {
+        let mut segments = self.segments.clone();
+        segments.push(segment.to_string());
+        Self {
+            crate_name: self.crate_name.clone(),
+            segments,
+        }
+    }
+
+    /// Mock ID prefix with struct name: crate + modules + struct joined by `_`.
+    /// e.g. crate "fns", segments ["a", "nested"], struct "Inner" → "fns_a_nested_Inner"
+    pub fn mock_prefix(&self, struct_name: &str) -> String {
+        let mut parts = vec![self.crate_name.clone()];
+        parts.extend(self.segments.clone());
+        if !struct_name.is_empty() {
+            parts.push(struct_name.to_string());
+        }
+        parts.join("_")
+    }
+
+    /// Rust module path: module segments joined by `::`.
+    /// Returns empty string for root level.
+    /// e.g. segments ["a", "nested"] → "a::nested"
+    pub fn mod_path(&self) -> String {
+        self.segments.join("::")
+    }
+}

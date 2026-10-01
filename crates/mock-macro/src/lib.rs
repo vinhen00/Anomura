@@ -235,9 +235,9 @@ pub fn mock_fn(item: TokenStream) -> TokenStream {
     //let default_return_val = quote! { #default_return_val };
     let input_type = quote! { (#(#input_types),*) };
     let mut setup_mock = quote! {
-        let #mock_id_ident = context::MockId::new(#mock_id_string);
+        let #mock_id_ident = context::MockId::new_fn(#mock_id_string);
 
-        if let Err(e) = context::add_mock::<#input_type, #return_type>(#mock_id_ident.clone(), #default_return) {
+        if let Err(e) = context::register_mock(&#mock_id_ident) {
             panic!("failed to add mock, got error {:?}", e);
         }
 
@@ -590,9 +590,9 @@ pub fn mock_method(item: TokenStream) -> TokenStream {
     };
     let input_type = quote! { (#(#input_types),*) };
     let mut setup_mock = quote! {
-        let #mock_id_ident = context::MockId::new(#mock_id_string);
+        let #mock_id_ident = context::MockId::new_fn(#mock_id_string);
 
-        if let Err(e) = context::add_mock::<#input_type, #return_type>(#mock_id_ident.clone(), #default_return) {
+        if let Err(e) = context::register_mock(&#mock_id_ident) {
             panic!("failed to add mock, got error {:?}", e);
         }
     };

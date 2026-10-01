@@ -477,15 +477,26 @@ struct MockableMethod {
 }
 
 impl MockableMethod {
-    /// Generate the mock_id prefix string for this method.
+    /// Generate the mock_id prefix string for this method (combined path).
+    /// Used for Display/debugging.
     fn mock_id_prefix(&self, path: &syn::Path, struct_name: &Ident) -> String {
+        format!("{}_{}", self.adt_path_prefix(path, struct_name), self.fn_id_str())
+    }
+
+    /// The ADT path portion: "{crate}_{StructName}".
+    fn adt_path_prefix(&self, path: &syn::Path, struct_name: &Ident) -> String {
         let path_str = path.segments.iter()
             .map(|s| s.ident.to_string())
             .collect::<Vec<_>>()
             .join("_");
+        format!("{}_{}", path_str, struct_name)
+    }
+
+    /// The function/method identifier portion: "{method}" or "{TraitName}_{method}".
+    fn fn_id_str(&self) -> String {
         match &self.trait_name {
-            Some(trait_name) => format!("{}_{}_{}_{}", path_str, struct_name, trait_name, self.sig.name),
-            None => format!("{}_{}_{}", path_str, struct_name, self.sig.name),
+            Some(trait_name) => format!("{}_{}", trait_name, self.sig.name),
+            None => self.sig.name.to_string(),
         }
     }
 
@@ -867,15 +878,16 @@ fn gen_drop_impl(input: &FlattenedStruct, classified: &ClassifiedMethods) -> Tok
 
     // Generate mock_id bindings for each mockable method
     let mock_id_bindings: Vec<TokenStream> = classified.mockable.iter().map(|m| {
-        let prefix = m.mock_id_prefix(&input.path, struct_name);
+        let adt_path = m.adt_path_prefix(&input.path, struct_name);
+        let fn_id_str = m.fn_id_str();
         let var_name = format_ident!("{}_mock_id", m.sig.name);
         if all_public {
             quote! {
-                let #var_name = context::MockId::new(#prefix);
+                let #var_name = context::MockId::new_adt_static(#adt_path, #fn_id_str);
             }
         } else {
             quote! {
-                let #var_name = context::MockId::new(format!("{}{}", #prefix, self.adt_mock_id.0));
+                let #var_name = context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id);
             }
         }
     }).collect();
@@ -1006,7 +1018,8 @@ fn gen_predicate_from_fn(input: &FlattenedStruct, struct_name: &Ident, classifie
     let impls: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let suffix = m.wrapper_suffix(struct_name);
         let pred_name = format_ident!("Predicate{}", suffix);
-        let mock_id_prefix = m.mock_id_prefix(&input.path, struct_name);
+        let adt_path = m.adt_path_prefix(&input.path, struct_name);
+        let fn_id_str = m.fn_id_str();
         let input_tuple = m.input_type_tuple(struct_name);
 
         // Generate closure parameter types
@@ -1032,7 +1045,7 @@ fn gen_predicate_from_fn(input: &FlattenedStruct, struct_name: &Ident, classifie
                 pub fn from_fn(
                     closure: impl Fn(#(#closure_param_types),*) -> context::errors::PredicateResult<()> + 'static,
                 ) -> Self {
-                    let mock_id = context::MockId::new(#mock_id_prefix);
+                    let mock_id = context::MockId::new_adt_static(#adt_path, #fn_id_str);
                     let cond = context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(
                         move |input: &(#input_tuple)| closure(#(#closure_args),*),
                     ));
@@ -1052,6 +1065,8 @@ fn gen_mock_method_bodies(input: &FlattenedStruct, struct_name: &Ident, classifi
     let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let name = &m.sig.name;
         let mock_id_prefix = m.mock_id_prefix(&input.path, struct_name);
+        let adt_path = m.adt_path_prefix(&input.path, struct_name);
+        let fn_id_str = m.fn_id_str();
         let input_tuple = m.input_type_tuple(struct_name);
         let ret_type = m.ret_type();
         let name_str = name.to_string();
@@ -1077,9 +1092,9 @@ fn gen_mock_method_bodies(input: &FlattenedStruct, struct_name: &Ident, classifi
         let panic_msg = format!("no id found in context matching {}", mock_id_prefix);
 
         let mock_id_expr = if all_public {
-            quote! { context::MockId::new(#mock_id_prefix) }
+            quote! { context::MockId::new_adt_static(#adt_path, #fn_id_str) }
         } else {
-            quote! { context::MockId::new(format!("{}{}", #mock_id_prefix, self.adt_mock_id.0)) }
+            quote! { context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id) }
         };
 
         quote! {
@@ -1116,7 +1131,8 @@ fn gen_on_call_methods(input: &FlattenedStruct, struct_name: &Ident, classified:
         let on_call_name = format_ident!("on_call_{}", name);
         let suffix = m.wrapper_suffix(struct_name);
         let ret_wrapper = format_ident!("Return{}", suffix);
-        let mock_id_prefix = m.mock_id_prefix(&input.path, struct_name);
+        let adt_path = m.adt_path_prefix(&input.path, struct_name);
+        let fn_id_str = m.fn_id_str();
         let input_tuple = m.input_type_tuple(struct_name);
         let ret_type = m.ret_type();
 
@@ -1125,7 +1141,7 @@ fn gen_on_call_methods(input: &FlattenedStruct, struct_name: &Ident, classified:
                 let inner: #ret_wrapper = ret.into();
                 let cond = context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(|_| Ok(())));
                 context::add_expectation::<(#input_tuple), #ret_type>(
-                    &context::MockId::new(#mock_id_prefix),
+                    &context::MockId::new_adt_static(#adt_path, #fn_id_str),
                     cond,
                     Some(inner.0),
                     None,
@@ -1148,7 +1164,8 @@ fn gen_create_predicate_methods(input: &FlattenedStruct, struct_name: &Ident, cl
         let create_pred_name = format_ident!("create_predicate_{}", name);
         let suffix = m.wrapper_suffix(struct_name);
         let pred_wrapper = format_ident!("Predicate{}", suffix);
-        let mock_id_prefix = m.mock_id_prefix(&input.path, struct_name);
+        let adt_path = m.adt_path_prefix(&input.path, struct_name);
+        let fn_id_str = m.fn_id_str();
         let input_tuple = m.input_type_tuple(struct_name);
 
         // Condition closure params: (&StructName, param_types...)
@@ -1178,9 +1195,9 @@ fn gen_create_predicate_methods(input: &FlattenedStruct, struct_name: &Ident, cl
         let failure_msg = format!("failed to uphold condition for {}", name);
 
         let mock_id_expr = if all_public {
-            quote! { context::MockId::new(#mock_id_prefix) }
+            quote! { context::MockId::new_adt_static(#adt_path, #fn_id_str) }
         } else {
-            quote! { context::MockId::new(format!("{}{}", #mock_id_prefix, self.adt_mock_id.0)) }
+            quote! { context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id) }
         };
 
         quote! {
@@ -1261,14 +1278,15 @@ fn gen_expect_methods(input: &FlattenedStruct, struct_name: &Ident, classified: 
         let suffix = m.wrapper_suffix(struct_name);
         let pred_wrapper = format_ident!("Predicate{}", suffix);
         let ret_wrapper = format_ident!("Return{}", suffix);
-        let mock_id_prefix = m.mock_id_prefix(&input.path, struct_name);
+        let adt_path = m.adt_path_prefix(&input.path, struct_name);
+        let fn_id_str = m.fn_id_str();
         let input_tuple = m.input_type_tuple(struct_name);
         let ret_type = m.ret_type();
 
         let mock_id_expr = if all_public {
-            quote! { context::MockId::new(#mock_id_prefix) }
+            quote! { context::MockId::new_adt_static(#adt_path, #fn_id_str) }
         } else {
-            quote! { context::MockId::new(format!("{}{}", #mock_id_prefix, self.adt_mock_id.0)) }
+            quote! { context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id) }
         };
 
         quote! {
@@ -1328,19 +1346,20 @@ fn gen_constructors(input: &FlattenedStruct, classified: &ClassifiedMethods) -> 
 
     // Generate mock registration for all mockable methods
     let mock_registrations: Vec<TokenStream> = classified.mockable.iter().map(|m| {
-        let mock_id_prefix = m.mock_id_prefix(&input.path, struct_name);
+        let adt_path = m.adt_path_prefix(&input.path, struct_name);
+        let fn_id_str = m.fn_id_str();
         let var_name = format_ident!("{}_mock_id", m.sig.name);
         let input_tuple = m.input_type_tuple(struct_name);
         let ret_type = m.ret_type();
         if all_public {
             // Shared ID: ignore duplicate registration (multiple instances share one mock)
             quote! {
-                let #var_name = context::MockId::new(#mock_id_prefix);
+                let #var_name = context::MockId::new_adt_static(#adt_path, #fn_id_str);
                 let _ = context::add_mock::<(#input_tuple), #ret_type>(#var_name, None);
             }
         } else {
             quote! {
-                let #var_name = context::MockId::new(format!("{}{}", #mock_id_prefix, slf.adt_mock_id.0));
+                let #var_name = context::MockId::new_adt_instance(#adt_path, #fn_id_str, slf.adt_mock_id);
                 context::add_mock::<(#input_tuple), #ret_type>(#var_name, None).unwrap();
             }
         }
@@ -1469,7 +1488,8 @@ fn gen_sequence_helpers(input: &FlattenedStruct, struct_name: &Ident, classified
     let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let name = &m.sig.name;
         let seq_name = format_ident!("expect_{}_in_sequence", name);
-        let mock_id_prefix = m.mock_id_prefix(&input.path, struct_name);
+        let adt_path = m.adt_path_prefix(&input.path, struct_name);
+        let fn_id_str = m.fn_id_str();
         let input_tuple = m.input_type_tuple(struct_name);
         let ret_type = m.ret_type();
 
@@ -1503,9 +1523,9 @@ fn gen_sequence_helpers(input: &FlattenedStruct, struct_name: &Ident, classified
             .collect();
 
         let mock_id_expr = if all_public {
-            quote! { context::MockId::new(#mock_id_prefix) }
+            quote! { context::MockId::new_adt_static(#adt_path, #fn_id_str) }
         } else {
-            quote! { context::MockId::new(format!("{}{}", #mock_id_prefix, self.adt_mock_id.0)) }
+            quote! { context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id) }
         };
 
         quote! {
@@ -1725,15 +1745,16 @@ fn gen_enum_drop_impl(entry: &FlattenedEnum, classified: &ClassifiedMethods) -> 
 
     // Generate mock_id bindings for each mockable method
     let mock_id_bindings: Vec<TokenStream> = classified.mockable.iter().map(|m| {
-        let prefix = m.mock_id_prefix(&entry.path, enum_name);
+        let adt_path = m.adt_path_prefix(&entry.path, enum_name);
+        let fn_id_str = m.fn_id_str();
         let var_name = format_ident!("{}_mock_id", m.sig.name);
         if !trackable {
             quote! {
-                let #var_name = context::MockId::new(#prefix);
+                let #var_name = context::MockId::new_adt_static(#adt_path, #fn_id_str);
             }
         } else {
             quote! {
-                let #var_name = context::MockId::new(format!("{}{}", #prefix, self.adt_mock_id().0));
+                let #var_name = context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id());
             }
         }
     }).collect();
@@ -1812,7 +1833,8 @@ fn gen_enum_predicate_from_fn(entry: &FlattenedEnum, classified: &ClassifiedMeth
     let impls: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let suffix = m.wrapper_suffix(enum_name);
         let pred_name = format_ident!("Predicate{}", suffix);
-        let mock_id_prefix = m.mock_id_prefix(&entry.path, enum_name);
+        let adt_path = m.adt_path_prefix(&entry.path, enum_name);
+        let fn_id_str = m.fn_id_str();
         let input_tuple = m.input_type_tuple(enum_name);
 
         // Generate closure parameter types
@@ -1838,7 +1860,7 @@ fn gen_enum_predicate_from_fn(entry: &FlattenedEnum, classified: &ClassifiedMeth
                 pub fn from_fn(
                     closure: impl Fn(#(#closure_param_types),*) -> context::errors::PredicateResult<()> + 'static,
                 ) -> Self {
-                    let mock_id = context::MockId::new(#mock_id_prefix);
+                    let mock_id = context::MockId::new_adt_static(#adt_path, #fn_id_str);
                     let cond = context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(
                         move |input: &(#input_tuple)| closure(#(#closure_args),*),
                     ));
@@ -1859,6 +1881,8 @@ fn gen_enum_mock_method_bodies(entry: &FlattenedEnum, classified: &ClassifiedMet
     let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let name = &m.sig.name;
         let mock_id_prefix = m.mock_id_prefix(&entry.path, enum_name);
+        let adt_path = m.adt_path_prefix(&entry.path, enum_name);
+        let fn_id_str = m.fn_id_str();
         let input_tuple = m.input_type_tuple(enum_name);
         let ret_type = m.ret_type();
         let name_str = name.to_string();
@@ -1884,9 +1908,9 @@ fn gen_enum_mock_method_bodies(entry: &FlattenedEnum, classified: &ClassifiedMet
         let panic_msg = format!("no id found in context matching {}", mock_id_prefix);
 
         let mock_id_expr = if !trackable {
-            quote! { context::MockId::new(#mock_id_prefix) }
+            quote! { context::MockId::new_adt_static(#adt_path, #fn_id_str) }
         } else {
-            quote! { context::MockId::new(format!("{}{}", #mock_id_prefix, self.adt_mock_id().0)) }
+            quote! { context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id()) }
         };
 
         quote! {
@@ -1924,7 +1948,8 @@ fn gen_enum_on_call_methods(entry: &FlattenedEnum, classified: &ClassifiedMethod
         let on_call_name = format_ident!("on_call_{}", name);
         let suffix = m.wrapper_suffix(enum_name);
         let ret_wrapper = format_ident!("Return{}", suffix);
-        let mock_id_prefix = m.mock_id_prefix(&entry.path, enum_name);
+        let adt_path = m.adt_path_prefix(&entry.path, enum_name);
+        let fn_id_str = m.fn_id_str();
         let input_tuple = m.input_type_tuple(enum_name);
         let ret_type = m.ret_type();
 
@@ -1933,7 +1958,7 @@ fn gen_enum_on_call_methods(entry: &FlattenedEnum, classified: &ClassifiedMethod
                 let inner: #ret_wrapper = ret.into();
                 let cond = context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(|_| Ok(())));
                 context::add_expectation::<(#input_tuple), #ret_type>(
-                    &context::MockId::new(#mock_id_prefix),
+                    &context::MockId::new_adt_static(#adt_path, #fn_id_str),
                     cond,
                     Some(inner.0),
                     None,
@@ -1957,7 +1982,8 @@ fn gen_enum_create_predicate_methods(entry: &FlattenedEnum, classified: &Classif
         let create_pred_name = format_ident!("create_predicate_{}", name);
         let suffix = m.wrapper_suffix(enum_name);
         let pred_wrapper = format_ident!("Predicate{}", suffix);
-        let mock_id_prefix = m.mock_id_prefix(&entry.path, enum_name);
+        let adt_path = m.adt_path_prefix(&entry.path, enum_name);
+        let fn_id_str = m.fn_id_str();
         let input_tuple = m.input_type_tuple(enum_name);
 
         let condition_param_types: Vec<TokenStream> = std::iter::once(quote! { &#enum_name })
@@ -1984,9 +2010,9 @@ fn gen_enum_create_predicate_methods(entry: &FlattenedEnum, classified: &Classif
         let failure_msg = format!("failed to uphold condition for {}", name);
 
         let mock_id_expr = if !trackable {
-            quote! { context::MockId::new(#mock_id_prefix) }
+            quote! { context::MockId::new_adt_static(#adt_path, #fn_id_str) }
         } else {
-            quote! { context::MockId::new(format!("{}{}", #mock_id_prefix, self.adt_mock_id().0)) }
+            quote! { context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id()) }
         };
 
         quote! {
@@ -2069,14 +2095,15 @@ fn gen_enum_expect_methods(entry: &FlattenedEnum, classified: &ClassifiedMethods
         let suffix = m.wrapper_suffix(enum_name);
         let pred_wrapper = format_ident!("Predicate{}", suffix);
         let ret_wrapper = format_ident!("Return{}", suffix);
-        let mock_id_prefix = m.mock_id_prefix(&entry.path, enum_name);
+        let adt_path = m.adt_path_prefix(&entry.path, enum_name);
+        let fn_id_str = m.fn_id_str();
         let input_tuple = m.input_type_tuple(enum_name);
         let ret_type = m.ret_type();
 
         let mock_id_expr = if !trackable {
-            quote! { context::MockId::new(#mock_id_prefix) }
+            quote! { context::MockId::new_adt_static(#adt_path, #fn_id_str) }
         } else {
-            quote! { context::MockId::new(format!("{}{}", #mock_id_prefix, self.adt_mock_id().0)) }
+            quote! { context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id()) }
         };
 
         quote! {
@@ -2140,19 +2167,20 @@ fn gen_enum_constructors(
 
     // Generate mock registration for all mockable methods
     let mock_registrations: Vec<TokenStream> = classified.mockable.iter().map(|m| {
-        let mock_id_prefix = m.mock_id_prefix(&entry.path, enum_name);
+        let adt_path = m.adt_path_prefix(&entry.path, enum_name);
+        let fn_id_str = m.fn_id_str();
         let var_name = format_ident!("{}_mock_id", m.sig.name);
         let input_tuple = m.input_type_tuple(enum_name);
         let ret_type = m.ret_type();
         if !trackable {
             // Non-trackable: shared ID, ignore duplicate registration errors
             quote! {
-                let #var_name = context::MockId::new(#mock_id_prefix);
+                let #var_name = context::MockId::new_adt_static(#adt_path, #fn_id_str);
                 let _ = context::add_mock::<(#input_tuple), #ret_type>(#var_name, None);
             }
         } else {
             quote! {
-                let #var_name = context::MockId::new(format!("{}{}", #mock_id_prefix, slf.adt_mock_id().0));
+                let #var_name = context::MockId::new_adt_instance(#adt_path, #fn_id_str, slf.adt_mock_id());
                 context::add_mock::<(#input_tuple), #ret_type>(#var_name, None).unwrap();
             }
         }
@@ -2290,7 +2318,8 @@ fn gen_enum_sequence_helpers(entry: &FlattenedEnum, classified: &ClassifiedMetho
     let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let name = &m.sig.name;
         let seq_name = format_ident!("expect_{}_in_sequence", name);
-        let mock_id_prefix = m.mock_id_prefix(&entry.path, enum_name);
+        let adt_path = m.adt_path_prefix(&entry.path, enum_name);
+        let fn_id_str = m.fn_id_str();
         let input_tuple = m.input_type_tuple(enum_name);
         let ret_type = m.ret_type();
 
@@ -2321,9 +2350,9 @@ fn gen_enum_sequence_helpers(entry: &FlattenedEnum, classified: &ClassifiedMetho
             .collect();
 
         let mock_id_expr = if !trackable {
-            quote! { context::MockId::new(#mock_id_prefix) }
+            quote! { context::MockId::new_adt_static(#adt_path, #fn_id_str) }
         } else {
-            quote! { context::MockId::new(format!("{}{}", #mock_id_prefix, self.adt_mock_id().0)) }
+            quote! { context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id()) }
         };
 
         quote! {
@@ -2424,6 +2453,20 @@ fn trait_mock_id_prefix(path: &syn::Path, trait_name: &Ident, method_name: &Iden
     format!("{}_{}_{}", path_str, trait_name, method_name)
 }
 
+/// Helper: compute the ADT path portion for a trait mock: "{crate}_{TraitName}".
+fn trait_adt_path_prefix(path: &syn::Path, trait_name: &Ident) -> String {
+    let path_str = path.segments.iter()
+        .map(|s| s.ident.to_string())
+        .collect::<Vec<_>>()
+        .join("_");
+    format!("{}_{}", path_str, trait_name)
+}
+
+/// Helper: compute the fn_id portion for a trait mock method: "{method_name}".
+fn trait_fn_id_str(method_name: &Ident) -> String {
+    method_name.to_string()
+}
+
 /// Helper: compute wrapper suffix for a trait mock method.
 fn trait_wrapper_suffix(mock_struct_name: &Ident, method_name: &Ident) -> Ident {
     let method_capitalized = capitalize_first(&method_name.to_string());
@@ -2493,6 +2536,8 @@ fn gen_trait_mock_impl(entry: &FlattenedTrait, mock_struct_name: &Ident) -> Toke
     let methods: Vec<TokenStream> = entry.methods.iter().map(|m| {
         let name = &m.name;
         let mock_id_prefix = trait_mock_id_prefix(&entry.path, trait_name, name);
+        let adt_path = trait_adt_path_prefix(&entry.path, trait_name);
+        let fn_id_str = trait_fn_id_str(name);
         let input_tuple = trait_input_type_tuple(mock_struct_name, m);
         let ret_type = &m.ret_type;
         let name_str = name.to_string();
@@ -2520,7 +2565,7 @@ fn gen_trait_mock_impl(entry: &FlattenedTrait, mock_struct_name: &Ident) -> Toke
         quote! {
             fn #name(#receiver #receiver_comma #(#params),*) -> #ret_type {
                 std::eprintln!("INFO: Mocked version of trait method {} was used", #name_str);
-                let mock_id = context::MockId::new(format!("{}{}", #mock_id_prefix, self.adt_mock_id.0));
+                let mock_id = context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id);
                 if context::ctx_built_and_contains_id(&mock_id) {
                     match context::run_mock::<(#input_tuple), #ret_type>(
                         mock_id,
@@ -2605,7 +2650,8 @@ fn gen_trait_mock_predicate_from_fn(entry: &FlattenedTrait, mock_struct_name: &I
     let impls: Vec<TokenStream> = entry.methods.iter().map(|m| {
         let suffix = trait_wrapper_suffix(mock_struct_name, &m.name);
         let pred_name = format_ident!("Predicate{}", suffix);
-        let mock_id_prefix = trait_mock_id_prefix(&entry.path, trait_name, &m.name);
+        let adt_path = trait_adt_path_prefix(&entry.path, trait_name);
+        let fn_id_str = trait_fn_id_str(&m.name);
         let input_tuple = trait_input_type_tuple(mock_struct_name, m);
 
         let closure_param_types: Vec<TokenStream> = std::iter::once(quote! { *const #mock_struct_name })
@@ -2629,7 +2675,7 @@ fn gen_trait_mock_predicate_from_fn(entry: &FlattenedTrait, mock_struct_name: &I
                 pub fn from_fn(
                     closure: impl Fn(#(#closure_param_types),*) -> context::errors::PredicateResult<()> + 'static,
                 ) -> Self {
-                    let mock_id = context::MockId::new(#mock_id_prefix);
+                    let mock_id = context::MockId::new_adt_static(#adt_path, #fn_id_str);
                     let cond = context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(
                         move |input: &(#input_tuple)| closure(#(#closure_args),*),
                     ));
@@ -2648,12 +2694,13 @@ fn gen_trait_mock_constructor(entry: &FlattenedTrait, mock_struct_name: &Ident) 
     let trait_name = &entry.name;
 
     let mock_registrations: Vec<TokenStream> = entry.methods.iter().map(|m| {
-        let mock_id_prefix = trait_mock_id_prefix(&entry.path, trait_name, &m.name);
+        let adt_path = trait_adt_path_prefix(&entry.path, trait_name);
+        let fn_id_str = trait_fn_id_str(&m.name);
         let var_name = format_ident!("{}_mock_id", m.name);
         let input_tuple = trait_input_type_tuple(mock_struct_name, m);
         let ret_type = &m.ret_type;
         quote! {
-            let #var_name = context::MockId::new(format!("{}{}", #mock_id_prefix, slf.adt_mock_id.0));
+            let #var_name = context::MockId::new_adt_instance(#adt_path, #fn_id_str, slf.adt_mock_id);
             context::add_mock::<(#input_tuple), #ret_type>(#var_name, None).unwrap();
         }
     }).collect();
@@ -2673,10 +2720,11 @@ fn gen_trait_mock_drop(entry: &FlattenedTrait, mock_struct_name: &Ident) -> Toke
     let trait_name = &entry.name;
 
     let mock_id_bindings: Vec<TokenStream> = entry.methods.iter().map(|m| {
-        let prefix = trait_mock_id_prefix(&entry.path, trait_name, &m.name);
+        let adt_path = trait_adt_path_prefix(&entry.path, trait_name);
+        let fn_id_str = trait_fn_id_str(&m.name);
         let var_name = format_ident!("{}_mock_id", m.name);
         quote! {
-            let #var_name = context::MockId::new(format!("{}{}", #prefix, self.adt_mock_id.0));
+            let #var_name = context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id);
         }
     }).collect();
 
@@ -2754,7 +2802,8 @@ fn gen_trait_mock_on_call_methods(entry: &FlattenedTrait, mock_struct_name: &Ide
         let on_call_name = format_ident!("on_call_{}", name);
         let suffix = trait_wrapper_suffix(mock_struct_name, name);
         let ret_wrapper = format_ident!("Return{}", suffix);
-        let mock_id_prefix = trait_mock_id_prefix(&entry.path, trait_name, name);
+        let adt_path = trait_adt_path_prefix(&entry.path, trait_name);
+        let fn_id_str = trait_fn_id_str(name);
         let input_tuple = trait_input_type_tuple(mock_struct_name, m);
         let ret_type = &m.ret_type;
 
@@ -2763,7 +2812,7 @@ fn gen_trait_mock_on_call_methods(entry: &FlattenedTrait, mock_struct_name: &Ide
                 let inner: #ret_wrapper = ret.into();
                 let cond = context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(|_| Ok(())));
                 context::add_expectation::<(#input_tuple), #ret_type>(
-                    &context::MockId::new(#mock_id_prefix),
+                    &context::MockId::new_adt_static(#adt_path, #fn_id_str),
                     cond,
                     Some(inner.0),
                     None,
@@ -2786,7 +2835,8 @@ fn gen_trait_mock_create_predicate_methods(entry: &FlattenedTrait, mock_struct_n
         let create_pred_name = format_ident!("create_predicate_{}", name);
         let suffix = trait_wrapper_suffix(mock_struct_name, name);
         let pred_wrapper = format_ident!("Predicate{}", suffix);
-        let mock_id_prefix = trait_mock_id_prefix(&entry.path, trait_name, name);
+        let adt_path = trait_adt_path_prefix(&entry.path, trait_name);
+        let fn_id_str = trait_fn_id_str(name);
         let input_tuple = trait_input_type_tuple(mock_struct_name, m);
 
         let condition_param_types: Vec<TokenStream> = std::iter::once(quote! { &#mock_struct_name })
@@ -2818,7 +2868,7 @@ fn gen_trait_mock_create_predicate_methods(entry: &FlattenedTrait, mock_struct_n
                 condition: impl Fn(#(#condition_param_types),*) -> bool + 'static,
                 on_failure: Option<String>,
             ) -> #pred_wrapper {
-                let mock_id = context::MockId::new(format!("{}{}", #mock_id_prefix, self.adt_mock_id.0));
+                let mock_id = context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id);
                 let cond: context::ConditionDoublePointer =
                     context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(
                         move |input: &(#input_tuple)| {
@@ -2890,7 +2940,8 @@ fn gen_trait_mock_expect_methods(entry: &FlattenedTrait, mock_struct_name: &Iden
         let suffix = trait_wrapper_suffix(mock_struct_name, name);
         let pred_wrapper = format_ident!("Predicate{}", suffix);
         let ret_wrapper = format_ident!("Return{}", suffix);
-        let mock_id_prefix = trait_mock_id_prefix(&entry.path, trait_name, name);
+        let adt_path = trait_adt_path_prefix(&entry.path, trait_name);
+        let fn_id_str = trait_fn_id_str(name);
         let input_tuple = trait_input_type_tuple(mock_struct_name, m);
         let ret_type = &m.ret_type;
 
@@ -2902,7 +2953,7 @@ fn gen_trait_mock_expect_methods(entry: &FlattenedTrait, mock_struct_name: &Iden
                 ret: impl Into<#ret_wrapper>,
                 tmod: Option<context::TimesModifier>,
             ) {
-                let mock_id = context::MockId::new(format!("{}{}", #mock_id_prefix, self.adt_mock_id.0));
+                let mock_id = context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id);
 
                 let mut pred: #pred_wrapper = condition.into();
                 let ret_val: #ret_wrapper = ret.into();
@@ -2947,7 +2998,8 @@ fn gen_trait_mock_sequence_helpers(entry: &FlattenedTrait, mock_struct_name: &Id
     let methods: Vec<TokenStream> = entry.methods.iter().map(|m| {
         let name = &m.name;
         let seq_name = format_ident!("expect_{}_in_sequence", name);
-        let mock_id_prefix = trait_mock_id_prefix(&entry.path, trait_name, name);
+        let adt_path = trait_adt_path_prefix(&entry.path, trait_name);
+        let fn_id_str = trait_fn_id_str(name);
         let input_tuple = trait_input_type_tuple(mock_struct_name, m);
         let ret_type = &m.ret_type;
 
@@ -2986,7 +3038,7 @@ fn gen_trait_mock_sequence_helpers(entry: &FlattenedTrait, mock_struct_name: &Id
                 ret: impl Fn(#(#closure_param_types),*) -> #ret_type + 'static,
                 checkpoint: Option<impl Into<context::CheckpointName>>,
             ) {
-                let mock_id = context::MockId::new(format!("{}{}", #mock_id_prefix, self.adt_mock_id.0));
+                let mock_id = context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id);
                 let cond = context::ConditionDoublePointer::from_fn::<(#input_tuple)>(
                     Box::new(move |input: &(#input_tuple)| {
                         condition(#(#cond_field_accesses),*)

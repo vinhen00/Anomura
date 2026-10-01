@@ -3,17 +3,17 @@ use std::collections::HashMap;
 use crate::{
     ConditionDoublePointer, MockId, ReturnValDoublePointer, closure_wrappers,
     errors::{PredicateResult, Result},
-    mock::MockHead,
+    mock::{self, AdtId, AdtPath, FnId, MockHead},
 };
 
 // ─── Predicate Arena ────────────────────────────────────────────────────────
 
 /// Typed index into the predicate arena. Cheap to copy and store in multiple places.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PredicateIndex(u32);
+pub struct PredicateIndex(usize);
 
 impl PredicateIndex {
-    pub fn raw(self) -> u32 {
+    pub fn raw(self) -> usize {
         self.0
     }
 }
@@ -41,25 +41,25 @@ impl PredicateArena {
 
     /// Inserts a predicate and returns its stable index.
     pub fn insert(&mut self, predicate: Predicate) -> PredicateIndex {
-        let index = PredicateIndex(self.predicates.len() as u32);
+        let index = PredicateIndex(self.predicates.len());
         self.predicates.push(Some(predicate));
         index
     }
 
     /// Read-only access. Returns `None` if index is invalid or slot is a tombstone.
     pub fn get(&self, index: PredicateIndex) -> Option<&Predicate> {
-        self.predicates.get(index.0 as usize)?.as_ref()
+        self.predicates.get(index.0)?.as_ref()
     }
 
     /// Mutable access. Returns `None` if index is invalid or slot is a tombstone.
     pub fn get_mut(&mut self, index: PredicateIndex) -> Option<&mut Predicate> {
-        self.predicates.get_mut(index.0 as usize)?.as_mut()
+        self.predicates.get_mut(index.0)?.as_mut()
     }
 
     /// Take ownership of a predicate, leaving a tombstone (`None`).
     /// Returns `None` if already taken or index is invalid.
     pub fn take(&mut self, index: PredicateIndex) -> Option<Predicate> {
-        self.predicates.get_mut(index.0 as usize)?.take()
+        self.predicates.get_mut(index.0)?.take()
     }
 
     pub fn len(&self) -> usize {
@@ -74,14 +74,14 @@ impl PredicateArena {
         self.predicates
             .iter()
             .enumerate()
-            .filter_map(|(i, p)| p.as_ref().map(|pred| (PredicateIndex(i as u32), pred)))
+            .filter_map(|(i, p)| p.as_ref().map(|pred| (PredicateIndex(i), pred)))
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (PredicateIndex, &mut Predicate)> {
         self.predicates
             .iter_mut()
             .enumerate()
-            .filter_map(|(i, p)| p.as_mut().map(|pred| (PredicateIndex(i as u32), pred)))
+            .filter_map(|(i, p)| p.as_mut().map(|pred| (PredicateIndex(i), pred)))
     }
 }
 
@@ -265,11 +265,19 @@ impl PredicateState {
                 //   (b) the inner exhausts before that → failed (not completed + exhausted), or
                 //   (c) the outer has no cap (Any/AtLeast) → completed, not exhausted.
                 //
+                // After each phantom cycle the inner is reset to its initial state,
+                // mirroring the runtime behavior in mark_matched_ref which calls
+                // reset_predicate_ref(inner) after each completion. Without this reset
+                // the inner's call_count would accumulate across phantom cycles, causing
+                // bounded inners (AtMost) to spuriously exhaust.
+                //
                 // Examples:
                 //   Times(3, Any(P)):       Any loops 3 times instantly → completed + exhausted.
-                //   Times(3, AtMost(5, P)): AtMost loops 3 times (3 ≤ 5) → completed + exhausted.
-                //   Times(5, AtMost(3, P)): AtMost exhausts at 3 < 5 → NOT completed + exhausted.
+                //   Times(3, AtMost(5, P)): AtMost loops 3 times (each reset) → completed + exhausted.
+                //   Times(5, AtMost(3, P)): AtMost loops 5 times (each reset) → completed + exhausted.
                 //   AtLeast(2, Any(P)):     Any loops 2 times → completed, not exhausted.
+                //   AtLeast(n, AtMost(m, P)) where m>0: AtMost loops n times → completed, not exhausted.
+                //   AtLeast(n, AtMost(0, P)): AtMost(0) starts exhausted → no cycling, not completed.
                 let mut call_count = 0u32;
                 while inner.state.completed && !inner.state.exhausted {
                     call_count += 1;
@@ -288,24 +296,9 @@ impl PredicateState {
                     if completed_now {
                         break;
                     }
-                    // Advance the inner: count one cycle and recompute its state.
-                    // This lets bounded inners (AtMost) track consumed capacity.
-                    inner.state.call_count += 1;
-                    let ic = inner.state.call_count;
-                    if let PredicateKind::Times {
-                        modifier: ref m, ..
-                    } = inner.kind
-                    {
-                        inner.state.completed = match m {
-                            TimesModifier::Once => ic >= 1,
-                            TimesModifier::Times(n) => ic >= *n,
-                            TimesModifier::AtLeast(n) => ic >= *n,
-                            TimesModifier::AtMost(_) => true,
-                            TimesModifier::Any => true,
-                            TimesModifier::Never => ic == 0,
-                        };
-                        inner.state.exhausted = m.is_exhausted(ic);
-                    }
+                    // Reset the inner to its initial state for the next cycle.
+                    // This mirrors the runtime reset in mark_matched_ref.
+                    inner.state = PredicateState::initial_for(&mut inner.kind);
                 }
 
                 let completed = match &*modifier {
@@ -406,10 +399,10 @@ impl<S: Into<String>> From<S> for CheckpointName {
 
 /// Index into the GlobalContext's checkpoint list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CheckpointIndex(u32);
+pub struct CheckpointIndex(usize);
 
 impl CheckpointIndex {
-    pub fn raw(self) -> u32 {
+    pub fn raw(self) -> usize {
         self.0
     }
 }
@@ -436,7 +429,7 @@ impl GlobalContext {
 
     /// Add a checkpoint and return its index.
     pub fn add_checkpoint(&mut self, checkpoint: Checkpoint) -> CheckpointIndex {
-        let idx = CheckpointIndex(self.checkpoints.len() as u32);
+        let idx = CheckpointIndex(self.checkpoints.len());
         self.checkpoints.push(checkpoint);
         idx
     }
@@ -465,12 +458,12 @@ impl GlobalContext {
 
     /// Get a reference to a checkpoint by index.
     pub fn get_checkpoint(&self, index: CheckpointIndex) -> Option<&Checkpoint> {
-        self.checkpoints.get(index.0 as usize)
+        self.checkpoints.get(index.0)
     }
 
     /// Get a mutable reference to a checkpoint by index.
     pub fn get_checkpoint_mut(&mut self, index: CheckpointIndex) -> Option<&mut Checkpoint> {
-        self.checkpoints.get_mut(index.0 as usize)
+        self.checkpoints.get_mut(index.0)
     }
 
     /// Get the currently active checkpoint.
@@ -527,43 +520,32 @@ impl Default for GlobalContext {
 
 pub struct Checkpoint {
     /// The arena holding all predicates for this checkpoint.
-    /// Logical combinators reference other predicates by PredicateIndex into this arena.
     pub arena: PredicateArena,
 
-    /// Named predicate registry: maps user-assigned names to arena indices.
-    /// These are *not* directly evaluated at the top level — they exist so
-    /// users can compose them into larger expressions before committing.
-    ///
-    /// Macro usage:
-    /// ```ignore
-    /// let a = condition_a;           // name a leaf
-    /// let b = condition_b;
-    /// let combined = And(a, b, c);   // name an N-ary composition
-    /// expect(combined, once, return_val);
-    /// ```
+    /// Named predicate registry.
     pub named_predicates: HashMap<PredicateName, PredicateIndex>,
 
-    /// Named sequence registry: maps user-assigned names to sequence indices.
-    /// ```ignore
-    /// let my_seq = sequence(once) { ... };
-    /// ```
-    pub named_sequences: HashMap<SequenceName, SequenceIdx>,
+    /// Named sequence registry. sequence id and if sequence is active
+    pub named_sequences: HashMap<SequenceName, (SequenceIdx, bool)>,
 
-    /// Maps each mock to the expectations that are actively evaluated.
-    /// Only expectations carry return values and cardinality modifiers.
+    /// Standalone (free) functions — each has its own expectations and on_calls.
+    pub standalone_fns: HashMap<FnId, crate::mock_objects::MockFunctionObject>,
+
+    /// ADT mock objects — grouped by struct type-
+    /// Key is the struct path
+    pub(crate) mock_objects: HashMap<AdtPath, crate::mock_objects::MockObject>,
+
+    /// Legacy flat expectations map — kept for sequence support during transition.
+    /// TODO: migrate sequences to use MockFunctionObject
     pub expectations: HashMap<MockId, Vec<Expectation>>,
 
     /// All sequences registered in this checkpoint (indexed by SequenceIdx).
-    /// Populated by `finalize_sequences()` from the builders.
     pub sequences: Vec<Sequence>,
 
     /// Sequence builders — used during the build phase.
-    /// Steps are assigned by index. Converted to `sequences` via `finalize_sequences()`.
     pub sequence_builders: Vec<SequenceBuilder>,
 
     /// Tracks which mocks are currently "hijacked" by an active sequence.
-    /// When a mock appears in this map, `evaluate` must delegate to the
-    /// sequence rather than checking normal expectations.
     pub hijacked_mocks: HashMap<MockId, SequenceIdx>,
 }
 
@@ -573,6 +555,8 @@ impl Checkpoint {
             arena: PredicateArena::new(),
             named_predicates: HashMap::new(),
             named_sequences: HashMap::new(),
+            standalone_fns: HashMap::new(),
+            mock_objects: HashMap::new(),
             expectations: HashMap::new(),
             sequences: Vec::new(),
             sequence_builders: Vec::new(),
@@ -622,13 +606,13 @@ impl Checkpoint {
         if self.named_sequences.contains_key(&name) {
             return Err(format!("sequence name '{}' is already defined", name.0).into());
         }
-        self.named_sequences.insert(name, index);
+        self.named_sequences.insert(name, (index, false));
         Ok(index)
     }
 
     /// Look up a previously named sequence.
     pub fn resolve_sequence_name(&self, name: &SequenceName) -> Option<SequenceIdx> {
-        self.named_sequences.get(name).copied()
+        self.named_sequences.get(name).copied().map(|a| a.0)
     }
 
     /// Convenience: resolve sequence by str.
@@ -636,6 +620,7 @@ impl Checkpoint {
         self.named_sequences
             .get(&SequenceName(name.to_owned()))
             .copied()
+            .map(|a| a.0)
     }
 
     // ─── Committing predicates to evaluation ────────────────────────────
@@ -673,6 +658,150 @@ impl Checkpoint {
             .entry(mock_id.clone())
             .or_default()
             .push(root);
+    }
+
+    // ─── MockFunctionObject / MockObject management ─────────────────────
+
+    /// Get or create a standalone MockFunctionObject for a free function.
+    pub fn get_or_create_standalone(
+        &mut self,
+        mock_id: &FnId,
+    ) -> &mut crate::mock_objects::MockFunctionObject {
+        self.standalone_fns
+            .entry(mock_id.clone())
+            .or_insert_with(|| crate::mock_objects::MockFunctionObject::new(mock_id.clone()))
+    }
+
+    /// Get or create a MockObject for an ADT instance.
+    pub fn get_or_create_mock_object(
+        &mut self,
+        object_mock_id: &AdtId,
+    ) -> &mut crate::mock_objects::MockObject {
+        self.mock_objects
+            .entry(object_mock_id.path.clone())
+            .or_insert_with(|| crate::mock_objects::MockObject::new(object_mock_id.clone()))
+    }
+
+    /// Build an Expectation from arena state and a predicate index.
+    fn build_expectation(
+        &self,
+        predicate: PredicateIndex,
+        return_val: Option<ReturnValDoublePointer>,
+    ) -> Expectation {
+        let (completed, exhausted) = self
+            .arena
+            .get(predicate)
+            .map(|p| (p.state.completed, p.state.exhausted))
+            .unwrap_or((false, false));
+
+        Expectation {
+            predicate,
+            return_val,
+            completed,
+            exhausted,
+        }
+    }
+
+    /// Add an expectation to a standalone function.
+    pub fn expect_standalone(
+        &mut self,
+        mock_id: &MockId,
+        predicate: PredicateIndex,
+        return_val: Option<ReturnValDoublePointer>,
+    ) {
+        let expectation = self.build_expectation(predicate, return_val);
+        self.get_or_create_standalone(mock_id.fn_id())
+            .add_expectation(expectation);
+    }
+
+    /// Add an on_call to a standalone function.
+    pub fn on_call_standalone(
+        &mut self,
+        mock_id: &MockId,
+        condition: crate::ConditionDoublePointer,
+        return_val: ReturnValDoublePointer,
+    ) {
+        let on_call = crate::mock_objects::OnCall {
+            condition,
+            mock_id: mock_id.clone(),
+            return_val,
+        };
+        self.get_or_create_standalone(mock_id.fn_id())
+            .add_on_call(on_call);
+    }
+
+    /// Add an expectation to a method on an ADT MockObject.
+    /// Routes to `static_methods` or `instance_methods` based on the MockId variant.
+    pub fn expect_method(
+        &mut self,
+        object_mock_id: &AdtId,
+        method_name: &str,
+        method_mock_id: &MockId,
+        predicate: PredicateIndex,
+        return_val: Option<ReturnValDoublePointer>,
+    ) {
+        let expectation = self.build_expectation(predicate, return_val);
+        let mock_object = self.get_or_create_mock_object(object_mock_id);
+        match method_mock_id {
+            MockId::AdtStatic { fn_id, .. } => {
+                mock_object
+                    .static_methods
+                    .entry(fn_id.clone())
+                    .or_insert_with(|| crate::mock_objects::MockFunctionObject::new(fn_id.clone()))
+                    .add_expectation(expectation);
+            }
+            MockId::AdtInstance { adt_id, fn_id } => {
+                mock_object
+                    .instance_methods
+                    .entry((adt_id.number, fn_id.clone()))
+                    .or_insert_with(|| crate::mock_objects::MockFunctionObject::new(fn_id.clone()))
+                    .add_expectation(expectation);
+            }
+            MockId::Fn(_) => {
+                mock_object
+                    .get_or_create_method(method_name, method_mock_id.fn_id().clone())
+                    .add_expectation(expectation);
+            }
+        }
+    }
+
+    /// Add an on_call to a method on an ADT MockObject.
+    /// Routes to `static_methods` or `instance_methods` based on the MockId variant.
+    pub fn on_call_method(
+        &mut self,
+        object_mock_id: &AdtId,
+        method_name: &str,
+        method_mock_id: &MockId,
+        condition: crate::ConditionDoublePointer,
+        return_val: ReturnValDoublePointer,
+    ) {
+        let on_call = crate::mock_objects::OnCall {
+            condition,
+            mock_id: method_mock_id.clone(),
+            return_val,
+        };
+        let mock_object = self.get_or_create_mock_object(object_mock_id);
+        match method_mock_id {
+            MockId::AdtStatic { fn_id, .. } => {
+                mock_object
+                    .static_methods
+                    .entry(fn_id.clone())
+                    .or_insert_with(|| crate::mock_objects::MockFunctionObject::new(fn_id.clone()))
+                    .add_on_call(on_call);
+            }
+            MockId::AdtInstance { adt_id, fn_id } => {
+                mock_object
+                    .instance_methods
+                    .entry((adt_id.number, fn_id.clone()))
+                    .or_insert_with(|| crate::mock_objects::MockFunctionObject::new(fn_id.clone()))
+                    .add_on_call(on_call);
+            }
+            MockId::Fn(_) => {
+                mock_object
+                    .get_or_create_method(method_name, method_mock_id.fn_id().clone())
+                    .add_on_call(on_call);
+            }
+        }
     }
 
     // ─── Leaf predicate creation ────────────────────────────────────────
@@ -802,7 +931,7 @@ impl Checkpoint {
     /// Steps are assigned to specific indices via `set_sequence_step()`.
     /// Call `finalize_sequences()` to convert all builders into finalized Sequences.
     pub fn create_sequence(&mut self, len: usize, modifier: TimesModifier) -> SequenceIdx {
-        let idx = SequenceIdx(self.sequence_builders.len() as u32);
+        let idx = SequenceIdx(self.sequence_builders.len());
         self.sequence_builders
             .push(SequenceBuilder::new(len, modifier));
         idx
@@ -827,7 +956,7 @@ impl Checkpoint {
     ) -> Result<()> {
         let builder = self
             .sequence_builders
-            .get_mut(seq.0 as usize)
+            .get_mut(seq.0)
             .ok_or_else(|| format!("invalid sequence index {:?}", seq.raw()))?;
         builder.set_entry_predicate(entry_predicate);
         Ok(())
@@ -852,7 +981,7 @@ impl Checkpoint {
         })?;
         let builder = self
             .sequence_builders
-            .get_mut(seq.0 as usize)
+            .get_mut(seq.0)
             .ok_or_else(|| format!("invalid sequence index {:?}", seq.raw()))?;
         builder.set_step(index, mock_id, pred, return_val_closure)
     }
@@ -867,7 +996,7 @@ impl Checkpoint {
         for (i, builder) in builders.into_iter().enumerate() {
             let (sequence, warning) = builder.build();
             if let Some(w) = warning {
-                warnings.push((SequenceIdx(i as u32), w));
+                warnings.push((SequenceIdx(i), w));
             }
             self.sequences.push(sequence);
         }
@@ -880,7 +1009,7 @@ impl Checkpoint {
     pub fn activate_sequence(&mut self, seq: SequenceIdx) -> Result<()> {
         let sequence = self
             .sequences
-            .get_mut(seq.0 as usize)
+            .get_mut(seq.0)
             .ok_or_else(|| format!("invalid sequence index {:?}", seq.raw()))?;
 
         if sequence.is_active() {
@@ -904,7 +1033,7 @@ impl Checkpoint {
 
     /// Deactivate a sequence and release all hijacked mocks.
     fn deactivate_sequence(&mut self, seq: SequenceIdx) {
-        let Some(sequence) = self.sequences.get(seq.0 as usize) else {
+        let Some(sequence) = self.sequences.get(seq.0) else {
             return;
         };
 
@@ -917,8 +1046,50 @@ impl Checkpoint {
 
     // ─── Evaluation ────────────────────────────────────────────────────
 
+    // ─── MockFunctionObject lookup helpers ────────────────────────────
+
+    /// Look up the `MockFunctionObject` for a given `MockId`.
+    /// Returns `None` if the mock hasn't been registered (caller should
+    /// fall back to the legacy `evaluate_normal` path).
+    fn get_mfo(&self, mock_id: &MockId) -> Option<&crate::mock_objects::MockFunctionObject> {
+        match mock_id {
+            MockId::Fn(fn_id) => self.standalone_fns.get(fn_id),
+            MockId::AdtStatic { adt_path, fn_id } => {
+                self.mock_objects.get(adt_path)?.static_methods.get(fn_id)
+            }
+            MockId::AdtInstance { adt_id, fn_id } => self
+                .mock_objects
+                .get(&adt_id.path)?
+                .instance_methods
+                .get(&(adt_id.number, fn_id.clone())),
+        }
+    }
+
+    /// Mutable variant of `get_mfo`.
+    fn get_mfo_mut(
+        &mut self,
+        mock_id: &MockId,
+    ) -> Option<&mut crate::mock_objects::MockFunctionObject> {
+        match mock_id {
+            MockId::Fn(fn_id) => self.standalone_fns.get_mut(fn_id),
+            MockId::AdtStatic { adt_path, fn_id } => self
+                .mock_objects
+                .get_mut(adt_path)?
+                .static_methods
+                .get_mut(fn_id),
+            MockId::AdtInstance { adt_id, fn_id } => self
+                .mock_objects
+                .get_mut(&adt_id.path)?
+                .instance_methods
+                .get_mut(&(adt_id.number, fn_id.clone())),
+        }
+    }
+
+    // ─── Evaluation ────────────────────────────────────────────────────
+
     /// Evaluate a mock call. If the mock is currently hijacked by a sequence,
-    /// the sequence takes priority. Otherwise, normal expectations are checked.
+    /// the sequence takes priority. Otherwise, expectations are checked, then
+    /// on_call fallbacks.
     ///
     /// # Safety
     /// The caller must ensure that `Input` and `ReturnVal` match the types used
@@ -933,8 +1104,76 @@ impl Checkpoint {
             return unsafe { self.evaluate_sequence::<Input, ReturnVal>(seq_idx, mock_id, input) };
         }
 
-        // ─── Phase 2: Normal expectation evaluation ─────────────────────────
-        unsafe { self.evaluate_normal::<Input, ReturnVal>(mock_id, input) }
+        // ─── Phase 2: Find the MockFunctionObject ──────────────────────────
+        if self.get_mfo(mock_id).is_none() {
+            // Fall back to legacy expectations path
+            return unsafe { self.evaluate_normal::<Input, ReturnVal>(mock_id, input) };
+        }
+
+        // ─── Phase 3: Try expectations first ────────────────────────────────
+        let candidates: Vec<(usize, PredicateIndex)> = {
+            let mfo = self.get_mfo(mock_id).unwrap();
+            mfo.expectations
+                .iter()
+                .enumerate()
+                .filter(|(_, exp)| !exp.exhausted)
+                .map(|(i, exp)| (i, exp.predicate))
+                .collect()
+        };
+
+        let mut errors: Vec<String> = Vec::new();
+
+        for (candidate_idx, predicate_idx) in &candidates {
+            match unsafe { self.eval_predicate::<Input>(*predicate_idx, mock_id, &input) } {
+                Ok(true) => {
+                    self.mark_matched(*predicate_idx);
+
+                    let (completed, exhausted) = self
+                        .arena
+                        .get(*predicate_idx)
+                        .map(|p| (p.state.completed, p.state.exhausted))
+                        .unwrap_or((false, false));
+
+                    let mfo_mut = self.get_mfo_mut(mock_id).unwrap();
+                    mfo_mut.expectations[*candidate_idx].completed = completed;
+                    mfo_mut.expectations[*candidate_idx].exhausted = exhausted;
+
+                    let return_val = mfo_mut.expectations[*candidate_idx]
+                        .return_val
+                        .as_ref()
+                        .map(|r| unsafe { r.into_fn::<Input, ReturnVal>() }(input));
+
+                    self.check_sequence_activation(*predicate_idx);
+                    return Ok(return_val);
+                }
+                Ok(false) => {
+                    errors.push(format!(
+                        "expectation[{}]: predicate did not match",
+                        candidate_idx
+                    ));
+                }
+                Err(e) => {
+                    errors.push(format!("expectation[{}]: {}", candidate_idx, e));
+                }
+            }
+        }
+
+        // ─── Phase 4: Fall back to on_calls ─────────────────────────────────
+        let mfo = self.get_mfo(mock_id).unwrap();
+        for on_call in mfo.on_calls.iter() {
+            if unsafe { on_call.matches::<Input>(&input) } {
+                let return_val = unsafe { on_call.call::<Input, ReturnVal>(input) };
+                return Ok(Some(return_val));
+            }
+        }
+
+        Err(format!(
+            "no matching expectation or on_call for mock {:?}. Tried {} expectation(s):\n  {}",
+            mock_id,
+            errors.len(),
+            errors.join("\n  ")
+        )
+        .into())
     }
 
     /// Evaluate a mock call against an active sequence.
@@ -953,7 +1192,7 @@ impl Checkpoint {
     ) -> Result<Option<ReturnVal>> {
         let sequence = self
             .sequences
-            .get(seq_idx.0 as usize)
+            .get(seq_idx.0)
             .ok_or_else(|| format!("invalid sequence index {:?}", seq_idx.raw()))?;
 
         let step = sequence.current_step().ok_or_else(|| {
@@ -968,7 +1207,7 @@ impl Checkpoint {
             return Err(format!(
                 "sequence {:?} step {} expects mock {:?} but got {:?}",
                 seq_idx.raw(),
-                sequence.run_state.as_ref().unwrap().current_step,
+                sequence.run_state.current_step.as_ref().unwrap(),
                 step.mock_id,
                 mock_id,
             )
@@ -980,9 +1219,9 @@ impl Checkpoint {
         // We need &mut to sequences (for the predicate) and & to expectations (for After deps).
         let expectations_ptr: *const HashMap<MockId, Vec<Expectation>> =
             std::ptr::addr_of!(self.expectations);
-        let sequence = self.sequences.get_mut(seq_idx.0 as usize).unwrap();
-        let step_idx = sequence.run_state.as_ref().unwrap().current_step;
-        let step_pred = &mut sequence.steps[step_idx].predicate;
+        let sequence = self.sequences.get_mut(seq_idx.0).unwrap();
+        let step_idx = sequence.run_state.current_step.as_ref().unwrap();
+        let step_pred = &mut sequence.steps[*step_idx].predicate;
         let matched = unsafe {
             Self::eval_predicate_ref::<Input>(step_pred, &*expectations_ptr, mock_id, &input)
         }?;
@@ -991,30 +1230,30 @@ impl Checkpoint {
             return Err(format!(
                 "sequence {:?} step {}: predicate did not match for mock {:?}",
                 seq_idx.raw(),
-                self.sequences[seq_idx.0 as usize]
+                self.sequences[seq_idx.0]
                     .run_state
+                    .current_step
                     .as_ref()
-                    .unwrap()
-                    .current_step,
+                    .unwrap(),
                 mock_id,
             )
             .into());
         }
 
         // Extract return value from the step
-        let return_val = self.sequences[seq_idx.0 as usize]
+        let return_val = self.sequences[seq_idx.0]
             .current_step()
             .and_then(|s| s.return_val.as_ref())
             .map(|r| unsafe { r.into_fn::<Input, ReturnVal>() }(input));
 
         // Mark the owned predicate as matched
-        let sequence = self.sequences.get_mut(seq_idx.0 as usize).unwrap();
-        let state = sequence.run_state.as_ref().unwrap();
-        let step_idx = state.current_step;
-        Self::mark_matched_ref(&mut sequence.steps[step_idx].predicate);
+        let sequence = self.sequences.get_mut(seq_idx.0).unwrap();
+        let state = &sequence.run_state;
+        let step_idx = state.current_step.as_ref().unwrap();
+        Self::mark_matched_ref(&mut sequence.steps[*step_idx].predicate);
 
         // Advance the sequence
-        let still_active = self.sequences[seq_idx.0 as usize].advance();
+        let still_active = self.sequences[seq_idx.0].advance();
 
         if !still_active {
             // Sequence iteration exhausted — release hijacked mocks
@@ -1113,7 +1352,7 @@ impl Checkpoint {
                     && !seq.is_exhausted()
                     && seq.entry_predicate == Some(matched_predicate)
             })
-            .map(|(i, _)| SequenceIdx(i as u32))
+            .map(|(i, _)| SequenceIdx(i))
             .collect();
 
         for seq_idx in to_activate {
@@ -1223,7 +1462,10 @@ impl Checkpoint {
             PredicateKind::Single(single) => {
                 match unsafe { single.check::<Input>(mock_id, input) } {
                     Ok(()) => Ok(true),
-                    Err(e) => Err(e.0.into()),
+                    // Condition not satisfied is a semantic "false", not an error.
+                    // Returning Ok(false) lets combinators (Or, Not, Xor) properly
+                    // compose: Or tries the next child, Not inverts, etc.
+                    Err(_e) => Ok(false),
                 }
             }
 
@@ -1459,7 +1701,7 @@ impl Checkpoint {
             .iter()
             .enumerate()
             .filter(|(_, seq)| !seq.is_completed())
-            .map(|(i, _)| SequenceIdx(i as u32))
+            .map(|(i, _)| SequenceIdx(i))
             .collect()
     }
 }
@@ -1474,10 +1716,10 @@ impl Default for Checkpoint {
 
 /// Index into the checkpoint's sequence registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SequenceIdx(u32);
+pub struct SequenceIdx(usize);
 
 impl SequenceIdx {
-    pub fn raw(self) -> u32 {
+    pub fn raw(self) -> usize {
         self.0
     }
 }
@@ -1604,7 +1846,10 @@ impl SequenceBuilder {
             steps,
             entry_predicate: self.entry_predicate,
             modifier: self.modifier,
-            run_state: None,
+            run_state: SequenceRunState {
+                current_step: None,
+                iterations_completed: 0,
+            },
         };
 
         (sequence, warning)
@@ -1613,16 +1858,17 @@ impl SequenceBuilder {
 
 /// Runtime state for a single iteration of a sequence.
 pub struct SequenceRunState {
-    /// Index of the current step within the sequence (0-based).
-    pub current_step: usize,
+    /// Index of the current step within the sequence (0-based). if None then sequence is not active
+    pub current_step: Option<usize>,
     /// How many full iterations have been completed.
     pub iterations_completed: u32,
 }
 
 impl SequenceRunState {
+    ///creates a new non-active state
     pub fn new() -> Self {
         Self {
-            current_step: 0,
+            current_step: None,
             iterations_completed: 0,
         }
     }
@@ -1648,7 +1894,7 @@ pub struct Sequence {
     /// Cardinality for the entire sequence (how many full iterations).
     pub modifier: TimesModifier,
     /// Runtime state — `None` if the sequence has not been activated yet.
-    pub run_state: Option<SequenceRunState>,
+    pub run_state: SequenceRunState,
 }
 
 impl Sequence {
@@ -1661,71 +1907,58 @@ impl Sequence {
 
     /// Is this sequence currently active (hijacking evaluation)?
     pub fn is_active(&self) -> bool {
-        self.run_state.is_some()
+        self.run_state.current_step.is_some()
     }
 
     /// Is this sequence fully completed (all iterations done per modifier)?
     pub fn is_completed(&self) -> bool {
-        match &self.run_state {
-            None => false,
-            Some(state) => {
-                let done = state.iterations_completed;
-                match &self.modifier {
-                    TimesModifier::Once => done >= 1,
-                    TimesModifier::Times(n) => done >= *n,
-                    TimesModifier::AtLeast(n) => done >= *n,
-                    TimesModifier::AtMost(_) => true,
-                    TimesModifier::Any => true,
-                    TimesModifier::Never => done == 0,
-                }
-            }
+        let done = self.run_state.iterations_completed;
+        match &self.modifier {
+            TimesModifier::Once => done >= 1,
+            TimesModifier::Times(n) => done >= *n,
+            TimesModifier::AtLeast(n) => done >= *n,
+            TimesModifier::AtMost(_) => true,
+            TimesModifier::Any => true,
+            TimesModifier::Never => done == 0,
         }
     }
 
     /// Is the cardinality exhausted (no more iterations allowed)?
     pub fn is_exhausted(&self) -> bool {
-        match &self.run_state {
-            None => false,
-            Some(state) => {
-                let done = state.iterations_completed;
-                match &self.modifier {
-                    TimesModifier::Once => done >= 1,
-                    TimesModifier::Times(n) => done >= *n,
-                    TimesModifier::AtMost(n) => done >= *n,
-                    TimesModifier::Never => true,
-                    TimesModifier::Any | TimesModifier::AtLeast(_) => false,
-                }
-            }
+        let done = self.run_state.iterations_completed;
+        match &self.modifier {
+            TimesModifier::Once => done >= 1,
+            TimesModifier::Times(n) => done >= *n,
+            TimesModifier::AtMost(n) => done >= *n,
+            TimesModifier::Never => true,
+            TimesModifier::Any | TimesModifier::AtLeast(_) => false,
         }
     }
 
     /// Get the current step, if the sequence is active and not finished.
     pub fn current_step(&self) -> Option<&SequenceStep> {
-        let state = self.run_state.as_ref()?;
-        self.steps.get(state.current_step)
+        let step_idx = self.run_state.current_step?;
+        self.steps.get(step_idx)
     }
 
     /// Advance to the next step. If we've completed all steps, increment
     /// iterations_completed and reset to step 0 (if cardinality allows).
     /// Returns `true` if the sequence is still active after advancing.
     pub fn advance(&mut self) -> bool {
-        let Some(state) = self.run_state.as_mut() else {
+        let Some(current_step) = self.run_state.current_step.as_mut() else {
             return false;
         };
 
-        state.current_step += 1;
-
+        *current_step += 1;
         // Check if we've completed one full iteration
-        if state.current_step >= self.steps.len() {
-            state.iterations_completed += 1;
-            drop(state);
-
+        if *current_step >= self.steps.len() {
+            self.run_state.iterations_completed += 1;
             if self.is_exhausted() {
                 return false;
             }
 
             // Reset for next iteration
-            self.run_state.as_mut().unwrap().current_step = 0;
+            *self.run_state.current_step.as_mut().unwrap() = 0;
 
             // Reset all step predicates so they can match again in the next iteration
             for step in self.steps.iter_mut() {
@@ -1738,6 +1971,6 @@ impl Sequence {
 
     /// Activate this sequence (begin execution from step 0).
     pub fn activate(&mut self) {
-        self.run_state = Some(SequenceRunState::new());
+        self.run_state.current_step = Some(0);
     }
 }

@@ -238,6 +238,7 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
     let ret_type = mock.ret_type;
     let mock_id = combine_path_and_ident(&path, &name);
     let mock_id_ident = format_ident!("{}_mock_id", mock_id);
+    let mock_id_string = mock_id.to_string();
     let input_types = mock.input_types;
     let input_idents = mock.input_ident;
     let input_ident_tuple = quote! { (#(#input_idents),*) };
@@ -255,7 +256,7 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
         fn #name(#(#params),*) -> #ret_type {
 
             std::println!("Mocked version of function {} was used", #name_str);
-            let #mock_id_ident = context::MockId::new(stringify!(#mock_id));
+            let #mock_id_ident = context::MockId::new_fn(#mock_id_string);
             if context::ctx_built_and_contains_id(&#mock_id_ident) {
                 match context::run_mock::<#input_type_tuple, #ret_type>(#mock_id_ident, #input_ident_tuple) {
                     Ok(res) => res,
@@ -405,6 +406,12 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
     let mock_id = combine_path_struct_and_method(&path, &struct_name, &name);
     let mock_id_ident = format_ident!("{}_mock_id", mock_id);
 
+    // Split mock_id into adt_path (path + struct) and fn_id (method name)
+    let mut adt_parts: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
+    adt_parts.extend(struct_name.segments.iter().map(|s| s.ident.to_string()));
+    let adt_path_string = adt_parts.join("_");
+    let fn_id_string = name.to_string();
+
     let input_idents_no_tuple = quote! { #(#input_idents),* };
     let is_static = matches!(mock.self_receiver, SelfReceiver::None);
 
@@ -451,7 +458,7 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
             #[mocked( #path )]
             fn #name(#receiver_quote #(#driver_params),*) -> #driver_ret_type {
                 std::println!("Mocked version of method {} was used", #name_str);
-                let #mock_id_ident = context::MockId::new(stringify!(#mock_id));
+                let #mock_id_ident = context::MockId::new_adt_static(#adt_path_string, #fn_id_string);
                 if context::ctx_built_and_contains_id(&#mock_id_ident) {
                     match context::run_mock::<#driver_input_type_tuple, #driver_ret_type>(#mock_id_ident, #input_ident_tuple) {
                         Ok(res) => res,

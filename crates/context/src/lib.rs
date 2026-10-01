@@ -1,15 +1,21 @@
 mod closure_wrappers;
 pub mod errors;
 mod mock;
+pub mod mock_objects;
 pub mod mockable;
 pub mod new_expectations;
 pub mod time_mod;
 
 #[cfg(test)]
 mod unit_tests;
+#[cfg(test)]
+mod property_tests;
 pub use crate::closure_wrappers::{ConditionDoublePointer, ReturnValDoublePointer};
 pub use crate::mock::MockId;
-use crate::mock::{MockHead, StrictnessKind};
+pub use crate::mock::{AdtId, AdtPath, FnId};
+/// Type alias used as the adt_mock_id field in mock structs with private fields.
+pub type AdtMockId = AdtIdNumber;
+pub use crate::mock_objects::{MockFunctionObject, MockObject, OnCall};
 pub use crate::new_expectations::Expectation;
 pub use crate::new_expectations::{
     Checkpoint, CheckpointIndex, CheckpointName, GlobalContext, Predicate, PredicateIndex,
@@ -38,7 +44,7 @@ pub struct BuildingContext {
     ctx: GlobalContext,
     /// Default return values for mocks, keyed by MockId.
     default_returns: HashMap<MockId, ReturnValDoublePointer>,
-    adt_instance_counter: AdtMockId,
+    adt_instance_counter: AdtIdNumber,
 }
 
 impl BuildingContext {
@@ -49,7 +55,7 @@ impl BuildingContext {
         Self {
             ctx,
             default_returns: HashMap::new(),
-            adt_instance_counter: AdtMockId::default(),
+            adt_instance_counter: AdtIdNumber::default(),
         }
     }
 
@@ -104,49 +110,86 @@ pub fn teardown() {
     });
 }
 
-/// Register a mock with an optional default return value.
-/// Must be called during the build phase.
-pub fn add_mock<Input, ReturnVal>(
-    mock_id: MockId,
-    default_return_val_closure: Option<Box<dyn Fn(Input) -> ReturnVal>>,
-) -> Result<()> {
+/// Register a mock in the current checkpoint. Must be called during the build phase.
+///
+/// Routes based on the `MockId` variant:
+/// - `Fn` → registers a standalone function in `standalone_fns`
+/// - `AdtStatic` → registers a static method on a `MockObject`
+/// - `AdtInstance` → registers a per-instance method on a `MockObject`
+pub fn register_mock(mock_id: &MockId) -> Result<()> {
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
         CtxState::Building(builder) => {
-            if builder.ctx.mocks().contains_key(&mock_id) {
-                return Err(MockError::AlreadyRegistered);
-            }
-            let default_ret =
-                default_return_val_closure.map(|c| ReturnValDoublePointer::from_fn(c));
-            let head = MockHead {
-                default_return_val: default_ret.clone(),
-                strictness: StrictnessKind::default(),
-            };
-            builder.ctx.register_mock(mock_id.clone(), head);
-            if let Some(ret) = default_ret {
-                builder.default_returns.insert(mock_id, ret);
+            let cp = builder
+                .ctx
+                .latest_checkpoint_mut()
+                .ok_or_else(|| MockError::from("no checkpoints exist"))?;
+            match mock_id {
+                MockId::Fn(fn_id) => {
+                    if cp.standalone_fns.contains_key(fn_id) {
+                        return Err(MockError::AlreadyRegistered);
+                    }
+                    cp.get_or_create_standalone(fn_id);
+                }
+                MockId::AdtStatic { adt_path, fn_id } => {
+                    let adt_id = AdtId::new(adt_path.to_string(), AdtIdNumber::default());
+                    let mock_object = cp.get_or_create_mock_object(&adt_id);
+                    mock_object
+                        .static_methods
+                        .entry(fn_id.clone())
+                        .or_insert_with(|| MockFunctionObject::new(fn_id.clone()));
+                }
+                MockId::AdtInstance { adt_id, fn_id } => {
+                    let mock_object = cp.get_or_create_mock_object(adt_id);
+                    mock_object
+                        .instance_methods
+                        .entry((adt_id.number, fn_id.clone()))
+                        .or_insert_with(|| MockFunctionObject::new(fn_id.clone()));
+                }
             }
             Ok(())
         }
-        _ => panic!("add_mock called outside of build phase"),
+        _ => panic!("register_mock called outside of build phase"),
     })
 }
 
-/// Returns true if the context is in Active state and contains the given mock id.
+/// Returns true if the context is in Active state and the given mock id
+/// has been registered (either as a standalone function or as an ADT method).
 pub fn ctx_built_and_contains_id(id: &MockId) -> bool {
     GLOBAL_CONTEXT.with_borrow(|ctx| match ctx {
-        CtxState::Active(global_context) => global_context.mocks().contains_key(id),
+        CtxState::Active(global_context) => {
+            let Some(cp) = global_context.active_checkpoint() else {
+                return false;
+            };
+            match id {
+                MockId::Fn(fn_id) => cp.standalone_fns.contains_key(fn_id),
+                MockId::AdtStatic { adt_path, fn_id } => cp
+                    .mock_objects
+                    .get(adt_path)
+                    .map(|obj| obj.static_methods.contains_key(fn_id))
+                    .unwrap_or(false),
+                MockId::AdtInstance { adt_id, fn_id } => cp
+                    .mock_objects
+                    .get(&adt_id.path)
+                    .map(|obj| {
+                        obj.instance_methods
+                            .contains_key(&(adt_id.number, fn_id.clone()))
+                    })
+                    .unwrap_or(false),
+            }
+        }
         _ => false,
     })
 }
-#[derive(Clone, Copy, Debug, Default)]
-pub struct AdtMockId(pub u64);
+#[derive(Clone, Copy, Debug, Default, Hash, Eq, PartialEq)]
+pub struct AdtIdNumber(pub u64);
 
-impl std::fmt::Display for AdtMockId {
+impl std::fmt::Display for AdtIdNumber {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
-pub fn new_id() -> AdtMockId {
+
+fn new_number() -> AdtIdNumber {
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
         CtxState::Building(global_context) => {
             let r = global_context.adt_instance_counter;
@@ -155,6 +198,9 @@ pub fn new_id() -> AdtMockId {
         }
         _ => panic!("add_mock called outside of build phase"),
     })
+}
+pub fn new_id() -> AdtIdNumber {
+    new_number()
 }
 
 // ─── Checkpoint operations ──────────────────────────────────────────────────
@@ -297,8 +343,8 @@ pub fn add_expectation<Input, ReturnVal>(
             // Wrap with cardinality in the predicate tree
             let timed_pred = cp.times_arena(pred_idx, modifier);
 
-            // Commit it as an expectation (cardinality lives in the tree)
-            cp.expect::<Input, ReturnVal>(mock_id, timed_pred, return_val_closure);
+            // Route through the new MockFunctionObject system
+            cp.expect_standalone(mock_id, timed_pred, return_val_closure);
 
             Ok(())
         }
@@ -306,39 +352,122 @@ pub fn add_expectation<Input, ReturnVal>(
     })
 }
 
+/// Add an on_call (fallback) for a standalone function.
+/// On_calls are checked after expectations and have no exhaustion/completeness tracking.
+pub fn add_on_call<Input>(
+    mock_id: &MockId,
+    condition: ConditionDoublePointer,
+    return_val: ReturnValDoublePointer,
+    checkpoint_name: Option<CheckpointName>,
+) -> Result<()> {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Building(builder) => {
+            let cp = resolve_or_latest_checkpoint_mut(&mut builder.ctx, checkpoint_name.as_ref())?;
+            cp.on_call_standalone(mock_id, condition, return_val);
+            Ok(())
+        }
+        _ => panic!("add_on_call called outside of build phase"),
+    })
+}
+
+/// Add an expectation to a method on an ADT MockObject.
+pub fn add_method_expectation<Input, ReturnVal>(
+    object_mock_id: &AdtId,
+    method_name: &str,
+    method_mock_id: &MockId,
+    condition: ConditionDoublePointer,
+    return_val_closure: Option<ReturnValDoublePointer>,
+    checkpoint_name: Option<CheckpointName>,
+    modifier: TimesModifier,
+) -> Result<()> {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Building(builder) => {
+            let cp = resolve_or_latest_checkpoint_mut(&mut builder.ctx, checkpoint_name.as_ref())?;
+
+            let pred_idx = cp.create_single::<Input>(method_mock_id, condition);
+            let timed_pred = cp.times_arena(pred_idx, modifier);
+
+            cp.expect_method(
+                object_mock_id,
+                method_name,
+                method_mock_id,
+                timed_pred,
+                return_val_closure,
+            );
+
+            Ok(())
+        }
+        _ => panic!("add_method_expectation called outside of build phase"),
+    })
+}
+
+/// Add an on_call (fallback) to a method on an ADT MockObject.
+pub fn add_method_on_call<Input>(
+    object_mock_id: &AdtId,
+    method_name: &str,
+    method_mock_id: &MockId,
+    condition: ConditionDoublePointer,
+    return_val: ReturnValDoublePointer,
+    checkpoint_name: Option<CheckpointName>,
+) -> Result<()> {
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
+        CtxState::Building(builder) => {
+            let cp = resolve_or_latest_checkpoint_mut(&mut builder.ctx, checkpoint_name.as_ref())?;
+            cp.on_call_method(
+                object_mock_id,
+                method_name,
+                method_mock_id,
+                condition,
+                return_val,
+            );
+            Ok(())
+        }
+        _ => panic!("add_method_on_call called outside of build phase"),
+    })
+}
+
 // ─── Mock execution ─────────────────────────────────────────────────────────
 
 /// Execute a mock call. Evaluates the active checkpoint's expectations/sequences.
 ///
-/// # Safety
-/// This is unsafe because it relies on the caller ensuring that `Input` and `ReturnVal`
-/// match the types used when registering expectations.
 pub fn run_mock<Input, ReturnVal>(mock_id: MockId, input: Input) -> Result<ReturnVal> {
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
         CtxState::Active(global_context) => {
-            // Check that mock is registered
-            if !global_context.mocks().contains_key(&mock_id) {
-                return Err(MockError::NoMatchingId);
-            }
-
             let cp = global_context
                 .active_checkpoint_mut()
                 .ok_or_else(|| MockError::from("no active checkpoint"))?;
+
+            // Check that mock is registered in this checkpoint
+            let has_mock = match &mock_id {
+                MockId::Fn(fn_id) => cp.standalone_fns.contains_key(fn_id),
+                MockId::AdtStatic { adt_path, fn_id } => cp
+                    .mock_objects
+                    .get(adt_path)
+                    .map(|obj| obj.static_methods.contains_key(fn_id))
+                    .unwrap_or(false),
+                MockId::AdtInstance { adt_id, fn_id } => cp
+                    .mock_objects
+                    .get(&adt_id.path)
+                    .map(|obj| {
+                        obj.instance_methods
+                            .contains_key(&(adt_id.number, fn_id.clone()))
+                    })
+                    .unwrap_or(false),
+            } || cp.expectations.contains_key(&mock_id);
+
+            if !has_mock {
+                return Err(MockError::NoMatchingId);
+            }
 
             // Safety: caller must ensure types match
             let result = unsafe { cp.evaluate::<Input, ReturnVal>(&mock_id, input) };
 
             match result {
                 Ok(Some(ret)) => Ok(ret),
-                Ok(None) => {
-                    // No return value from expectation — try default
-                    // Note: we can't easily access the default here without consuming input.
-                    // For now, this is an error. The expectation should always provide a return.
-                    Err(
-                        "expectation matched but no return value provided and no default available"
-                            .into(),
-                    )
-                }
+                Ok(None) => Err(
+                    "expectation matched but no return value provided and no default available"
+                        .into(),
+                ),
                 Err(e) => Err(e),
             }
         }

@@ -9,3 +9,7 @@ edition = "2024"
 #petgraph = "0.8.3"
 proc-macro2 = "1.0.106"
 quote = "1.0.45"
+
+[dev-dependencies]
+quickcheck = "1.0.3"
+quickcheck_macros = "1.0.0"

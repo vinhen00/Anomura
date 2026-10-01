@@ -4,8 +4,8 @@
 //! The generated code is parsed back into AST items using `rustc_parse` and injected
 //! into the target crate's AST within the same compiler session.
 
-use rustc_ast_pretty::pprust;
 use rustc_ast as ast;
+use rustc_ast_pretty::pprust;
 use rustc_span::symbol::Symbol;
 
 use crate::crate_api::*;
@@ -14,24 +14,27 @@ use crate::crate_api::*;
 ///
 /// Returns a function source string with the mock dispatch body.
 /// The original function is preserved as `{name}_original` by the caller.
-pub fn gen_mock_fn_body(
-    crate_name: &str,
-    func: &FunctionModel,
-) -> String {
+pub fn gen_mock_fn_body(crate_name: &str, func: &FunctionModel) -> String {
     let fn_name = func.name.as_str();
     let mock_id = format!("{}_{}", crate_name, fn_name);
 
-    let params_str = func.params.iter()
+    let params_str = func
+        .params
+        .iter()
         .map(|p| format!("{}: {}", p.name.as_str(), ty_to_string(&p.ty)))
         .collect::<Vec<_>>()
         .join(", ");
 
-    let input_types_str = func.params.iter()
+    let input_types_str = func
+        .params
+        .iter()
         .map(|p| ty_to_string(&p.ty))
         .collect::<Vec<_>>()
         .join(", ");
 
-    let input_idents_str = func.params.iter()
+    let input_idents_str = func
+        .params
+        .iter()
         .map(|p| p.name.as_str().to_string())
         .collect::<Vec<_>>()
         .join(", ");
@@ -57,7 +60,7 @@ pub fn gen_mock_fn_body(
 
     format!(
         r#"pub fn {fn_name}({params_str}) -> {ret_type_str} {{
-    let {mock_id}_mock_id = context::MockId::new(stringify!({mock_id}));
+    let {mock_id}_mock_id = context::MockId::new_fn("{mock_id}");
     if context::ctx_built_and_contains_id(&{mock_id}_mock_id) {{
         match context::run_mock::<({input_types_tuple}), {ret_type_str}>({mock_id}_mock_id, ({input_idents_tuple})) {{
             Ok(res) => res,
@@ -91,14 +94,19 @@ pub fn gen_mock_method_body(
     trackable: bool,
 ) -> String {
     let method_name = method.name.as_str();
-    let mock_id = format!("{}_{}_{}", crate_name, struct_name, method_name);
+    let adt_path = format!("{}_{}", crate_name, struct_name);
+    let mock_id = format!("{}_{}", adt_path, method_name);
 
-    let params_str = method.params.iter()
+    let params_str = method
+        .params
+        .iter()
         .map(|p| format!("{}: {}", p.name.as_str(), ty_to_string(&p.ty)))
         .collect::<Vec<_>>()
         .join(", ");
 
-    let input_types_str = method.params.iter()
+    let input_types_str = method
+        .params
+        .iter()
         .map(|p| ty_to_string(&p.ty))
         .collect::<Vec<_>>()
         .join(", ");
@@ -109,9 +117,21 @@ pub fn gen_mock_method_body(
     };
 
     let (receiver_str, self_type_prefix, self_value_prefix) = match method.receiver {
-        ReceiverKind::Ref => ("&self, ".to_string(), format!("&{}, ", struct_name), "self, ".to_string()),
-        ReceiverKind::RefMut => ("&mut self, ".to_string(), format!("&mut {}, ", struct_name), "self, ".to_string()),
-        ReceiverKind::Owned => ("self, ".to_string(), format!("{}, ", struct_name), "self, ".to_string()),
+        ReceiverKind::Ref => (
+            "&self, ".to_string(),
+            format!("&{}, ", struct_name),
+            "self, ".to_string(),
+        ),
+        ReceiverKind::RefMut => (
+            "&mut self, ".to_string(),
+            format!("&mut {}, ", struct_name),
+            "self, ".to_string(),
+        ),
+        ReceiverKind::Owned => (
+            "self, ".to_string(),
+            format!("{}, ", struct_name),
+            "self, ".to_string(),
+        ),
         ReceiverKind::None => ("".to_string(), "".to_string(), "".to_string()),
     };
 
@@ -126,13 +146,15 @@ pub fn gen_mock_method_body(
 
     // Trailing comma for single-element type tuples (must match value tuple)
     let full_input_types = match (method.receiver != ReceiverKind::None, method.params.len()) {
-        (true, 0) => format!("{},", full_input_types),   // just self type → (T,)
-        (false, 1) => format!("{},", full_input_types),  // single param → (T,)
+        (true, 0) => format!("{},", full_input_types), // just self type → (T,)
+        (false, 1) => format!("{},", full_input_types), // single param → (T,)
         _ => full_input_types,
     };
 
     // Full value tuple for run_mock
-    let input_idents_str = method.params.iter()
+    let input_idents_str = method
+        .params
+        .iter()
         .map(|p| p.name.as_str().to_string())
         .collect::<Vec<_>>()
         .join(", ");
@@ -146,7 +168,8 @@ pub fn gen_mock_method_body(
     };
 
     // Trailing comma for single-element tuples
-    let full_input_values_tuple = match (method.receiver != ReceiverKind::None, method.params.len()) {
+    let full_input_values_tuple = match (method.receiver != ReceiverKind::None, method.params.len())
+    {
         (true, 0) => format!("{},", full_input_values),
         (false, 1) => format!("{},", full_input_values),
         _ => full_input_values.clone(),
@@ -154,14 +177,17 @@ pub fn gen_mock_method_body(
 
     // Mock ID: instance-specific for trackable structs with self, static otherwise
     let mock_id_expr = if trackable && method.receiver != ReceiverKind::None {
-        format!("format!(\"{{}}{{}}\", \"{}\", self.adt_mock_id.0)", mock_id)
+        format!(
+            "context::MockId::new_adt_instance(\"{}\", \"{}\", self.adt_mock_id)",
+            adt_path, method_name
+        )
     } else {
-        format!("stringify!({})", mock_id)
+        format!("context::MockId::new_adt_static(\"{}\", \"{}\")", adt_path, method_name)
     };
 
     format!(
         r#"pub fn {method_name}({receiver_str}{params_str}) -> {ret_type_str} {{
-    let {mock_id}_mock_id = context::MockId::new({mock_id_expr});
+    let {mock_id}_mock_id = {mock_id_expr};
     if context::ctx_built_and_contains_id(&{mock_id}_mock_id) {{
         match context::run_mock::<({full_input_types}), {ret_type_str}>({mock_id}_mock_id, ({full_input_values_tuple})) {{
             Ok(res) => res,
@@ -212,6 +238,7 @@ fn ty_to_string(ty: &ast::Ty) -> String {
 /// Returns source code that can be parsed and injected as top-level items.
 pub fn gen_convenience_api(api: &CrateApiModel) -> String {
     let mut source = String::new();
+    let root_path = ModPath::root(&api.crate_name);
 
     // Generate wrappers for free functions
     for func in &api.root.functions {
@@ -222,57 +249,122 @@ pub fn gen_convenience_api(api: &CrateApiModel) -> String {
     // Generate wrappers for impl methods (both inherent and trait impls)
     for imp in &api.root.impls {
         let struct_name = imp.self_type_name.as_str();
-        let trackable = api.root.structs.iter()
+        let trackable = api
+            .root
+            .structs
+            .iter()
             .find(|s| s.name.as_str() == struct_name)
             .map(|s| s.trackable)
             .unwrap_or(false);
+
+        // If this impl has any constructors, emit the PublicStruct + Into impl
+        let has_constructors = imp.methods.iter().any(|m| is_constructor(m, struct_name));
+        if has_constructors {
+            if let Some(struct_model) = api
+                .root
+                .structs
+                .iter()
+                .find(|s| s.name.as_str() == struct_name)
+            {
+                let pub_name = public_struct_name(&root_path, struct_name);
+                source.push_str(&gen_public_struct(&pub_name, struct_name, struct_model));
+                source.push('\n');
+            }
+        }
+
         for method in &imp.methods {
-            source.push_str(&gen_method_wrappers(&api.crate_name, struct_name, method, trackable, struct_name));
+            let ret_override = if is_constructor(method, struct_name) {
+                Some(public_struct_name(&root_path, struct_name))
+            } else {
+                None
+            };
+            source.push_str(&gen_method_wrappers(
+                &root_path,
+                struct_name,
+                method,
+                trackable,
+                struct_name,
+                ret_override.as_deref(),
+            ));
             source.push('\n');
         }
     }
 
     // Generate wrappers for functions in child modules (recursively)
     for child in &api.root.children {
-        let mod_prefix = format!("{}_{}", api.crate_name, child.name.as_str());
-        let mod_path = child.name.as_str().to_string();
-        gen_module_convenience_wrappers(child, &mod_prefix, &mod_path, &mut source);
+        let child_path = root_path.child(child.name.as_str());
+        gen_module_convenience_wrappers(child, &child_path, &mut source);
     }
 
     source
 }
 
 /// Recursively generate convenience API wrappers for a module's contents.
-/// `prefix` is the accumulated mock_id prefix (e.g. "fns_a" or "fns_a_nested").
-/// `mod_path` is the Rust module path (e.g. "a::nested") for qualifying type names
-/// since convenience items are injected at the crate root.
-fn gen_module_convenience_wrappers(module: &ModuleModel, prefix: &str, mod_path: &str, source: &mut String) {
+/// `path` carries the crate name + module segments for mock ID and type path generation.
+fn gen_module_convenience_wrappers(module: &ModuleModel, path: &ModPath, source: &mut String) {
     // Free functions in this module
     for func in &module.functions {
-        source.push_str(&gen_fn_wrappers_with_prefix(prefix, func, module.name.as_str()));
+        source.push_str(&gen_fn_wrappers_with_prefix(
+            path,
+            func,
+            module.name.as_str(),
+        ));
         source.push('\n');
     }
 
     // Impl methods in this module
     for imp in &module.impls {
         let struct_name = imp.self_type_name.as_str();
+        let mod_path = path.mod_path();
         // Qualify the struct name with the module path so it resolves at the crate root
         let qualified_struct_name = format!("{}::{}", mod_path, struct_name);
-        let trackable = module.structs.iter()
+        let trackable = module
+            .structs
+            .iter()
             .find(|s| s.name.as_str() == struct_name)
             .map(|s| s.trackable)
             .unwrap_or(false);
+
+        // If this impl has any constructors, emit the PublicStruct + Into impl
+        let has_constructors = imp.methods.iter().any(|m| is_constructor(m, struct_name));
+        if has_constructors {
+            if let Some(struct_model) = module
+                .structs
+                .iter()
+                .find(|s| s.name.as_str() == struct_name)
+            {
+                let pub_name = public_struct_name(path, struct_name);
+                source.push_str(&gen_public_struct(
+                    &pub_name,
+                    &qualified_struct_name,
+                    struct_model,
+                ));
+                source.push('\n');
+            }
+        }
+
         for method in &imp.methods {
-            source.push_str(&gen_method_wrappers(prefix, struct_name, method, trackable, &qualified_struct_name));
+            let ret_override = if is_constructor(method, struct_name) {
+                Some(public_struct_name(path, struct_name))
+            } else {
+                None
+            };
+            source.push_str(&gen_method_wrappers(
+                path,
+                struct_name,
+                method,
+                trackable,
+                &qualified_struct_name,
+                ret_override.as_deref(),
+            ));
             source.push('\n');
         }
     }
 
     // Recurse into child modules
     for child in &module.children {
-        let child_prefix = format!("{}_{}", prefix, child.name.as_str());
-        let child_mod_path = format!("{}::{}", mod_path, child.name.as_str());
-        gen_module_convenience_wrappers(child, &child_prefix, &child_mod_path, source);
+        let child_path = path.child(child.name.as_str());
+        gen_module_convenience_wrappers(child, &child_path, source);
     }
 }
 
@@ -282,7 +374,9 @@ fn gen_fn_wrappers(crate_name: &str, func: &FunctionModel) -> String {
     let fn_cap = capitalize(fn_name);
     let mock_id = format!("{}_{}", crate_name, fn_name);
 
-    let input_types_str = func.params.iter()
+    let input_types_str = func
+        .params
+        .iter()
         .map(|p| ty_to_string(&p.ty))
         .collect::<Vec<_>>()
         .join(", ");
@@ -300,40 +394,52 @@ fn gen_fn_wrappers(crate_name: &str, func: &FunctionModel) -> String {
     };
 
     // Closure params (named, for the actual closure body)
-    let closure_params = func.params.iter()
+    let closure_params = func
+        .params
+        .iter()
         .enumerate()
         .map(|(i, p)| format!("_{}: {}", i, ty_to_string(&p.ty)))
         .collect::<Vec<_>>()
         .join(", ");
 
     // Closure type params (types only, for Fn trait bound syntax)
-    let closure_type_params = func.params.iter()
+    let closure_type_params = func
+        .params
+        .iter()
         .map(|p| ty_to_string(&p.ty))
         .collect::<Vec<_>>()
         .join(", ");
 
     // Predicate closure params (all by reference)
-    let closure_params_ref = func.params.iter()
+    let closure_params_ref = func
+        .params
+        .iter()
         .enumerate()
         .map(|(i, p)| format!("_{}: &{}", i, ty_to_string(&p.ty)))
         .collect::<Vec<_>>()
         .join(", ");
 
     // Predicate closure type params (types only, by reference)
-    let closure_type_params_ref = func.params.iter()
+    let closure_type_params_ref = func
+        .params
+        .iter()
         .map(|p| format!("&{}", ty_to_string(&p.ty)))
         .collect::<Vec<_>>()
         .join(", ");
 
     // Access from &tuple reference for predicate (pass references)
-    let input_access_ref = func.params.iter()
+    let input_access_ref = func
+        .params
+        .iter()
         .enumerate()
         .map(|(i, _)| format!("&input.{}", i))
         .collect::<Vec<_>>()
         .join(", ");
 
     // Closure args from destructured tuple
-    let closure_args = func.params.iter()
+    let closure_args = func
+        .params
+        .iter()
         .enumerate()
         .map(|(i, _)| format!("_{}", i))
         .collect::<Vec<_>>()
@@ -343,7 +449,8 @@ fn gen_fn_wrappers(crate_name: &str, func: &FunctionModel) -> String {
     let destructure = if func.params.is_empty() {
         "".to_string()
     } else {
-        func.params.iter()
+        func.params
+            .iter()
             .enumerate()
             .map(|(i, _)| format!("_{}", i))
             .collect::<Vec<_>>()
@@ -358,14 +465,16 @@ fn gen_fn_wrappers(crate_name: &str, func: &FunctionModel) -> String {
     };
 
     // Access from &tuple reference for predicate
-    let input_access = func.params.iter()
+    let input_access = func
+        .params
+        .iter()
         .enumerate()
         .map(|(i, _)| format!("input.{}", i))
         .collect::<Vec<_>>()
         .join(", ");
 
     format!(
-r#"pub struct Predicate{fn_cap}(pub context::Predicate);
+        r#"pub struct Predicate{fn_cap}(pub context::Predicate);
 pub struct Return{fn_cap}(pub context::ReturnValDoublePointer);
 
 impl Return{fn_cap} {{
@@ -378,7 +487,7 @@ impl Return{fn_cap} {{
 
 impl Predicate{fn_cap} {{
     pub fn from_fn(closure: impl Fn({closure_type_params_ref}) -> context::errors::PredicateResult<()> + 'static) -> Self {{
-        let mock_id = context::MockId::new("{mock_id}");
+        let mock_id = context::MockId::new_fn("{mock_id}");
         let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
             Box::new(move |input: &({type_tuple})| closure({input_access_ref}))
         );
@@ -388,29 +497,18 @@ impl Predicate{fn_cap} {{
 
 pub fn on_call_{fn_name}(ret: impl Into<Return{fn_cap}>) {{
     let inner: Return{fn_cap} = ret.into();
-    let mock_id = context::MockId::new("{mock_id}");
-    match context::add_mock::<({type_tuple}), {ret_type_str}>(mock_id.clone(), None) {{
-        Ok(()) => {{}},
-        Err(context::MockError::AlreadyRegistered) => {{}},
-        Err(e) => panic!("failed to add mock: {{:?}}", e),
-    }}
+    let mock_id = context::MockId::new_fn("{mock_id}");
     let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(Box::new(|_| Ok(())));
-    context::add_expectation::<({type_tuple}), {ret_type_str}>(
+    context::add_on_call::<({type_tuple})>(
         &mock_id,
         cond,
-        Some(inner.0),
+        inner.0,
         None,
-        context::TimesModifier::Any,
     ).unwrap();
 }}
 
 pub fn expect_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> context::errors::PredicateResult<()> + 'static, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static, modifier: context::TimesModifier, checkpoint: Option<&str>) {{
-    let mock_id = context::MockId::new("{mock_id}");
-    match context::add_mock::<({type_tuple}), {ret_type_str}>(mock_id.clone(), None) {{
-        Ok(()) => {{}},
-        Err(context::MockError::AlreadyRegistered) => {{}},
-        Err(e) => panic!("failed to add mock: {{:?}}", e),
-    }}
+    let mock_id = context::MockId::new_fn("{mock_id}");
     let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
         Box::new(move |input: &({type_tuple})| condition({input_access_ref}))
     );
@@ -425,12 +523,8 @@ pub fn expect_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> context
 }}
 
 pub fn sequence_{fn_name}(seq_name: &str, index: usize, condition: impl Fn({closure_type_params_ref}) -> context::errors::PredicateResult<()> + 'static, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static) {{
-    let mock_id = context::MockId::new("{mock_id}");
-    match context::add_mock::<({type_tuple}), {ret_type_str}>(mock_id.clone(), None) {{
-        Ok(()) => {{}},
-        Err(context::MockError::AlreadyRegistered) => {{}},
-        Err(e) => panic!("failed to add mock: {{:?}}", e),
-    }}
+    let mock_id = context::MockId::new_fn("{mock_id}");
+    let _ = context::register_mock(&mock_id);
     let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
         Box::new(move |input: &({type_tuple})| condition({input_access_ref}))
     );
@@ -456,19 +550,32 @@ pub fn sequence_{fn_name}(seq_name: &str, index: usize, condition: impl Fn({clos
 /// Generate wrapper newtypes and on_call for an impl method.
 /// `struct_name` is the bare struct name (for mock IDs and wrapper type names).
 /// `struct_type_path` is the fully qualified path for use in generated code (e.g., "a::nested::Inner").
-fn gen_method_wrappers(crate_name: &str, struct_name: &str, method: &MethodSigModel, trackable: bool, struct_type_path: &str) -> String {
+fn gen_method_wrappers(
+    path: &ModPath,
+    struct_name: &str,
+    method: &MethodSigModel,
+    trackable: bool,
+    struct_type_path: &str,
+    ret_type_override: Option<&str>,
+) -> String {
     let method_name = method.name.as_str();
     let suffix = format!("{}{}", capitalize(struct_name), capitalize(method_name));
-    let mock_id = format!("{}_{}_{}", crate_name, struct_name, method_name);
+    let object_mock_id = path.mock_prefix(struct_name);
 
-    let input_types_str = method.params.iter()
+    let input_types_str = method
+        .params
+        .iter()
         .map(|p| ty_to_string(&p.ty))
         .collect::<Vec<_>>()
         .join(", ");
 
-    let ret_type_str = match &method.return_type {
-        Some(ty) => ty_to_string(ty),
-        None => "()".to_string(),
+    let ret_type_str = if let Some(override_ty) = ret_type_override {
+        override_ty.to_string()
+    } else {
+        match &method.return_type {
+            Some(ty) => ty_to_string(ty),
+            None => "()".to_string(),
+        }
     };
 
     // Self type for the type tuple (use qualified path for code generation)
@@ -483,7 +590,11 @@ fn gen_method_wrappers(crate_name: &str, struct_name: &str, method: &MethodSigMo
     let full_type_tuple = if self_type.is_empty() && input_types_str.is_empty() {
         "".to_string()
     } else if self_type.is_empty() {
-        if method.params.len() == 1 { format!("{},", input_types_str) } else { input_types_str.clone() }
+        if method.params.len() == 1 {
+            format!("{},", input_types_str)
+        } else {
+            input_types_str.clone()
+        }
     } else if input_types_str.is_empty() {
         format!("{},", self_type)
     } else {
@@ -531,7 +642,11 @@ fn gen_method_wrappers(crate_name: &str, struct_name: &str, method: &MethodSigMo
     let closure_type_params_ref_str = closure_type_params_ref.join(", ");
 
     // Access from &tuple reference for predicate (pass references)
-    let total_fields = (if method.receiver != ReceiverKind::None { 1 } else { 0 }) + method.params.len();
+    let total_fields = (if method.receiver != ReceiverKind::None {
+        1
+    } else {
+        0
+    }) + method.params.len();
     let input_access_ref = (0..total_fields)
         .map(|i| format!("&input.{}", i))
         .collect::<Vec<_>>()
@@ -548,9 +663,26 @@ fn gen_method_wrappers(crate_name: &str, struct_name: &str, method: &MethodSigMo
     let closure_args_str = closure_args.join(", ");
 
     // Destructure from input tuple (for return closure)
-    let total_fields = (if method.receiver != ReceiverKind::None { 1 } else { 0 }) + method.params.len();
+    let total_fields = (if method.receiver != ReceiverKind::None {
+        1
+    } else {
+        0
+    }) + method.params.len();
     let destructure = (0..total_fields)
-        .map(|i| if i == 0 && method.receiver != ReceiverKind::None { "_self".to_string() } else { format!("_{}", i - if method.receiver != ReceiverKind::None { 1 } else { 0 }) })
+        .map(|i| {
+            if i == 0 && method.receiver != ReceiverKind::None {
+                "_self".to_string()
+            } else {
+                format!(
+                    "_{}",
+                    i - if method.receiver != ReceiverKind::None {
+                        1
+                    } else {
+                        0
+                    }
+                )
+            }
+        })
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -569,13 +701,24 @@ fn gen_method_wrappers(crate_name: &str, struct_name: &str, method: &MethodSigMo
     // on_call: instance method for trackable, static for non-trackable
     let on_call_self_param = if trackable { "&self, " } else { "" };
     let on_call_mock_id_expr = if trackable {
-        format!("format!(\"{{}}{{}}\", \"{}\", self.adt_mock_id.0)", mock_id)
+        format!(
+            "context::MockId::new_adt_instance(\"{}\", \"{}\", self.adt_mock_id)",
+            object_mock_id, method_name
+        )
     } else {
-        format!("\"{}\"", mock_id)
+        format!("context::MockId::new_adt_static(\"{}\", \"{}\")", object_mock_id, method_name)
+    };
+    let on_call_object_mock_id_expr = if trackable {
+        format!(
+            "context::AdtId::new(\"{}\", self.adt_mock_id)",
+            object_mock_id
+        )
+    } else {
+        format!("context::AdtId::new(\"{}\", context::AdtIdNumber::default())", object_mock_id)
     };
 
     format!(
-r#"pub struct Predicate{suffix}(pub context::Predicate);
+        r#"pub struct Predicate{suffix}(pub context::Predicate);
 pub struct Return{suffix}(pub context::ReturnValDoublePointer);
 
 impl Return{suffix} {{
@@ -588,7 +731,7 @@ impl Return{suffix} {{
 
 impl Predicate{suffix} {{
     pub fn from_fn(closure: impl Fn({closure_type_params_ref_str}) -> context::errors::PredicateResult<()> + 'static) -> Self {{
-        let mock_id = context::MockId::new("{mock_id}");
+        let mock_id = context::MockId::new_adt_static("{object_mock_id}", "{method_name}");
         let cond = context::ConditionDoublePointer::from_fn::<({full_type_tuple})>(
             Box::new(move |input: &({full_type_tuple})| closure({input_access_ref}))
         );
@@ -599,25 +742,22 @@ impl Predicate{suffix} {{
 impl {struct_type_path} {{
     pub fn on_call_{method_name}({on_call_self_param}ret: impl Into<Return{suffix}>) {{
         let inner: Return{suffix} = ret.into();
-        let mock_id = context::MockId::new({on_call_mock_id_expr});
-        match context::add_mock::<({full_type_tuple}), {ret_type_str}>(mock_id.clone(), None) {{
-            Ok(()) => {{}},
-            Err(context::MockError::AlreadyRegistered) => {{}},
-            Err(e) => panic!("failed to add mock: {{:?}}", e),
-        }}
+        let mock_id = {on_call_mock_id_expr};
+        let object_mock_id = {on_call_object_mock_id_expr};
         let cond = context::ConditionDoublePointer::from_fn::<({full_type_tuple})>(Box::new(|_| Ok(())));
-        context::add_expectation::<({full_type_tuple}), {ret_type_str}>(
+        context::add_method_on_call::<({full_type_tuple})>(
+            &object_mock_id,
+            "{method_name}",
             &mock_id,
             cond,
-            Some(inner.0),
+            inner.0,
             None,
-            context::TimesModifier::Any,
         ).unwrap();
     }}
 }}
 "#,
         suffix = suffix,
-        mock_id = mock_id,
+        object_mock_id = object_mock_id,
         struct_type_path = struct_type_path,
         method_name = method_name,
         closure_type_params_str = closure_type_params_str,
@@ -629,6 +769,7 @@ impl {struct_type_path} {{
         input_access_ref = input_access_ref,
         on_call_self_param = on_call_self_param,
         on_call_mock_id_expr = on_call_mock_id_expr,
+        on_call_object_mock_id_expr = on_call_object_mock_id_expr,
     )
 }
 
@@ -640,15 +781,32 @@ fn capitalize(s: &str) -> String {
     }
 }
 
+/// Build the Public* struct name from a ModPath and struct name.
+/// For root-level `MockStruct` (no segments): `PublicMockStruct`
+/// For `a::nested::Inner` (segments=["a","nested"]): `PublicANestedInner`
+fn public_struct_name(path: &ModPath, struct_name: &str) -> String {
+    let mod_path = path.mod_path();
+    let mut name = "Public".to_string();
+    if !mod_path.is_empty() {
+        for segment in mod_path.split("::") {
+            name.push_str(&capitalize(segment));
+        }
+    }
+    name.push_str(&capitalize(struct_name));
+    name
+}
+
 /// Generate wrapper newtypes and on_call for a function inside a submodule.
 /// The mock_id uses the full path (crate_mod_fn), and the on_call function is
 /// placed inside a `mod` block so it's accessible as `fns::a::on_call_modules(...)`.
-fn gen_fn_wrappers_with_prefix(mock_id_prefix: &str, func: &FunctionModel, mod_name: &str) -> String {
+fn gen_fn_wrappers_with_prefix(path: &ModPath, func: &FunctionModel, mod_name: &str) -> String {
     let fn_name = func.name.as_str();
     let fn_cap = format!("{}_{}", capitalize(mod_name), capitalize(fn_name));
-    let mock_id = format!("{}_{}", mock_id_prefix, fn_name);
+    let mock_id = format!("{}_{}", path.mock_prefix(""), fn_name);
 
-    let input_types_str = func.params.iter()
+    let input_types_str = func
+        .params
+        .iter()
         .map(|p| ty_to_string(&p.ty))
         .collect::<Vec<_>>()
         .join(", ");
@@ -664,12 +822,16 @@ fn gen_fn_wrappers_with_prefix(mock_id_prefix: &str, func: &FunctionModel, mod_n
         input_types_str.clone()
     };
 
-    let closure_type_params = func.params.iter()
+    let closure_type_params = func
+        .params
+        .iter()
         .map(|p| ty_to_string(&p.ty))
         .collect::<Vec<_>>()
         .join(", ");
 
-    let closure_args = func.params.iter()
+    let closure_args = func
+        .params
+        .iter()
         .enumerate()
         .map(|(i, _)| format!("_{}", i))
         .collect::<Vec<_>>()
@@ -678,7 +840,9 @@ fn gen_fn_wrappers_with_prefix(mock_id_prefix: &str, func: &FunctionModel, mod_n
     let destructure_pattern = if func.params.is_empty() {
         "()".to_string()
     } else {
-        let d = func.params.iter()
+        let d = func
+            .params
+            .iter()
             .enumerate()
             .map(|(i, _)| format!("_{}", i))
             .collect::<Vec<_>>()
@@ -686,19 +850,23 @@ fn gen_fn_wrappers_with_prefix(mock_id_prefix: &str, func: &FunctionModel, mod_n
         format!("({},)", d)
     };
 
-    let closure_type_params_ref = func.params.iter()
+    let closure_type_params_ref = func
+        .params
+        .iter()
         .map(|p| format!("&{}", ty_to_string(&p.ty)))
         .collect::<Vec<_>>()
         .join(", ");
 
-    let input_access_ref = func.params.iter()
+    let input_access_ref = func
+        .params
+        .iter()
         .enumerate()
         .map(|(i, _)| format!("&input.{}", i))
         .collect::<Vec<_>>()
         .join(", ");
 
     format!(
-r#"pub struct Predicate{fn_cap}(pub context::Predicate);
+        r#"pub struct Predicate{fn_cap}(pub context::Predicate);
 pub struct Return{fn_cap}(pub context::ReturnValDoublePointer);
 
 impl Return{fn_cap} {{
@@ -711,7 +879,7 @@ impl Return{fn_cap} {{
 
 impl Predicate{fn_cap} {{
     pub fn from_fn(closure: impl Fn({closure_type_params_ref}) -> context::errors::PredicateResult<()> + 'static) -> Self {{
-        let mock_id = context::MockId::new("{mock_id}");
+        let mock_id = context::MockId::new_fn("{mock_id}");
         let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
             Box::new(move |input: &({type_tuple})| closure({input_access_ref}))
         );
@@ -721,19 +889,13 @@ impl Predicate{fn_cap} {{
 
 pub fn on_call_{mod_name}_{fn_name}(ret: impl Into<Return{fn_cap}>) {{
     let inner: Return{fn_cap} = ret.into();
-    let mock_id = context::MockId::new("{mock_id}");
-    match context::add_mock::<({type_tuple}), {ret_type_str}>(mock_id.clone(), None) {{
-        Ok(()) => {{}},
-        Err(context::MockError::AlreadyRegistered) => {{}},
-        Err(e) => panic!("failed to add mock: {{:?}}", e),
-    }}
+    let mock_id = context::MockId::new_fn("{mock_id}");
     let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(Box::new(|_| Ok(())));
-    context::add_expectation::<({type_tuple}), {ret_type_str}>(
+    context::add_on_call::<({type_tuple})>(
         &mock_id,
         cond,
-        Some(inner.0),
+        inner.0,
         None,
-        context::TimesModifier::Any,
     ).unwrap();
 }}
 "#,
@@ -756,7 +918,7 @@ pub fn on_call_{mod_name}_{fn_name}(ret: impl Into<Return{fn_cap}>) {{
 /// 2. Calls add_mock for every mockable method
 /// 3. Returns the instance
 pub fn gen_constructor_body(
-    crate_name: &str,
+    path: &ModPath,
     struct_name: &str,
     constructor: &MethodSigModel,
     struct_model: &super::crate_api::StructModel,
@@ -765,7 +927,9 @@ pub fn gen_constructor_body(
 ) -> String {
     let ctor_name = constructor.name.as_str();
 
-    let params_str = constructor.params.iter()
+    let params_str = constructor
+        .params
+        .iter()
         .map(|p| format!("{}: {}", p.name.as_str(), ty_to_string(&p.ty)))
         .collect::<Vec<_>>()
         .join(", ");
@@ -775,22 +939,29 @@ pub fn gen_constructor_body(
         None => "Self".to_string(),
     };
 
-    // Build field initializers
-    let field_inits: Vec<String> = struct_model.fields.iter().map(|f| {
-        let field_name = f.name.as_str();
-        if f.is_pub {
-            // Check if a constructor param matches this field name
-            let has_param = constructor.params.iter().any(|p| p.name.as_str() == field_name);
-            if has_param {
-                format!("            {}", field_name)
+    // Build field initializers for the build-phase fallback (direct construction)
+    let field_inits: Vec<String> = struct_model
+        .fields
+        .iter()
+        .map(|f| {
+            let field_name = f.name.as_str();
+            if f.is_pub {
+                // Check if a constructor param matches this field name
+                let has_param = constructor
+                    .params
+                    .iter()
+                    .any(|p| p.name.as_str() == field_name);
+                if has_param {
+                    format!("            {}", field_name)
+                } else {
+                    format!("            {}: Default::default()", field_name)
+                }
             } else {
-                format!("            {}: Default::default()", field_name)
+                // Private field → PhantomData
+                format!("            {}: std::marker::PhantomData", field_name)
             }
-        } else {
-            // Private field → PhantomData
-            format!("            {}: std::marker::PhantomData", field_name)
-        }
-    }).collect();
+        })
+        .collect();
 
     // Add adt_mock_id for trackable structs
     let adt_mock_id_init = if !all_public {
@@ -801,49 +972,24 @@ pub fn gen_constructor_body(
 
     let field_inits_str = field_inits.join(",\n");
 
-    // Generate add_mock calls for every mockable method (methods with a self receiver)
+    // Generate register_method calls for every mockable method (methods with a self receiver)
+    let object_mock_id_prefix = path.mock_prefix(struct_name);
     let mock_registrations: Vec<String> = all_methods.iter()
         .filter(|m| m.receiver != super::crate_api::ReceiverKind::None)
         .map(|m| {
             let method_name = m.name.as_str();
-            let mock_id_prefix = format!("{}_{}_{}", crate_name, struct_name, method_name);
-
-            let self_type = match m.receiver {
-                super::crate_api::ReceiverKind::Ref => format!("&{}", struct_name),
-                super::crate_api::ReceiverKind::RefMut => format!("&mut {}", struct_name),
-                super::crate_api::ReceiverKind::Owned => struct_name.to_string(),
-                super::crate_api::ReceiverKind::None => unreachable!(),
-            };
-
-            let input_types = m.params.iter()
-                .map(|p| ty_to_string(&p.ty))
-                .collect::<Vec<_>>()
-                .join(", ");
-
-            let full_type_tuple = if input_types.is_empty() {
-                format!("{},", self_type)
-            } else {
-                format!("{}, {}", self_type, input_types)
-            };
-
-            let ret_type = match &m.return_type {
-                Some(ty) => ty_to_string(ty),
-                None => "()".to_string(),
-            };
 
             if all_public {
                 format!(
-                    r#"        let _ = context::add_mock::<({full_type_tuple}), {ret_type}>(context::MockId::new("{mock_id_prefix}"), None);"#,
-                    full_type_tuple = full_type_tuple,
-                    ret_type = ret_type,
-                    mock_id_prefix = mock_id_prefix,
+                    r#"        let _ = context::register_mock(&context::MockId::new_adt_static("{object_mock_id_prefix}", "{method_name}"));"#,
+                    object_mock_id_prefix = object_mock_id_prefix,
+                    method_name = method_name,
                 )
             } else {
                 format!(
-                    r#"        context::add_mock::<({full_type_tuple}), {ret_type}>(context::MockId::new(format!("{{}}{{}}", "{mock_id_prefix}", slf.adt_mock_id.0)), None).unwrap();"#,
-                    full_type_tuple = full_type_tuple,
-                    ret_type = ret_type,
-                    mock_id_prefix = mock_id_prefix,
+                    r#"        let _ = context::register_mock(&context::MockId::new_adt_instance("{object_mock_id_prefix}", "{method_name}", slf.adt_mock_id));"#,
+                    object_mock_id_prefix = object_mock_id_prefix,
+                    method_name = method_name,
                 )
             }
         })
@@ -851,17 +997,71 @@ pub fn gen_constructor_body(
 
     let mock_registrations_str = mock_registrations.join("\n");
 
+    let public_struct_name = format!("crate::{}", public_struct_name(path, struct_name));
+
+    // Constructor mock_id
+    let ctor_mock_id = format!("{}_{}", path.mock_prefix(struct_name), ctor_name);
+
+    // Input type tuple for the constructor (params only, no self)
+    let ctor_input_types = constructor
+        .params
+        .iter()
+        .map(|p| ty_to_string(&p.ty))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let ctor_input_types_tuple = if constructor.params.len() == 1 {
+        format!("{},", ctor_input_types)
+    } else {
+        ctor_input_types.clone()
+    };
+
+    // Input values for run_mock
+    let ctor_input_values = constructor
+        .params
+        .iter()
+        .map(|p| p.name.as_str().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let ctor_input_values_tuple = if constructor.params.len() == 1 {
+        format!("{},", ctor_input_values)
+    } else {
+        ctor_input_values.clone()
+    };
+
+    // Mock ID expression: instance-specific for trackable, static for all-public
+    let ctor_adt_path = path.mock_prefix(struct_name);
+    let ctor_mock_id_check = if all_public {
+        format!("context::MockId::new_adt_static(\"{}\", \"{}\")", ctor_adt_path, ctor_name)
+    } else {
+        // For trackable structs, on_call_new is instance-specific — but at constructor dispatch
+        // time we don't have an instance yet. Use the static mock_id for the constructor.
+        format!("context::MockId::new_adt_static(\"{}\", \"{}\")", ctor_adt_path, ctor_name)
+    };
+
     format!(
         r#"pub fn {ctor_name}({params_str}) -> {ret_type_str} {{
-        let slf = Self {{
-{field_inits_str},
-{adt_mock_id_init}        }};
+        let {ctor_mock_id}_mock_id = {ctor_mock_id_check};
+        if context::ctx_built_and_contains_id(&{ctor_mock_id}_mock_id) {{
+            let public: {public_struct_name} = context::run_mock::<({ctor_input_types_tuple}), {public_struct_name}>({ctor_mock_id}_mock_id, ({ctor_input_values_tuple})).unwrap();
+            let slf: Self = public.into();
 {mock_registrations_str}
-        slf
+            slf
+        }} else {{
+            let slf = Self {{
+{field_inits_str},
+{adt_mock_id_init}            }};
+{mock_registrations_str}
+            slf
+        }}
     }}"#,
         ctor_name = ctor_name,
         params_str = params_str,
         ret_type_str = ret_type_str,
+        ctor_mock_id = ctor_mock_id,
+        ctor_mock_id_check = ctor_mock_id_check,
+        public_struct_name = public_struct_name,
+        ctor_input_types_tuple = ctor_input_types_tuple,
+        ctor_input_values_tuple = ctor_input_values_tuple,
         field_inits_str = field_inits_str,
         adt_mock_id_init = adt_mock_id_init,
         mock_registrations_str = mock_registrations_str,
@@ -880,4 +1080,65 @@ pub fn is_constructor(method: &MethodSigModel, struct_name: &str) -> bool {
         }
         None => false,
     }
+}
+
+/// Generate a `Public{...}` struct containing only the public fields of the original,
+/// plus an `Into<{StructName}>` impl that fills in private fields (PhantomData) and adt_mock_id.
+///
+/// `public_name` is the name for the generated struct (e.g., "PublicMockStruct" or "PublicANestedInner").
+/// `struct_type_path` is the qualified path for the target struct in generated code.
+pub fn gen_public_struct(
+    public_name: &str,
+    struct_type_path: &str,
+    struct_model: &super::crate_api::StructModel,
+) -> String {
+    // Public fields for the Public* struct
+    let pub_fields: Vec<String> = struct_model
+        .fields
+        .iter()
+        .filter(|f| f.is_pub)
+        .map(|f| format!("    pub {}: {},", f.name.as_str(), ty_to_string(&f.ty)))
+        .collect();
+    let pub_fields_str = pub_fields.join("\n");
+
+    // Into impl: map public fields from self, private fields get PhantomData, add adt_mock_id
+    let field_mappings: Vec<String> = struct_model
+        .fields
+        .iter()
+        .map(|f| {
+            if f.is_pub {
+                format!("            {}: self.{},", f.name.as_str(), f.name.as_str())
+            } else {
+                format!("            {}: std::marker::PhantomData,", f.name.as_str())
+            }
+        })
+        .collect();
+
+    let adt_mock_id_field = if struct_model.trackable {
+        "            adt_mock_id: context::new_id(),\n"
+    } else {
+        ""
+    };
+
+    let field_mappings_str = field_mappings.join("\n");
+
+    format!(
+        r#"pub struct {public_name} {{
+{pub_fields_str}
+}}
+
+impl Into<{struct_type_path}> for {public_name} {{
+    fn into(self) -> {struct_type_path} {{
+        {struct_type_path} {{
+{field_mappings_str}
+{adt_mock_id_field}        }}
+    }}
+}}
+"#,
+        public_name = public_name,
+        struct_type_path = struct_type_path,
+        pub_fields_str = pub_fields_str,
+        field_mappings_str = field_mappings_str,
+        adt_mock_id_field = adt_mock_id_field,
+    )
 }

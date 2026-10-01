@@ -337,7 +337,8 @@ impl CrateIntercept {
                     }
                 }
                 ast::ItemKind::Impl(impl_data) => {
-                    self.handle_impl_methods(compiler, impl_data, &api.root, &api.crate_name);
+                    let root_path = ModPath::root(&api.crate_name);
+                    self.handle_impl_methods(compiler, impl_data, &api.root, &root_path);
                 }
                 ast::ItemKind::Struct(ident, _generics, fields) if self.is_pub(&item.vis) => {
                     if let Some(struct_model) = api.root.structs.iter().find(|s| s.name == ident.name) {
@@ -347,8 +348,9 @@ impl CrateIntercept {
                 ast::ItemKind::Mod(_safety, ident, mod_kind) => {
                     let child = api.root.children.iter()
                         .find(|c| c.name == ident.name);
-                    let mod_prefix = format!("{}_{}", api.crate_name, ident.name.as_str());
-                    self.handle_mod_mock_bodies(compiler, mod_kind, &mod_prefix, child);
+                    let root_path = ModPath::root(&api.crate_name);
+                    let child_path = root_path.child(ident.name.as_str());
+                    self.handle_mod_mock_bodies(compiler, mod_kind, &child_path, child);
                 }
                 _ => {}
             }
@@ -425,13 +427,13 @@ impl CrateIntercept {
 
     /// Handle mock body replacement for methods within an impl block.
     /// `module` is the module model containing the impl (root or a child module).
-    /// `prefix` is the mock_id prefix for this scope (e.g. "fns" or "fns_a_nested").
+    /// `path` carries the crate name + module segments for mock ID generation.
     fn handle_impl_methods(
         &self,
         compiler: &Compiler,
         impl_data: &mut ast::Impl,
         module: &ModuleModel,
-        prefix: &str,
+        path: &ModPath,
     ) {
         let Some(self_type_name) = self.extract_type_name(&impl_data.self_ty) else {
             return;
@@ -469,7 +471,7 @@ impl CrateIntercept {
                     let mock_source = if crate_mock_gen::is_constructor(method_model, &struct_name) {
                         if let Some(sm) = struct_model {
                             crate_mock_gen::gen_constructor_body(
-                                prefix,
+                                path,
                                 &struct_name,
                                 method_model,
                                 sm,
@@ -478,7 +480,7 @@ impl CrateIntercept {
                             )
                         } else {
                             crate_mock_gen::gen_mock_method_body(
-                                prefix,
+                                &path.mock_prefix(""),
                                 &struct_name,
                                 method_model,
                                 !all_public,
@@ -486,7 +488,7 @@ impl CrateIntercept {
                         }
                     } else {
                         crate_mock_gen::gen_mock_method_body(
-                            prefix,
+                            &path.mock_prefix(""),
                             &struct_name,
                             method_model,
                             !all_public,
@@ -507,12 +509,12 @@ impl CrateIntercept {
 
     /// Recursively handle modules — replace fn bodies, struct fields, impl methods,
     /// and recurse into nested child modules.
-    /// `prefix` is the accumulated mock_id prefix (e.g. "fns_a" or "fns_a_nested").
+    /// `path` carries the crate name + module segments for mock ID generation.
     fn handle_mod_mock_bodies(
         &self,
         compiler: &Compiler,
         mod_kind: &mut ast::ModKind,
-        prefix: &str,
+        path: &ModPath,
         child_module: Option<&ModuleModel>,
     ) {
         if let ast::ModKind::Loaded(items, ..) = mod_kind {
@@ -522,13 +524,13 @@ impl CrateIntercept {
                         if let Some(mod_model) = child_module {
                             let name = fn_data.ident.name.as_str().to_string();
                             if let Some(func_model) = mod_model.functions.iter().find(|f| f.name.as_str() == name) {
-                                self.replace_fn_body_with_prefix(compiler, fn_data, prefix, func_model);
+                                self.replace_fn_body_with_prefix(compiler, fn_data, &path.mock_prefix(""), func_model);
                             }
                         }
                     }
                     ast::ItemKind::Impl(impl_data) => {
                         if let Some(mod_model) = child_module {
-                            self.handle_impl_methods(compiler, impl_data, mod_model, prefix);
+                            self.handle_impl_methods(compiler, impl_data, mod_model, path);
                         }
                     }
                     ast::ItemKind::Struct(ident, _generics, fields) if self.is_pub(&item.vis) => {
@@ -542,8 +544,8 @@ impl CrateIntercept {
                         let nested_child = child_module.and_then(|m|
                             m.children.iter().find(|c| c.name == ident.name)
                         );
-                        let nested_prefix = format!("{}_{}", prefix, ident.name.as_str());
-                        self.handle_mod_mock_bodies(compiler, nested_mod_kind, &nested_prefix, nested_child);
+                        let nested_path = path.child(ident.name.as_str());
+                        self.handle_mod_mock_bodies(compiler, nested_mod_kind, &nested_path, nested_child);
                     }
                     _ => {}
                 }
