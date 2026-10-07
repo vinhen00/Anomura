@@ -1191,7 +1191,7 @@ mod tests {
         }
     }
 
-    /// Property: evaluate with a non-matching predicate returns Err.
+    /// Evaluate with a non-matching predicate returns Err.
     ///
     /// What this measures:
     ///   When the condition closure rejects the input, the evaluate call must
@@ -1200,10 +1200,12 @@ mod tests {
     ///
     /// Steps:
     ///   1. Build a checkpoint where the condition rejects ALL inputs.
-    ///   2. Evaluate with a random input.
+    ///   2. Evaluate with an arbitrary input.
     ///   3. Assert: result is Err.
-    #[quickcheck]
-    fn evaluate_with_non_matching_predicate_fails(input: u32) -> bool {
+    ///
+    /// Note: the predicate rejects unconditionally, so the input value is irrelevant.
+    #[test]
+    fn evaluate_with_non_matching_predicate_fails() {
         let mock_id = MockId::new_fn("reject_all");
         let mut cp = Checkpoint::new();
         let pred = cp.create_single::<u32>(
@@ -1219,11 +1221,11 @@ mod tests {
             ))),
         );
 
-        let result = unsafe { cp.evaluate::<u32, u32>(&mock_id, input) };
-        result.is_err()
+        let result = unsafe { cp.evaluate::<u32, u32>(&mock_id, 42) };
+        assert!(result.is_err());
     }
 
-    /// Property: evaluate for an unknown mock_id returns an error (or None).
+    /// Evaluate for an unknown mock_id returns an error (or None).
     ///
     /// What this measures:
     ///   If no expectations are registered for a given mock_id, evaluate must not
@@ -1234,8 +1236,11 @@ mod tests {
     ///   1. Build a checkpoint with mock_id "registered".
     ///   2. Evaluate with mock_id "unknown".
     ///   3. Assert: result is not Ok(Some(_)).
-    #[quickcheck]
-    fn evaluate_unknown_mock_returns_none(input: u32) -> bool {
+    ///
+    /// Note: the input value is irrelevant since the mock_id doesn't match any
+    /// registered expectation.
+    #[test]
+    fn evaluate_unknown_mock_returns_none() {
         let registered = MockId::new_fn("registered");
         let unknown = MockId::new_fn("unknown");
         let mut cp = Checkpoint::new();
@@ -1250,12 +1255,11 @@ mod tests {
             ))),
         );
 
-        let result = unsafe { cp.evaluate::<u32, u32>(&unknown, input) };
-        // Should be either Err or Ok(None) — not Ok(Some(_))
-        match result {
-            Ok(Some(_)) => false,
-            _ => true,
-        }
+        let result = unsafe { cp.evaluate::<u32, u32>(&unknown, 0) };
+        assert!(
+            !matches!(result, Ok(Some(_))),
+            "unknown mock_id should not return a value"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1314,7 +1318,7 @@ mod tests {
         TestResult::passed()
     }
 
-    /// Property: A checkpoint with only Any/AtMost/Never expectations is immediately complete.
+    /// A checkpoint with only Any/AtMost/Never expectations is immediately complete.
     ///
     /// What this measures:
     ///   Modifiers with min=0 (Any, AtMost, Never) are satisfied at construction.
@@ -1322,12 +1326,13 @@ mod tests {
     ///   = true without any calls.
     ///
     /// Steps:
-    ///   1. Create a checkpoint with one Any and one AtMost(n) expectation.
+    ///   1. Create a checkpoint with one Any and one AtMost(5) expectation.
     ///   2. Verify is_complete() is true before any evaluations.
-    #[quickcheck]
-    fn checkpoint_with_zero_minimum_modifiers_is_immediately_complete(n: u32) -> bool {
-        let n = clamp(n);
-
+    ///
+    /// Note: AtMost(n) is always immediately complete regardless of n, so
+    /// randomizing n adds no value.
+    #[test]
+    fn checkpoint_with_zero_minimum_modifiers_is_immediately_complete() {
         let mock_any = MockId::new_fn("any");
         let mock_atmost = MockId::new_fn("atmost");
         let mut cp = Checkpoint::new();
@@ -1341,13 +1346,13 @@ mod tests {
         );
 
         let pred2 = cp.create_single::<u32>(&mock_atmost, cond::<u32>(Box::new(|_| Ok(()))));
-        let timed2 = cp.times_arena(pred2, TimesModifier::AtMost(n));
+        let timed2 = cp.times_arena(pred2, TimesModifier::AtMost(5));
         cp.expect::<u32, u32>(
             &mock_atmost,
             timed2,
             Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(|x: u32| x))),
         );
 
-        cp.is_complete()
+        assert!(cp.is_complete());
     }
 }

@@ -103,54 +103,15 @@ pub mod a {
     }
 }
 
-pub fn return_const() -> i16 {
-    16i16
-}
 
 /// by default i don't panic. i don't do anything c:
 pub fn return_panic() {}
-
-pub fn foo(
-    a: i8,
-    b: i8,
-    c: i8,
-    d: i8,
-    e: i8,
-    f: i8,
-    g: i8,
-    h: i8,
-    i: i8,
-    j: i8,
-    k: i8,
-    l: i8,
-    m: i8,
-    n: i8,
-    o: i8,
-    p: i8,
-) {
-}
-
-pub fn times_once() {}
-
-pub fn times_any() {}
-
-pub fn match_const(key: u32) {}
-
-pub fn match_operator(key: u32) {}
 
 #[derive(Debug)]
 pub enum Pattern {
     Okay,
     NotOkay,
 }
-
-pub fn match_patter(pattern: Pattern) {}
-
-pub fn match_range(key: u32) {}
-
-pub fn match_wildcard(key: u32) {}
-
-pub fn match_function(key: u32) {}
 
 pub struct ClosureWrapper(pub Box<dyn Fn(u32) -> u32>);
 
@@ -164,7 +125,6 @@ pub fn closure_param(f: ClosureWrapper) -> u32 {
     (f.0)(0)
 }
 
-pub fn match_combination(key: i32) {}
 
 fn private_top_level_fn() -> u32 {
     42

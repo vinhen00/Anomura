@@ -43,8 +43,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use std::collections::HashMap;
 use syn::{
-    Ident, Token, Type, Visibility,
-    braced,
+    Ident, Token, Type, Visibility, braced,
     parse::{Parse, ParseStream},
     token,
 };
@@ -73,9 +72,9 @@ pub struct MethodSig {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Receiver {
-    None,           // static / constructor
-    Ref,            // &self
-    RefMut,         // &mut self
+    None,   // static / constructor
+    Ref,    // &self
+    RefMut, // &mut self
 }
 
 /// A trait definition with its methods.
@@ -118,7 +117,7 @@ pub struct ModuleDef {
 #[derive(Clone)]
 pub struct EnumVariant {
     pub name: Ident,
-    pub fields: Vec<Type>,  // empty for unit variants
+    pub fields: Vec<Type>, // empty for unit variants
 }
 
 /// Items within a module (structs, traits, impls).
@@ -236,7 +235,11 @@ fn parse_module_def(input: ParseStream) -> syn::Result<ModuleDef> {
         }
     }
 
-    Ok(ModuleDef { name, items, children })
+    Ok(ModuleDef {
+        name,
+        items,
+        children,
+    })
 }
 
 /// Parse a single item within a module (struct, trait, or impl).
@@ -305,7 +308,9 @@ fn parse_module_item(input: ParseStream, items: &mut ModuleItems) -> syn::Result
             let content;
             braced!(content in input);
             let _ = content.parse::<TokenStream>()?;
-            items.trait_impls.push(TraitImpl { trait_name: first_ident });
+            items.trait_impls.push(TraitImpl {
+                trait_name: first_ident,
+            });
         } else if input.peek(token::Brace) {
             // inherent impl: `impl Example { fn meth1(...) -> ...; }`
             let content;
@@ -316,7 +321,9 @@ fn parse_module_item(input: ParseStream, items: &mut ModuleItems) -> syn::Result
             return Err(input.error("expected `{` or `for` after impl identifier"));
         }
     } else if input.peek(Token![mod]) {
-        return Err(input.error("nested `mod` must appear before or after items, not interleaved with visibility"));
+        return Err(input.error(
+            "nested `mod` must appear before or after items, not interleaved with visibility",
+        ));
     } else {
         return Err(input.error("expected `struct`, `trait`, `impl`, or `mod`"));
     }
@@ -332,7 +339,11 @@ fn parse_struct_fields(input: ParseStream) -> syn::Result<Vec<StructField>> {
         let name: Ident = input.parse()?;
         input.parse::<Token![:]>()?;
         let ty: Type = input.parse()?;
-        fields.push(StructField { vis: field_vis, name, ty });
+        fields.push(StructField {
+            vis: field_vis,
+            name,
+            ty,
+        });
         if input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
         }
@@ -441,7 +452,13 @@ fn parse_method_sigs(input: ParseStream) -> syn::Result<Vec<MethodSig>> {
             let _ = content.parse::<TokenStream>()?;
         }
 
-        methods.push(MethodSig { vis, name, receiver, params, ret_type });
+        methods.push(MethodSig {
+            vis,
+            name,
+            receiver,
+            params,
+            ret_type,
+        });
     }
     Ok(methods)
 }
@@ -480,12 +497,18 @@ impl MockableMethod {
     /// Generate the mock_id prefix string for this method (combined path).
     /// Used for Display/debugging.
     fn mock_id_prefix(&self, path: &syn::Path, struct_name: &Ident) -> String {
-        format!("{}_{}", self.adt_path_prefix(path, struct_name), self.fn_id_str())
+        format!(
+            "{}_{}",
+            self.adt_path_prefix(path, struct_name),
+            self.fn_id_str()
+        )
     }
 
     /// The ADT path portion: "{crate}_{StructName}".
     fn adt_path_prefix(&self, path: &syn::Path, struct_name: &Ident) -> String {
-        let path_str = path.segments.iter()
+        let path_str = path
+            .segments
+            .iter()
             .map(|s| s.ident.to_string())
             .collect::<Vec<_>>()
             .join("_");
@@ -504,7 +527,9 @@ impl MockableMethod {
     fn wrapper_suffix(&self, struct_name: &Ident) -> Ident {
         let method_capitalized = capitalize_first(&self.sig.name.to_string());
         match &self.trait_name {
-            Some(trait_name) => format_ident!("{}Impl{}{}", struct_name, trait_name, method_capitalized),
+            Some(trait_name) => {
+                format_ident!("{}Impl{}{}", struct_name, trait_name, method_capitalized)
+            }
             None => format_ident!("{}{}", struct_name, method_capitalized),
         }
     }
@@ -532,7 +557,8 @@ fn capitalize_first(s: &str) -> String {
 
 pub fn expand_mock_adt(input: MockAdtInput) -> TokenStream {
     // Flatten the module tree into individual structs, enums, and traits with computed paths
-    let (flattened_structs, mut flattened_enums, flattened_traits) = flatten_modules(&input.krate, &input.modules);
+    let (flattened_structs, mut flattened_enums, flattened_traits) =
+        flatten_modules(&input.krate, &input.modules);
 
     // Build trackability map for structs
     let mut trackable_types: HashMap<String, bool> = HashMap::new();
@@ -619,28 +645,37 @@ fn resolve_enum_trackability(
         e.trackable = *trackable_types.get(&name).unwrap_or(&false);
 
         if e.trackable {
-            e.trackable_field_indices = e.variants.iter().map(|v| {
-                v.fields.iter().position(|field_ty| {
-                    if let Some(ident) = type_last_ident(field_ty) {
-                        *trackable_types.get(&ident.to_string()).unwrap_or(&false)
+            e.trackable_field_indices = e
+                .variants
+                .iter()
+                .map(|v| {
+                    v.fields.iter().position(|field_ty| {
+                        if let Some(ident) = type_last_ident(field_ty) {
+                            *trackable_types.get(&ident.to_string()).unwrap_or(&false)
+                        } else {
+                            false
+                        }
+                    })
+                })
+                .collect();
+
+            // Determine whether each variant's trackable field is an enum or struct
+            e.trackable_field_is_enum = e
+                .variants
+                .iter()
+                .zip(e.trackable_field_indices.iter())
+                .map(|(v, idx)| {
+                    if let Some(field_idx) = idx {
+                        if let Some(ident) = type_last_ident(&v.fields[*field_idx]) {
+                            enum_names.contains(&ident.to_string())
+                        } else {
+                            false
+                        }
                     } else {
                         false
                     }
                 })
-            }).collect();
-
-            // Determine whether each variant's trackable field is an enum or struct
-            e.trackable_field_is_enum = e.variants.iter().zip(e.trackable_field_indices.iter()).map(|(v, idx)| {
-                if let Some(field_idx) = idx {
-                    if let Some(ident) = type_last_ident(&v.fields[*field_idx]) {
-                        enum_names.contains(&ident.to_string())
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                }
-            }).collect();
+                .collect();
         } else {
             e.trackable_field_indices = vec![None; e.variants.len()];
             e.trackable_field_is_enum = vec![false; e.variants.len()];
@@ -649,13 +684,26 @@ fn resolve_enum_trackability(
 }
 
 /// Recursively flatten the module tree into FlattenedStructs, FlattenedEnums, and FlattenedTraits with full paths.
-fn flatten_modules(krate: &Ident, modules: &[ModuleDef]) -> (Vec<FlattenedStruct>, Vec<FlattenedEnum>, Vec<FlattenedTrait>) {
+fn flatten_modules(
+    krate: &Ident,
+    modules: &[ModuleDef],
+) -> (
+    Vec<FlattenedStruct>,
+    Vec<FlattenedEnum>,
+    Vec<FlattenedTrait>,
+) {
     let mut structs = Vec::new();
     let mut enums = Vec::new();
     let mut traits = Vec::new();
     for module in modules {
         let mut path_segments = vec![krate.clone()];
-        flatten_module_recursive(module, &mut path_segments, &mut structs, &mut enums, &mut traits);
+        flatten_module_recursive(
+            module,
+            &mut path_segments,
+            &mut structs,
+            &mut enums,
+            &mut traits,
+        );
     }
     (structs, enums, traits)
 }
@@ -672,7 +720,11 @@ fn flatten_module_recursive(
     // If this module has a struct definition, produce a FlattenedStruct
     if let Some(ref struct_name) = module.items.struct_name {
         let path = build_path(path_segments);
-        let all_public = module.items.fields.iter().all(|f| matches!(f.vis, Visibility::Public(_)));
+        let all_public = module
+            .items
+            .fields
+            .iter()
+            .all(|f| matches!(f.vis, Visibility::Public(_)));
         structs.push(FlattenedStruct {
             path,
             vis: module.items.vis.clone(),
@@ -696,9 +748,9 @@ fn flatten_module_recursive(
             traits: module.items.traits.clone(),
             trait_impls: module.items.trait_impls.clone(),
             inherent_impl: module.items.inherent_impl.clone(),
-            trackable: false,  // resolved later
-            trackable_field_indices: Vec::new(),  // resolved later
-            trackable_field_is_enum: Vec::new(),  // resolved later
+            trackable: false,                    // resolved later
+            trackable_field_indices: Vec::new(), // resolved later
+            trackable_field_is_enum: Vec::new(), // resolved later
         });
     }
 
@@ -708,7 +760,9 @@ fn flatten_module_recursive(
         if matches!(trait_def.vis, Visibility::Public(_)) {
             let path = build_path(path_segments);
             // Filter to only public methods with a receiver
-            let public_methods: Vec<MethodSig> = trait_def.methods.iter()
+            let public_methods: Vec<MethodSig> = trait_def
+                .methods
+                .iter()
                 .filter(|m| matches!(m.vis, Visibility::Public(_)) && m.receiver != Receiver::None)
                 .cloned()
                 .collect();
@@ -734,12 +788,13 @@ fn flatten_module_recursive(
 
 /// Build a `syn::Path` from a list of idents.
 fn build_path(segments: &[Ident]) -> syn::Path {
-    let segs: Vec<syn::PathSegment> = segments.iter().map(|id| {
-        syn::PathSegment {
+    let segs: Vec<syn::PathSegment> = segments
+        .iter()
+        .map(|id| syn::PathSegment {
             ident: id.clone(),
             arguments: syn::PathArguments::None,
-        }
-    }).collect();
+        })
+        .collect();
     syn::Path {
         leading_colon: None,
         segments: segs.into_iter().collect(),
@@ -813,7 +868,11 @@ fn classify_methods(input: &FlattenedStruct) -> ClassifiedMethods {
     // Trait methods — only include public methods
     for trait_impl in &input.trait_impls {
         // Find the matching trait definition
-        if let Some(trait_def) = input.traits.iter().find(|t| t.name == trait_impl.trait_name) {
+        if let Some(trait_def) = input
+            .traits
+            .iter()
+            .find(|t| t.name == trait_impl.trait_name)
+        {
             for method in &trait_def.methods {
                 // Skip private trait methods (not marked pub)
                 if !matches!(method.vis, Visibility::Public(_)) {
@@ -836,7 +895,10 @@ fn classify_methods(input: &FlattenedStruct) -> ClassifiedMethods {
         }
     }
 
-    ClassifiedMethods { constructors, mockable }
+    ClassifiedMethods {
+        constructors,
+        mockable,
+    }
 }
 
 // ─── Struct definition ───────────────────────────────────────────────────────
@@ -845,14 +907,18 @@ fn gen_struct_def(input: &FlattenedStruct) -> TokenStream {
     let vis = &input.vis;
     let struct_name = &input.struct_name;
 
-    let fields: Vec<TokenStream> = input.fields.iter().map(|f| {
-        let name = &f.name;
-        let ty = &f.ty;
-        match &f.vis {
-            Visibility::Public(_) => quote! { pub #name: #ty },
-            _ => quote! { #name: std::marker::PhantomData<#ty> },
-        }
-    }).collect();
+    let fields: Vec<TokenStream> = input
+        .fields
+        .iter()
+        .map(|f| {
+            let name = &f.name;
+            let ty = &f.ty;
+            match &f.vis {
+                Visibility::Public(_) => quote! { pub #name: #ty },
+                _ => quote! { #name: std::marker::PhantomData<#ty> },
+            }
+        })
+        .collect();
 
     if input.all_public {
         quote! {
@@ -893,57 +959,65 @@ fn gen_drop_impl(input: &FlattenedStruct, classified: &ClassifiedMethods) -> Tok
     }).collect();
 
     // Generate drop_predicate helper functions for each method
-    let drop_predicate_fns: Vec<TokenStream> = classified.mockable.iter().map(|m| {
-        let fn_name = format_ident!("drop_predicate_{}", m.sig.name);
-        let input_tuple = m.input_type_tuple(struct_name);
-        quote! {
-            unsafe fn #fn_name(pred: context::Predicate) {
-                match pred.kind {
-                    context::new_expectations::PredicateKind::Single(single) => {
-                        unsafe { single.condition.id_drop::<(#input_tuple)>() };
-                    }
-                    context::new_expectations::PredicateKind::And(children)
-                    | context::new_expectations::PredicateKind::Or(children)
-                    | context::new_expectations::PredicateKind::Xor(children) => {
-                        for child in children {
-                            unsafe { #fn_name(child) };
+    let drop_predicate_fns: Vec<TokenStream> = classified
+        .mockable
+        .iter()
+        .map(|m| {
+            let fn_name = format_ident!("drop_predicate_{}", m.sig.name);
+            let input_tuple = m.input_type_tuple(struct_name);
+            quote! {
+                unsafe fn #fn_name(pred: context::Predicate) {
+                    match pred.kind {
+                        context::new_expectations::PredicateKind::Single(single) => {
+                            unsafe { single.condition.id_drop::<(#input_tuple)>() };
                         }
-                    }
-                    context::new_expectations::PredicateKind::Not(inner)
-                    | context::new_expectations::PredicateKind::After { then: inner, .. } => {
-                        unsafe { #fn_name(*inner) };
-                    }
-                    context::new_expectations::PredicateKind::Times { inner, .. } => {
-                        unsafe { #fn_name(*inner) };
+                        context::new_expectations::PredicateKind::And(children)
+                        | context::new_expectations::PredicateKind::Or(children)
+                        | context::new_expectations::PredicateKind::Xor(children) => {
+                            for child in children {
+                                unsafe { #fn_name(child) };
+                            }
+                        }
+                        context::new_expectations::PredicateKind::Not(inner)
+                        | context::new_expectations::PredicateKind::After { then: inner, .. } => {
+                            unsafe { #fn_name(*inner) };
+                        }
+                        context::new_expectations::PredicateKind::Times { inner, .. } => {
+                            unsafe { #fn_name(*inner) };
+                        }
                     }
                 }
             }
-        }
-    }).collect();
+        })
+        .collect();
 
     // Generate the cleanup blocks for each method
-    let cleanup_blocks: Vec<TokenStream> = classified.mockable.iter().map(|m| {
-        let var_name = format_ident!("{}_mock_id", m.sig.name);
-        let fn_name = format_ident!("drop_predicate_{}", m.sig.name);
-        let input_tuple = m.input_type_tuple(struct_name);
-        let ret_type = m.ret_type();
-        quote! {
-            if let Some(expectations) = cp.expectations.remove(&#var_name) {
-                for exp in expectations {
-                    if let Some(ret) = exp.return_val {
-                        unsafe {
-                            ret.id_drop::<(#input_tuple), #ret_type>();
+    let cleanup_blocks: Vec<TokenStream> = classified
+        .mockable
+        .iter()
+        .map(|m| {
+            let var_name = format_ident!("{}_mock_id", m.sig.name);
+            let fn_name = format_ident!("drop_predicate_{}", m.sig.name);
+            let input_tuple = m.input_type_tuple(struct_name);
+            let ret_type = m.ret_type();
+            quote! {
+                if let Some(expectations) = cp.expectations.remove(&#var_name) {
+                    for exp in expectations {
+                        if let Some(ret) = exp.return_val {
+                            unsafe {
+                                ret.id_drop::<(#input_tuple), #ret_type>();
+                            }
                         }
-                    }
-                    if let Some(pred) = cp.arena.take(exp.predicate) {
-                        unsafe {
-                            #fn_name(pred);
+                        if let Some(pred) = cp.arena.take(exp.predicate) {
+                            unsafe {
+                                #fn_name(pred);
+                            }
                         }
                     }
                 }
             }
-        }
-    }).collect();
+        })
+        .collect();
 
     quote! {
         impl Drop for #struct_name {
@@ -962,17 +1036,21 @@ fn gen_drop_impl(input: &FlattenedStruct, classified: &ClassifiedMethods) -> Tok
 // ─── Wrapper structs ─────────────────────────────────────────────────────────
 
 fn gen_wrapper_structs(struct_name: &Ident, classified: &ClassifiedMethods) -> TokenStream {
-    let wrappers: Vec<TokenStream> = classified.mockable.iter().map(|m| {
-        let suffix = m.wrapper_suffix(struct_name);
-        let pred_name = format_ident!("Predicate{}", suffix);
-        let exp_name = format_ident!("Expectation{}", suffix);
-        let ret_name = format_ident!("Return{}", suffix);
-        quote! {
-            pub struct #pred_name(context::Predicate);
-            pub struct #exp_name(context::Expectation);
-            pub struct #ret_name(context::ReturnValDoublePointer);
-        }
-    }).collect();
+    let wrappers: Vec<TokenStream> = classified
+        .mockable
+        .iter()
+        .map(|m| {
+            let suffix = m.wrapper_suffix(struct_name);
+            let pred_name = format_ident!("Predicate{}", suffix);
+            let exp_name = format_ident!("Expectation{}", suffix);
+            let ret_name = format_ident!("Return{}", suffix);
+            quote! {
+                pub struct #pred_name(context::Predicate);
+                pub struct #exp_name(context::Expectation);
+                pub struct #ret_name(context::ReturnValDoublePointer);
+            }
+        })
+        .collect();
 
     quote! { #(#wrappers)* }
 }
@@ -1014,7 +1092,11 @@ fn gen_return_from_fn(struct_name: &Ident, classified: &ClassifiedMethods) -> To
 
 // ─── Predicate::from_fn ──────────────────────────────────────────────────────
 
-fn gen_predicate_from_fn(input: &FlattenedStruct, struct_name: &Ident, classified: &ClassifiedMethods) -> TokenStream {
+fn gen_predicate_from_fn(
+    input: &FlattenedStruct,
+    struct_name: &Ident,
+    classified: &ClassifiedMethods,
+) -> TokenStream {
     let impls: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let suffix = m.wrapper_suffix(struct_name);
         let pred_name = format_ident!("Predicate{}", suffix);
@@ -1060,7 +1142,11 @@ fn gen_predicate_from_fn(input: &FlattenedStruct, struct_name: &Ident, classifie
 
 // ─── Mock method bodies ──────────────────────────────────────────────────────
 
-fn gen_mock_method_bodies(input: &FlattenedStruct, struct_name: &Ident, classified: &ClassifiedMethods) -> TokenStream {
+fn gen_mock_method_bodies(
+    input: &FlattenedStruct,
+    struct_name: &Ident,
+    classified: &ClassifiedMethods,
+) -> TokenStream {
     let all_public = input.all_public;
     let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let name = &m.sig.name;
@@ -1125,7 +1211,11 @@ fn gen_mock_method_bodies(input: &FlattenedStruct, struct_name: &Ident, classifi
 
 // ─── on_call methods ─────────────────────────────────────────────────────────
 
-fn gen_on_call_methods(input: &FlattenedStruct, struct_name: &Ident, classified: &ClassifiedMethods) -> TokenStream {
+fn gen_on_call_methods(
+    input: &FlattenedStruct,
+    struct_name: &Ident,
+    classified: &ClassifiedMethods,
+) -> TokenStream {
     let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let name = &m.sig.name;
         let on_call_name = format_ident!("on_call_{}", name);
@@ -1136,10 +1226,43 @@ fn gen_on_call_methods(input: &FlattenedStruct, struct_name: &Ident, classified:
         let input_tuple = m.input_type_tuple(struct_name);
         let ret_type = m.ret_type();
 
+        let condition_param_types: Vec<TokenStream> = std::iter::once(quote! { &#struct_name })
+            .chain(m.sig.params.iter().map(|(_, ty)| {
+                let ty_str = quote! { #ty }.to_string();
+                if ty_str == "String" {
+                    quote! { &str }
+                } else {
+                    quote! { #ty }
+                }
+            }))
+            .collect();
+
+        let param_accesses: Vec<TokenStream> = m.sig.params.iter().enumerate().map(|(i, (_, ty))| {
+            let idx = syn::Index::from(i + 1);
+            let ty_str = quote! { #ty }.to_string();
+            if ty_str == "String" {
+                quote! { &input.#idx }
+            } else {
+                quote! { input.#idx }
+            }
+        }).collect();
+
+        let failure_msg = format!("on_call condition failed for {}", name);
+
         quote! {
-            pub fn #on_call_name(ret: impl Into<#ret_wrapper>) {
+            pub fn #on_call_name(condition: impl Fn(#(#condition_param_types),*) -> bool + 'static, ret: impl Into<#ret_wrapper>) {
                 let inner: #ret_wrapper = ret.into();
-                let cond = context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(|_| Ok(())));
+                let cond: context::ConditionDoublePointer =
+                    context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(
+                        move |input: &(#input_tuple)| {
+                            let self_ref = unsafe { &*input.0 };
+                            if condition(self_ref, #(#param_accesses),*) {
+                                Ok(())
+                            } else {
+                                Err(#failure_msg.into())
+                            }
+                        },
+                    ));
                 context::add_expectation::<(#input_tuple), #ret_type>(
                     &context::MockId::new_adt_static(#adt_path, #fn_id_str),
                     cond,
@@ -1157,7 +1280,11 @@ fn gen_on_call_methods(input: &FlattenedStruct, struct_name: &Ident, classified:
 
 // ─── create_predicate methods ────────────────────────────────────────────────
 
-fn gen_create_predicate_methods(input: &FlattenedStruct, struct_name: &Ident, classified: &ClassifiedMethods) -> TokenStream {
+fn gen_create_predicate_methods(
+    input: &FlattenedStruct,
+    struct_name: &Ident,
+    classified: &ClassifiedMethods,
+) -> TokenStream {
     let all_public = input.all_public;
     let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let name = &m.sig.name;
@@ -1232,45 +1359,57 @@ fn gen_create_predicate_methods(input: &FlattenedStruct, struct_name: &Ident, cl
 
 // ─── times methods ───────────────────────────────────────────────────────────
 
-fn gen_times_methods(_input: &FlattenedStruct, struct_name: &Ident, classified: &ClassifiedMethods) -> TokenStream {
-    let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
-        let name = &m.sig.name;
-        let times_name = format_ident!("{}_times", name);
-        let suffix = m.wrapper_suffix(struct_name);
-        let pred_wrapper = format_ident!("Predicate{}", suffix);
+fn gen_times_methods(
+    _input: &FlattenedStruct,
+    struct_name: &Ident,
+    classified: &ClassifiedMethods,
+) -> TokenStream {
+    let methods: Vec<TokenStream> = classified
+        .mockable
+        .iter()
+        .map(|m| {
+            let name = &m.sig.name;
+            let times_name = format_ident!("{}_times", name);
+            let suffix = m.wrapper_suffix(struct_name);
+            let pred_wrapper = format_ident!("Predicate{}", suffix);
 
-        quote! {
-            pub fn #times_name(
-                checkpoint: Option<impl Into<context::CheckpointName>>,
-                condition: impl Into<#pred_wrapper>,
-                tmod: context::TimesModifier,
-            ) -> #pred_wrapper {
-                let pred: #pred_wrapper = condition.into();
+            quote! {
+                pub fn #times_name(
+                    checkpoint: Option<impl Into<context::CheckpointName>>,
+                    condition: impl Into<#pred_wrapper>,
+                    tmod: context::TimesModifier,
+                ) -> #pred_wrapper {
+                    let pred: #pred_wrapper = condition.into();
 
-                let result = std::cell::Cell::new(None);
-                let do_times = |cp: &mut context::Checkpoint| {
-                    result.set(Some(#pred_wrapper(cp.times(pred.0, tmod))));
-                };
+                    let result = std::cell::Cell::new(None);
+                    let do_times = |cp: &mut context::Checkpoint| {
+                        result.set(Some(#pred_wrapper(cp.times(pred.0, tmod))));
+                    };
 
-                if let Some(name) = checkpoint {
-                    let name: context::CheckpointName = name.into();
-                    context::checkpoint_by_name_mut(&name.0, do_times)
-                        .expect("failed to resolve checkpoint by name");
-                } else {
-                    context::latest_checkpoint_mut(do_times);
+                    if let Some(name) = checkpoint {
+                        let name: context::CheckpointName = name.into();
+                        context::checkpoint_by_name_mut(&name.0, do_times)
+                            .expect("failed to resolve checkpoint by name");
+                    } else {
+                        context::latest_checkpoint_mut(do_times);
+                    }
+
+                    result.into_inner().expect("checkpoint closure did not run")
                 }
-
-                result.into_inner().expect("checkpoint closure did not run")
             }
-        }
-    }).collect();
+        })
+        .collect();
 
     quote! { #(#methods)* }
 }
 
 // ─── expect methods ──────────────────────────────────────────────────────────
 
-fn gen_expect_methods(input: &FlattenedStruct, struct_name: &Ident, classified: &ClassifiedMethods) -> TokenStream {
+fn gen_expect_methods(
+    input: &FlattenedStruct,
+    struct_name: &Ident,
+    classified: &ClassifiedMethods,
+) -> TokenStream {
     let all_public = input.all_public;
     let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let name = &m.sig.name;
@@ -1340,7 +1479,10 @@ fn gen_expect_methods(input: &FlattenedStruct, struct_name: &Ident, classified: 
 /// Generate constructors. Returns (inherent_constructors, trait_constructor_impls).
 /// - inherent_constructors: goes inside `impl StructName { ... }`
 /// - trait_constructor_impls: goes outside as separate `impl Trait for StructName { ... }` blocks
-fn gen_constructors(input: &FlattenedStruct, classified: &ClassifiedMethods) -> (TokenStream, TokenStream) {
+fn gen_constructors(
+    input: &FlattenedStruct,
+    classified: &ClassifiedMethods,
+) -> (TokenStream, TokenStream) {
     let struct_name = &input.struct_name;
     let all_public = input.all_public;
 
@@ -1370,28 +1512,38 @@ fn gen_constructors(input: &FlattenedStruct, classified: &ClassifiedMethods) -> 
 
     for ctor in &classified.constructors {
         let ctor_name = &ctor.sig.name;
-        let params: Vec<TokenStream> = ctor.sig.params.iter().map(|(name, ty)| {
-            quote! { #name: #ty }
-        }).collect();
+        let params: Vec<TokenStream> = ctor
+            .sig
+            .params
+            .iter()
+            .map(|(name, ty)| {
+                quote! { #name: #ty }
+            })
+            .collect();
 
         // For each struct field, try to match a constructor parameter by name.
         // - Public fields: use matching param if available, otherwise Default::default().
         // - Private fields: always PhantomData (they're erased in the mock struct).
-        let field_inits: Vec<TokenStream> = input.fields.iter().map(|f| {
-            let field_name = &f.name;
-            match &f.vis {
-                Visibility::Public(_) => {
-                    // Check if any constructor param has the same name as this field
-                    let has_matching_param = ctor.sig.params.iter().any(|(p, _)| p == field_name);
-                    if has_matching_param {
-                        quote! { #field_name }
-                    } else {
-                        quote! { #field_name: Default::default() }
+        let field_inits: Vec<TokenStream> = input
+            .fields
+            .iter()
+            .map(|f| {
+                let field_name = &f.name;
+                match &f.vis {
+                    Visibility::Public(_) => {
+                        // Check if any constructor param has the same name as this field
+                        let has_matching_param =
+                            ctor.sig.params.iter().any(|(p, _)| p == field_name);
+                        if has_matching_param {
+                            quote! { #field_name }
+                        } else {
+                            quote! { #field_name: Default::default() }
+                        }
                     }
+                    _ => quote! { #field_name: std::marker::PhantomData },
                 }
-                _ => quote! { #field_name: std::marker::PhantomData },
-            }
-        }).collect();
+            })
+            .collect();
 
         match &ctor.trait_name {
             None => {
@@ -1430,21 +1582,26 @@ fn gen_constructors(input: &FlattenedStruct, classified: &ClassifiedMethods) -> 
 
                 // For From-style trait constructors, use tuple field indexing for public fields
                 // since the parameter is typically a tuple (e.g. `value: (f32, f32)`).
-                let from_field_inits: Vec<TokenStream> = input.fields.iter().enumerate().map(|(i, field)| {
-                    let name = &field.name;
-                    let idx = syn::Index::from(i);
-                    match &field.vis {
-                        Visibility::Public(_) => {
-                            // Use first param name with tuple indexing
-                            if let Some((param_name, _)) = ctor.sig.params.first() {
-                                quote! { #name: #param_name.#idx }
-                            } else {
-                                quote! { #name: Default::default() }
+                let from_field_inits: Vec<TokenStream> = input
+                    .fields
+                    .iter()
+                    .enumerate()
+                    .map(|(i, field)| {
+                        let name = &field.name;
+                        let idx = syn::Index::from(i);
+                        match &field.vis {
+                            Visibility::Public(_) => {
+                                // Use first param name with tuple indexing
+                                if let Some((param_name, _)) = ctor.sig.params.first() {
+                                    quote! { #name: #param_name.#idx }
+                                } else {
+                                    quote! { #name: Default::default() }
+                                }
                             }
+                            _ => quote! { #name: std::marker::PhantomData },
                         }
-                        _ => quote! { #name: std::marker::PhantomData },
-                    }
-                }).collect();
+                    })
+                    .collect();
 
                 if all_public {
                     trait_impl_blocks.push(quote! {
@@ -1483,7 +1640,11 @@ fn gen_constructors(input: &FlattenedStruct, classified: &ClassifiedMethods) -> 
 
 // ─── Sequence helpers ────────────────────────────────────────────────────────
 
-fn gen_sequence_helpers(input: &FlattenedStruct, struct_name: &Ident, classified: &ClassifiedMethods) -> TokenStream {
+fn gen_sequence_helpers(
+    input: &FlattenedStruct,
+    struct_name: &Ident,
+    classified: &ClassifiedMethods,
+) -> TokenStream {
     let all_public = input.all_public;
     let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let name = &m.sig.name;
@@ -1591,7 +1752,11 @@ fn classify_enum_methods(entry: &FlattenedEnum) -> ClassifiedMethods {
 
     // Trait methods — only include public methods
     for trait_impl in &entry.trait_impls {
-        if let Some(trait_def) = entry.traits.iter().find(|t| t.name == trait_impl.trait_name) {
+        if let Some(trait_def) = entry
+            .traits
+            .iter()
+            .find(|t| t.name == trait_impl.trait_name)
+        {
             for method in &trait_def.methods {
                 // Skip private trait methods (not marked pub)
                 if !matches!(method.vis, Visibility::Public(_)) {
@@ -1613,11 +1778,17 @@ fn classify_enum_methods(entry: &FlattenedEnum) -> ClassifiedMethods {
         }
     }
 
-    ClassifiedMethods { constructors, mockable }
+    ClassifiedMethods {
+        constructors,
+        mockable,
+    }
 }
 
 /// Generate all code for a single enum entry.
-fn expand_single_enum(entry: &FlattenedEnum, trackable_types: &HashMap<String, bool>) -> TokenStream {
+fn expand_single_enum(
+    entry: &FlattenedEnum,
+    trackable_types: &HashMap<String, bool>,
+) -> TokenStream {
     let enum_name = &entry.enum_name;
 
     // Classify all methods
@@ -1667,15 +1838,19 @@ fn gen_enum_def(entry: &FlattenedEnum) -> TokenStream {
     let vis = &entry.vis;
     let enum_name = &entry.enum_name;
 
-    let variants: Vec<TokenStream> = entry.variants.iter().map(|v| {
-        let name = &v.name;
-        if v.fields.is_empty() {
-            quote! { #name }
-        } else {
-            let fields = &v.fields;
-            quote! { #name(#(#fields),*) }
-        }
-    }).collect();
+    let variants: Vec<TokenStream> = entry
+        .variants
+        .iter()
+        .map(|v| {
+            let name = &v.name;
+            if v.fields.is_empty() {
+                quote! { #name }
+            } else {
+                let fields = &v.fields;
+                quote! { #name(#(#fields),*) }
+            }
+        })
+        .collect();
 
     quote! {
         #vis enum #enum_name {
@@ -1760,57 +1935,65 @@ fn gen_enum_drop_impl(entry: &FlattenedEnum, classified: &ClassifiedMethods) -> 
     }).collect();
 
     // Generate drop_predicate helper functions for each method
-    let drop_predicate_fns: Vec<TokenStream> = classified.mockable.iter().map(|m| {
-        let fn_name = format_ident!("drop_predicate_{}", m.sig.name);
-        let input_tuple = m.input_type_tuple(enum_name);
-        quote! {
-            unsafe fn #fn_name(pred: context::Predicate) {
-                match pred.kind {
-                    context::new_expectations::PredicateKind::Single(single) => {
-                        unsafe { single.condition.id_drop::<(#input_tuple)>() };
-                    }
-                    context::new_expectations::PredicateKind::And(children)
-                    | context::new_expectations::PredicateKind::Or(children)
-                    | context::new_expectations::PredicateKind::Xor(children) => {
-                        for child in children {
-                            unsafe { #fn_name(child) };
+    let drop_predicate_fns: Vec<TokenStream> = classified
+        .mockable
+        .iter()
+        .map(|m| {
+            let fn_name = format_ident!("drop_predicate_{}", m.sig.name);
+            let input_tuple = m.input_type_tuple(enum_name);
+            quote! {
+                unsafe fn #fn_name(pred: context::Predicate) {
+                    match pred.kind {
+                        context::new_expectations::PredicateKind::Single(single) => {
+                            unsafe { single.condition.id_drop::<(#input_tuple)>() };
                         }
-                    }
-                    context::new_expectations::PredicateKind::Not(inner)
-                    | context::new_expectations::PredicateKind::After { then: inner, .. } => {
-                        unsafe { #fn_name(*inner) };
-                    }
-                    context::new_expectations::PredicateKind::Times { inner, .. } => {
-                        unsafe { #fn_name(*inner) };
+                        context::new_expectations::PredicateKind::And(children)
+                        | context::new_expectations::PredicateKind::Or(children)
+                        | context::new_expectations::PredicateKind::Xor(children) => {
+                            for child in children {
+                                unsafe { #fn_name(child) };
+                            }
+                        }
+                        context::new_expectations::PredicateKind::Not(inner)
+                        | context::new_expectations::PredicateKind::After { then: inner, .. } => {
+                            unsafe { #fn_name(*inner) };
+                        }
+                        context::new_expectations::PredicateKind::Times { inner, .. } => {
+                            unsafe { #fn_name(*inner) };
+                        }
                     }
                 }
             }
-        }
-    }).collect();
+        })
+        .collect();
 
     // Generate the cleanup blocks for each method
-    let cleanup_blocks: Vec<TokenStream> = classified.mockable.iter().map(|m| {
-        let var_name = format_ident!("{}_mock_id", m.sig.name);
-        let fn_name = format_ident!("drop_predicate_{}", m.sig.name);
-        let input_tuple = m.input_type_tuple(enum_name);
-        let ret_type = m.ret_type();
-        quote! {
-            if let Some(expectations) = cp.expectations.remove(&#var_name) {
-                for exp in expectations {
-                    if let Some(ret) = exp.return_val {
-                        unsafe {
-                            ret.id_drop::<(#input_tuple), #ret_type>();
+    let cleanup_blocks: Vec<TokenStream> = classified
+        .mockable
+        .iter()
+        .map(|m| {
+            let var_name = format_ident!("{}_mock_id", m.sig.name);
+            let fn_name = format_ident!("drop_predicate_{}", m.sig.name);
+            let input_tuple = m.input_type_tuple(enum_name);
+            let ret_type = m.ret_type();
+            quote! {
+                if let Some(expectations) = cp.expectations.remove(&#var_name) {
+                    for exp in expectations {
+                        if let Some(ret) = exp.return_val {
+                            unsafe {
+                                ret.id_drop::<(#input_tuple), #ret_type>();
+                            }
                         }
-                    }
-                    if let Some(pred) = cp.arena.take(exp.predicate) {
-                        unsafe {
-                            #fn_name(pred);
+                        if let Some(pred) = cp.arena.take(exp.predicate) {
+                            unsafe {
+                                #fn_name(pred);
+                            }
                         }
                     }
                 }
             }
-        }
-    }).collect();
+        })
+        .collect();
 
     quote! {
         impl Drop for #enum_name {
@@ -1828,7 +2011,10 @@ fn gen_enum_drop_impl(entry: &FlattenedEnum, classified: &ClassifiedMethods) -> 
 
 // ─── Enum Predicate::from_fn ─────────────────────────────────────────────────
 
-fn gen_enum_predicate_from_fn(entry: &FlattenedEnum, classified: &ClassifiedMethods) -> TokenStream {
+fn gen_enum_predicate_from_fn(
+    entry: &FlattenedEnum,
+    classified: &ClassifiedMethods,
+) -> TokenStream {
     let enum_name = &entry.enum_name;
     let impls: Vec<TokenStream> = classified.mockable.iter().map(|m| {
         let suffix = m.wrapper_suffix(enum_name);
@@ -1875,7 +2061,10 @@ fn gen_enum_predicate_from_fn(entry: &FlattenedEnum, classified: &ClassifiedMeth
 
 // ─── Enum mock method bodies ─────────────────────────────────────────────────
 
-fn gen_enum_mock_method_bodies(entry: &FlattenedEnum, classified: &ClassifiedMethods) -> TokenStream {
+fn gen_enum_mock_method_bodies(
+    entry: &FlattenedEnum,
+    classified: &ClassifiedMethods,
+) -> TokenStream {
     let enum_name = &entry.enum_name;
     let trackable = entry.trackable;
     let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
@@ -1953,10 +2142,43 @@ fn gen_enum_on_call_methods(entry: &FlattenedEnum, classified: &ClassifiedMethod
         let input_tuple = m.input_type_tuple(enum_name);
         let ret_type = m.ret_type();
 
+        let condition_param_types: Vec<TokenStream> = std::iter::once(quote! { &#enum_name })
+            .chain(m.sig.params.iter().map(|(_, ty)| {
+                let ty_str = quote! { #ty }.to_string();
+                if ty_str == "String" {
+                    quote! { &str }
+                } else {
+                    quote! { #ty }
+                }
+            }))
+            .collect();
+
+        let param_accesses: Vec<TokenStream> = m.sig.params.iter().enumerate().map(|(i, (_, ty))| {
+            let idx = syn::Index::from(i + 1);
+            let ty_str = quote! { #ty }.to_string();
+            if ty_str == "String" {
+                quote! { &input.#idx }
+            } else {
+                quote! { input.#idx }
+            }
+        }).collect();
+
+        let failure_msg = format!("on_call condition failed for {}", name);
+
         quote! {
-            pub fn #on_call_name(ret: impl Into<#ret_wrapper>) {
+            pub fn #on_call_name(condition: impl Fn(#(#condition_param_types),*) -> bool + 'static, ret: impl Into<#ret_wrapper>) {
                 let inner: #ret_wrapper = ret.into();
-                let cond = context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(|_| Ok(())));
+                let cond: context::ConditionDoublePointer =
+                    context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(
+                        move |input: &(#input_tuple)| {
+                            let self_ref = unsafe { &*input.0 };
+                            if condition(self_ref, #(#param_accesses),*) {
+                                Ok(())
+                            } else {
+                                Err(#failure_msg.into())
+                            }
+                        },
+                    ));
                 context::add_expectation::<(#input_tuple), #ret_type>(
                     &context::MockId::new_adt_static(#adt_path, #fn_id_str),
                     cond,
@@ -1974,7 +2196,10 @@ fn gen_enum_on_call_methods(entry: &FlattenedEnum, classified: &ClassifiedMethod
 
 // ─── Enum create_predicate methods ───────────────────────────────────────────
 
-fn gen_enum_create_predicate_methods(entry: &FlattenedEnum, classified: &ClassifiedMethods) -> TokenStream {
+fn gen_enum_create_predicate_methods(
+    entry: &FlattenedEnum,
+    classified: &ClassifiedMethods,
+) -> TokenStream {
     let enum_name = &entry.enum_name;
     let trackable = entry.trackable;
     let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
@@ -2049,37 +2274,41 @@ fn gen_enum_create_predicate_methods(entry: &FlattenedEnum, classified: &Classif
 
 fn gen_enum_times_methods(entry: &FlattenedEnum, classified: &ClassifiedMethods) -> TokenStream {
     let enum_name = &entry.enum_name;
-    let methods: Vec<TokenStream> = classified.mockable.iter().map(|m| {
-        let name = &m.sig.name;
-        let times_name = format_ident!("{}_times", name);
-        let suffix = m.wrapper_suffix(enum_name);
-        let pred_wrapper = format_ident!("Predicate{}", suffix);
+    let methods: Vec<TokenStream> = classified
+        .mockable
+        .iter()
+        .map(|m| {
+            let name = &m.sig.name;
+            let times_name = format_ident!("{}_times", name);
+            let suffix = m.wrapper_suffix(enum_name);
+            let pred_wrapper = format_ident!("Predicate{}", suffix);
 
-        quote! {
-            pub fn #times_name(
-                checkpoint: Option<impl Into<context::CheckpointName>>,
-                condition: impl Into<#pred_wrapper>,
-                tmod: context::TimesModifier,
-            ) -> #pred_wrapper {
-                let pred: #pred_wrapper = condition.into();
+            quote! {
+                pub fn #times_name(
+                    checkpoint: Option<impl Into<context::CheckpointName>>,
+                    condition: impl Into<#pred_wrapper>,
+                    tmod: context::TimesModifier,
+                ) -> #pred_wrapper {
+                    let pred: #pred_wrapper = condition.into();
 
-                let result = std::cell::Cell::new(None);
-                let do_times = |cp: &mut context::Checkpoint| {
-                    result.set(Some(#pred_wrapper(cp.times(pred.0, tmod))));
-                };
+                    let result = std::cell::Cell::new(None);
+                    let do_times = |cp: &mut context::Checkpoint| {
+                        result.set(Some(#pred_wrapper(cp.times(pred.0, tmod))));
+                    };
 
-                if let Some(name) = checkpoint {
-                    let name: context::CheckpointName = name.into();
-                    context::checkpoint_by_name_mut(&name.0, do_times)
-                        .expect("failed to resolve checkpoint by name");
-                } else {
-                    context::latest_checkpoint_mut(do_times);
+                    if let Some(name) = checkpoint {
+                        let name: context::CheckpointName = name.into();
+                        context::checkpoint_by_name_mut(&name.0, do_times)
+                            .expect("failed to resolve checkpoint by name");
+                    } else {
+                        context::latest_checkpoint_mut(do_times);
+                    }
+
+                    result.into_inner().expect("checkpoint closure did not run")
                 }
-
-                result.into_inner().expect("checkpoint closure did not run")
             }
-        }
-    }).collect();
+        })
+        .collect();
 
     quote! { #(#methods)* }
 }
@@ -2195,9 +2424,14 @@ fn gen_enum_constructors(
         }
 
         let ctor_name = &ctor.sig.name;
-        let params: Vec<TokenStream> = ctor.sig.params.iter().map(|(name, ty)| {
-            quote! { #name: #ty }
-        }).collect();
+        let params: Vec<TokenStream> = ctor
+            .sig
+            .params
+            .iter()
+            .map(|(name, ty)| {
+                quote! { #name: #ty }
+            })
+            .collect();
 
         // Find a param whose type matches a variant's field type
         let mut ctor_body = None;
@@ -2288,9 +2522,13 @@ fn gen_enum_constructors(
                 if first_variant.fields.is_empty() {
                     quote! { let slf = Self::#variant_name; }
                 } else {
-                    let defaults: Vec<TokenStream> = first_variant.fields.iter().map(|_| {
-                        quote! { Default::default() }
-                    }).collect();
+                    let defaults: Vec<TokenStream> = first_variant
+                        .fields
+                        .iter()
+                        .map(|_| {
+                            quote! { Default::default() }
+                        })
+                        .collect();
                     quote! { let slf = Self::#variant_name(#(#defaults),*); }
                 }
             } else {
@@ -2414,7 +2652,8 @@ fn expand_trait_mock(entry: &FlattenedTrait) -> TokenStream {
 
     // Generate expect/on_call/create_predicate/times/sequence helpers
     let on_call_methods = gen_trait_mock_on_call_methods(entry, &mock_struct_name);
-    let create_predicate_methods = gen_trait_mock_create_predicate_methods(entry, &mock_struct_name);
+    let create_predicate_methods =
+        gen_trait_mock_create_predicate_methods(entry, &mock_struct_name);
     let times_methods = gen_trait_mock_times_methods(entry, &mock_struct_name);
     let expect_methods = gen_trait_mock_expect_methods(entry, &mock_struct_name);
     let sequence_helpers = gen_trait_mock_sequence_helpers(entry, &mock_struct_name);
@@ -2446,7 +2685,9 @@ fn expand_trait_mock(entry: &FlattenedTrait) -> TokenStream {
 
 /// Helper: compute mock_id prefix for a trait method.
 fn trait_mock_id_prefix(path: &syn::Path, trait_name: &Ident, method_name: &Ident) -> String {
-    let path_str = path.segments.iter()
+    let path_str = path
+        .segments
+        .iter()
         .map(|s| s.ident.to_string())
         .collect::<Vec<_>>()
         .join("_");
@@ -2455,7 +2696,9 @@ fn trait_mock_id_prefix(path: &syn::Path, trait_name: &Ident, method_name: &Iden
 
 /// Helper: compute the ADT path portion for a trait mock: "{crate}_{TraitName}".
 fn trait_adt_path_prefix(path: &syn::Path, trait_name: &Ident) -> String {
-    let path_str = path.segments.iter()
+    let path_str = path
+        .segments
+        .iter()
         .map(|s| s.ident.to_string())
         .collect::<Vec<_>>()
         .join("_");
@@ -2485,30 +2728,38 @@ fn gen_trait_def(entry: &FlattenedTrait) -> TokenStream {
     let vis = &entry.vis;
     let trait_name = &entry.name;
 
-    let methods: Vec<TokenStream> = entry.methods.iter().map(|m| {
-        let name = &m.name;
-        let ret_type = &m.ret_type;
+    let methods: Vec<TokenStream> = entry
+        .methods
+        .iter()
+        .map(|m| {
+            let name = &m.name;
+            let ret_type = &m.ret_type;
 
-        let receiver = match m.receiver {
-            Receiver::Ref => quote! { &self },
-            Receiver::RefMut => quote! { &mut self },
-            Receiver::None => quote! {},
-        };
+            let receiver = match m.receiver {
+                Receiver::Ref => quote! { &self },
+                Receiver::RefMut => quote! { &mut self },
+                Receiver::None => quote! {},
+            };
 
-        let params: Vec<TokenStream> = m.params.iter().map(|(name, ty)| {
-            quote! { #name: #ty }
-        }).collect();
+            let params: Vec<TokenStream> = m
+                .params
+                .iter()
+                .map(|(name, ty)| {
+                    quote! { #name: #ty }
+                })
+                .collect();
 
-        let receiver_comma = if m.receiver != Receiver::None && !params.is_empty() {
-            quote! { , }
-        } else {
-            quote! {}
-        };
+            let receiver_comma = if m.receiver != Receiver::None && !params.is_empty() {
+                quote! { , }
+            } else {
+                quote! {}
+            };
 
-        quote! {
-            fn #name(#receiver #receiver_comma #(#params),*) -> #ret_type;
-        }
-    }).collect();
+            quote! {
+                fn #name(#receiver #receiver_comma #(#params),*) -> #ret_type;
+            }
+        })
+        .collect();
 
     quote! {
         #vis trait #trait_name {
@@ -2595,17 +2846,21 @@ fn gen_trait_mock_impl(entry: &FlattenedTrait, mock_struct_name: &Ident) -> Toke
 // ─── Trait mock wrapper structs ──────────────────────────────────────────────
 
 fn gen_trait_mock_wrapper_structs(entry: &FlattenedTrait, mock_struct_name: &Ident) -> TokenStream {
-    let wrappers: Vec<TokenStream> = entry.methods.iter().map(|m| {
-        let suffix = trait_wrapper_suffix(mock_struct_name, &m.name);
-        let pred_name = format_ident!("Predicate{}", suffix);
-        let exp_name = format_ident!("Expectation{}", suffix);
-        let ret_name = format_ident!("Return{}", suffix);
-        quote! {
-            pub struct #pred_name(context::Predicate);
-            pub struct #exp_name(context::Expectation);
-            pub struct #ret_name(context::ReturnValDoublePointer);
-        }
-    }).collect();
+    let wrappers: Vec<TokenStream> = entry
+        .methods
+        .iter()
+        .map(|m| {
+            let suffix = trait_wrapper_suffix(mock_struct_name, &m.name);
+            let pred_name = format_ident!("Predicate{}", suffix);
+            let exp_name = format_ident!("Expectation{}", suffix);
+            let ret_name = format_ident!("Return{}", suffix);
+            quote! {
+                pub struct #pred_name(context::Predicate);
+                pub struct #exp_name(context::Expectation);
+                pub struct #ret_name(context::ReturnValDoublePointer);
+            }
+        })
+        .collect();
 
     quote! { #(#wrappers)* }
 }
@@ -2645,7 +2900,10 @@ fn gen_trait_mock_return_from_fn(entry: &FlattenedTrait, mock_struct_name: &Iden
 
 // ─── Trait mock Predicate::from_fn ───────────────────────────────────────────
 
-fn gen_trait_mock_predicate_from_fn(entry: &FlattenedTrait, mock_struct_name: &Ident) -> TokenStream {
+fn gen_trait_mock_predicate_from_fn(
+    entry: &FlattenedTrait,
+    mock_struct_name: &Ident,
+) -> TokenStream {
     let trait_name = &entry.name;
     let impls: Vec<TokenStream> = entry.methods.iter().map(|m| {
         let suffix = trait_wrapper_suffix(mock_struct_name, &m.name);
@@ -2728,56 +2986,64 @@ fn gen_trait_mock_drop(entry: &FlattenedTrait, mock_struct_name: &Ident) -> Toke
         }
     }).collect();
 
-    let drop_predicate_fns: Vec<TokenStream> = entry.methods.iter().map(|m| {
-        let fn_name = format_ident!("drop_predicate_{}", m.name);
-        let input_tuple = trait_input_type_tuple(mock_struct_name, m);
-        quote! {
-            unsafe fn #fn_name(pred: context::Predicate) {
-                match pred.kind {
-                    context::new_expectations::PredicateKind::Single(single) => {
-                        unsafe { single.condition.id_drop::<(#input_tuple)>() };
-                    }
-                    context::new_expectations::PredicateKind::And(children)
-                    | context::new_expectations::PredicateKind::Or(children)
-                    | context::new_expectations::PredicateKind::Xor(children) => {
-                        for child in children {
-                            unsafe { #fn_name(child) };
+    let drop_predicate_fns: Vec<TokenStream> = entry
+        .methods
+        .iter()
+        .map(|m| {
+            let fn_name = format_ident!("drop_predicate_{}", m.name);
+            let input_tuple = trait_input_type_tuple(mock_struct_name, m);
+            quote! {
+                unsafe fn #fn_name(pred: context::Predicate) {
+                    match pred.kind {
+                        context::new_expectations::PredicateKind::Single(single) => {
+                            unsafe { single.condition.id_drop::<(#input_tuple)>() };
                         }
-                    }
-                    context::new_expectations::PredicateKind::Not(inner)
-                    | context::new_expectations::PredicateKind::After { then: inner, .. } => {
-                        unsafe { #fn_name(*inner) };
-                    }
-                    context::new_expectations::PredicateKind::Times { inner, .. } => {
-                        unsafe { #fn_name(*inner) };
+                        context::new_expectations::PredicateKind::And(children)
+                        | context::new_expectations::PredicateKind::Or(children)
+                        | context::new_expectations::PredicateKind::Xor(children) => {
+                            for child in children {
+                                unsafe { #fn_name(child) };
+                            }
+                        }
+                        context::new_expectations::PredicateKind::Not(inner)
+                        | context::new_expectations::PredicateKind::After { then: inner, .. } => {
+                            unsafe { #fn_name(*inner) };
+                        }
+                        context::new_expectations::PredicateKind::Times { inner, .. } => {
+                            unsafe { #fn_name(*inner) };
+                        }
                     }
                 }
             }
-        }
-    }).collect();
+        })
+        .collect();
 
-    let cleanup_blocks: Vec<TokenStream> = entry.methods.iter().map(|m| {
-        let var_name = format_ident!("{}_mock_id", m.name);
-        let fn_name = format_ident!("drop_predicate_{}", m.name);
-        let input_tuple = trait_input_type_tuple(mock_struct_name, m);
-        let ret_type = &m.ret_type;
-        quote! {
-            if let Some(expectations) = cp.expectations.remove(&#var_name) {
-                for exp in expectations {
-                    if let Some(ret) = exp.return_val {
-                        unsafe {
-                            ret.id_drop::<(#input_tuple), #ret_type>();
+    let cleanup_blocks: Vec<TokenStream> = entry
+        .methods
+        .iter()
+        .map(|m| {
+            let var_name = format_ident!("{}_mock_id", m.name);
+            let fn_name = format_ident!("drop_predicate_{}", m.name);
+            let input_tuple = trait_input_type_tuple(mock_struct_name, m);
+            let ret_type = &m.ret_type;
+            quote! {
+                if let Some(expectations) = cp.expectations.remove(&#var_name) {
+                    for exp in expectations {
+                        if let Some(ret) = exp.return_val {
+                            unsafe {
+                                ret.id_drop::<(#input_tuple), #ret_type>();
+                            }
                         }
-                    }
-                    if let Some(pred) = cp.arena.take(exp.predicate) {
-                        unsafe {
-                            #fn_name(pred);
+                        if let Some(pred) = cp.arena.take(exp.predicate) {
+                            unsafe {
+                                #fn_name(pred);
+                            }
                         }
                     }
                 }
             }
-        }
-    }).collect();
+        })
+        .collect();
 
     quote! {
         impl Drop for #mock_struct_name {
@@ -2807,10 +3073,43 @@ fn gen_trait_mock_on_call_methods(entry: &FlattenedTrait, mock_struct_name: &Ide
         let input_tuple = trait_input_type_tuple(mock_struct_name, m);
         let ret_type = &m.ret_type;
 
+        let condition_param_types: Vec<TokenStream> = std::iter::once(quote! { &#mock_struct_name })
+            .chain(m.params.iter().map(|(_, ty)| {
+                let ty_str = quote! { #ty }.to_string();
+                if ty_str == "String" {
+                    quote! { &str }
+                } else {
+                    quote! { #ty }
+                }
+            }))
+            .collect();
+
+        let param_accesses: Vec<TokenStream> = m.params.iter().enumerate().map(|(i, (_, ty))| {
+            let idx = syn::Index::from(i + 1);
+            let ty_str = quote! { #ty }.to_string();
+            if ty_str == "String" {
+                quote! { &input.#idx }
+            } else {
+                quote! { input.#idx }
+            }
+        }).collect();
+
+        let failure_msg = format!("on_call condition failed for {}", name);
+
         quote! {
-            pub fn #on_call_name(ret: impl Into<#ret_wrapper>) {
+            pub fn #on_call_name(condition: impl Fn(#(#condition_param_types),*) -> bool + 'static, ret: impl Into<#ret_wrapper>) {
                 let inner: #ret_wrapper = ret.into();
-                let cond = context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(|_| Ok(())));
+                let cond: context::ConditionDoublePointer =
+                    context::ConditionDoublePointer::from_fn::<(#input_tuple)>(Box::new(
+                        move |input: &(#input_tuple)| {
+                            let self_ref = unsafe { &*input.0 };
+                            if condition(self_ref, #(#param_accesses),*) {
+                                Ok(())
+                            } else {
+                                Err(#failure_msg.into())
+                            }
+                        },
+                    ));
                 context::add_expectation::<(#input_tuple), #ret_type>(
                     &context::MockId::new_adt_static(#adt_path, #fn_id_str),
                     cond,
@@ -2828,7 +3127,10 @@ fn gen_trait_mock_on_call_methods(entry: &FlattenedTrait, mock_struct_name: &Ide
 
 // ─── Trait mock create_predicate methods ─────────────────────────────────────
 
-fn gen_trait_mock_create_predicate_methods(entry: &FlattenedTrait, mock_struct_name: &Ident) -> TokenStream {
+fn gen_trait_mock_create_predicate_methods(
+    entry: &FlattenedTrait,
+    mock_struct_name: &Ident,
+) -> TokenStream {
     let trait_name = &entry.name;
     let methods: Vec<TokenStream> = entry.methods.iter().map(|m| {
         let name = &m.name;
@@ -2895,37 +3197,41 @@ fn gen_trait_mock_create_predicate_methods(entry: &FlattenedTrait, mock_struct_n
 // ─── Trait mock times methods ────────────────────────────────────────────────
 
 fn gen_trait_mock_times_methods(entry: &FlattenedTrait, mock_struct_name: &Ident) -> TokenStream {
-    let methods: Vec<TokenStream> = entry.methods.iter().map(|m| {
-        let name = &m.name;
-        let times_name = format_ident!("{}_times", name);
-        let suffix = trait_wrapper_suffix(mock_struct_name, name);
-        let pred_wrapper = format_ident!("Predicate{}", suffix);
+    let methods: Vec<TokenStream> = entry
+        .methods
+        .iter()
+        .map(|m| {
+            let name = &m.name;
+            let times_name = format_ident!("{}_times", name);
+            let suffix = trait_wrapper_suffix(mock_struct_name, name);
+            let pred_wrapper = format_ident!("Predicate{}", suffix);
 
-        quote! {
-            pub fn #times_name(
-                checkpoint: Option<impl Into<context::CheckpointName>>,
-                condition: impl Into<#pred_wrapper>,
-                tmod: context::TimesModifier,
-            ) -> #pred_wrapper {
-                let pred: #pred_wrapper = condition.into();
+            quote! {
+                pub fn #times_name(
+                    checkpoint: Option<impl Into<context::CheckpointName>>,
+                    condition: impl Into<#pred_wrapper>,
+                    tmod: context::TimesModifier,
+                ) -> #pred_wrapper {
+                    let pred: #pred_wrapper = condition.into();
 
-                let result = std::cell::Cell::new(None);
-                let do_times = |cp: &mut context::Checkpoint| {
-                    result.set(Some(#pred_wrapper(cp.times(pred.0, tmod))));
-                };
+                    let result = std::cell::Cell::new(None);
+                    let do_times = |cp: &mut context::Checkpoint| {
+                        result.set(Some(#pred_wrapper(cp.times(pred.0, tmod))));
+                    };
 
-                if let Some(name) = checkpoint {
-                    let name: context::CheckpointName = name.into();
-                    context::checkpoint_by_name_mut(&name.0, do_times)
-                        .expect("failed to resolve checkpoint by name");
-                } else {
-                    context::latest_checkpoint_mut(do_times);
+                    if let Some(name) = checkpoint {
+                        let name: context::CheckpointName = name.into();
+                        context::checkpoint_by_name_mut(&name.0, do_times)
+                            .expect("failed to resolve checkpoint by name");
+                    } else {
+                        context::latest_checkpoint_mut(do_times);
+                    }
+
+                    result.into_inner().expect("checkpoint closure did not run")
                 }
-
-                result.into_inner().expect("checkpoint closure did not run")
             }
-        }
-    }).collect();
+        })
+        .collect();
 
     quote! { #(#methods)* }
 }
@@ -2993,7 +3299,10 @@ fn gen_trait_mock_expect_methods(entry: &FlattenedTrait, mock_struct_name: &Iden
 
 // ─── Trait mock sequence helpers ─────────────────────────────────────────────
 
-fn gen_trait_mock_sequence_helpers(entry: &FlattenedTrait, mock_struct_name: &Ident) -> TokenStream {
+fn gen_trait_mock_sequence_helpers(
+    entry: &FlattenedTrait,
+    mock_struct_name: &Ident,
+) -> TokenStream {
     let trait_name = &entry.name;
     let methods: Vec<TokenStream> = entry.methods.iter().map(|m| {
         let name = &m.name;

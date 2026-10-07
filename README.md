@@ -50,14 +50,16 @@ cargo install --path crates/anomura_plugins --force
 
 ## Running the Tests
 
-You must run `cargo mock` from inside the test crate directory (`test-suite/mocks/`), **not** from the workspace root. The plugin uses `cargo metadata` to resolve the root package, which doesn't work in a virtual workspace.
+You can run `cargo mock` either from the workspace root or from a specific crate directory:
 
 ```bash
+# From the workspace root (use -p to select the test crate)
+cargo mock test -p mocks
+
+# Or from inside the test crate directory
 cd test-suite/mocks
 cargo mock test
 ```
-
-Running from the workspace root (`cargo mock test -p mocks`) will **not** work — it panics because a virtual workspace has no root package.
 
 ### Run with logging
 
@@ -100,7 +102,6 @@ The `fns` crate (`test-suite/fns/`) provides the real function signatures that g
 
 ## Troubleshooting
 
-- **`should be some root` panic**: You're running `cargo mock` from the workspace root. `cd` into `test-suite/mocks/` first.
 - **Plugin not found / old version**: Reinstall with `cargo install --path crates/anomura_plugins --force`.
 - **Wrong toolchain errors**: Make sure the nightly version matches across `rust-toolchain.toml` files. Currently pinned to `nightly-2025-08-20`.
 - **Link errors about `context`**: The substitution pass automatically links the `context` crate. Make sure it's built as part of the workspace.

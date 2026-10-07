@@ -9,28 +9,43 @@ pub fn list_transitive_build_dependencies() -> HashSet<PackageId> {
 
     let packages: HashMap<&PackageId, &Package> =
         metadata.packages.iter().map(|p| (&p.id, p)).collect();
-    let root = metadata.root_package().expect("should be some root");
 
-    // =========================================================================
-    // STEP 1: Find all normal and build dependencies of root (B0..Bn)
-    // =========================================================================
-    let mut b_crates = HashSet::new();
+    // Determine root packages: either the single root (non-workspace) or all workspace members.
+    let root_ids: Vec<&PackageId> = match metadata.root_package() {
+        Some(root) => vec![&root.id],
+        None => {
+            // Virtual workspace — use all workspace members as roots
+            log::debug!(
+                "No root package found (virtual workspace). Using {} workspace members as roots.",
+                metadata.workspace_members.len()
+            );
+            metadata.workspace_members.iter().collect()
+        }
+    };
+
     let resolve = metadata.resolve.as_ref().expect("Missing resolve graph");
 
-    if let Some(node) = resolve.nodes.iter().find(|n| n.id == root.id) {
-        for dep in &node.deps {
-            // We consider standard and build dependencies as part of A's dependencies
-            let is_normal_or_build = dep
-                .dep_kinds
-                .iter()
-                .any(|k| k.kind == DependencyKind::Normal || k.kind == DependencyKind::Build);
+    // =========================================================================
+    // STEP 1: Find all normal and build dependencies of root package(s) (B0..Bn)
+    // =========================================================================
+    let mut b_crates = HashSet::new();
 
-            if is_normal_or_build {
-                b_crates.insert(&dep.pkg);
+    for root_id in &root_ids {
+        if let Some(node) = resolve.nodes.iter().find(|n| &n.id == *root_id) {
+            for dep in &node.deps {
+                let is_normal_or_build = dep
+                    .dep_kinds
+                    .iter()
+                    .any(|k| k.kind == DependencyKind::Normal || k.kind == DependencyKind::Build);
+
+                if is_normal_or_build {
+                    b_crates.insert(&dep.pkg);
+                }
             }
         }
-        log::debug!("b_crates: {b_crates:?}");
     }
+
+    log::debug!("b_crates: {b_crates:?}");
 
     // =========================================================================
     // STEP 2: Extract all build dependencies of B0..Bn (C0..Cn)
@@ -53,6 +68,7 @@ pub fn list_transitive_build_dependencies() -> HashSet<PackageId> {
     }
 
     log::debug!("c_crates: {c_crates:?}");
+
     // =========================================================================
     // STEP 3: Find ALL transitive dependencies (normal + build) of C0..Cn
     // =========================================================================
@@ -62,7 +78,6 @@ pub fn list_transitive_build_dependencies() -> HashSet<PackageId> {
     while let Some(current_id) = to_visit.pop() {
         if let Some(node) = resolve.nodes.iter().find(|n| n.id == *current_id) {
             for dep in &node.deps {
-                // For C0..Cn's transitive dependencies, we match both normal and build kinds
                 let is_valid_edge = dep
                     .dep_kinds
                     .iter()
@@ -70,11 +85,11 @@ pub fn list_transitive_build_dependencies() -> HashSet<PackageId> {
 
                 if is_valid_edge && !all_transitive_from_c.contains(&dep.pkg) {
                     all_transitive_from_c.insert(dep.pkg.clone());
-                    to_visit.push(&dep.pkg); // Push to continue walking the tree
+                    to_visit.push(&dep.pkg);
                 }
             }
         }
     }
 
     all_transitive_from_c
-} //println!("runnin main driver");
+}

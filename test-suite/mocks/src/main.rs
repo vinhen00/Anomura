@@ -1,5 +1,5 @@
-use mock_macro::mock_crate;
 use fns::Computable;
+use mock_macro::mock_crate;
 
 // Invoke the `mock_crate!` proc macro for the `fns` crate. During the discover pass,
 // the custom rustc driver intercepts this macro invocation and identifies `fns` as a
@@ -25,22 +25,25 @@ fn main() {}
 /// its return value. If this fails, the entire mock dispatch pipeline is broken — the
 /// substitution pass isn't replacing function bodies, or the runtime context isn't routing
 /// calls through registered closures. This test is the canary for the end-to-end mock system.
+///
+/// Uses `a::nested::deep_fn() -> &'static str` — a zero-arg function inside a nested
+/// submodule, which also validates that the mock system handles nested module paths.
 #[test]
 fn mock_crate_return_const() {
-    // Register a mock for `fns::return_const()`. The real implementation returns 16i16;
-    // we override it to return 42i16. `ReturnReturn_const` is the generated wrapper type
+    // Register a mock for `fns::a::nested::deep_fn()`. The real implementation returns "deep";
+    // we override it to return "mocked". `ReturnNested_Deep_fn` is the generated wrapper type
     // that adapts our closure to the mock dispatch interface. `from_fn` wraps the closure.
-    fns::on_call_return_const(fns::ReturnReturn_const::from_fn(|| 42i16));
+    fns::on_call_nested_deep_fn(|| true, fns::ReturnNested_Deep_fn::from_fn(|| "mocked"));
 
     // Transition from build phase to active phase. After this call, no more mocks can be
     // registered, and all subsequent function calls will be dispatched through the mock context.
     context::finish_building_context();
 
     // Call the real function path — the substituted body routes through our mock closure.
-    let result = fns::return_const();
+    let result = fns::a::nested::deep_fn();
 
-    // Verify the mock's return value was used instead of the real implementation's 16i16.
-    assert_eq!(result, 42);
+    // Verify the mock's return value was used instead of the real implementation's "deep".
+    assert_eq!(result, "mocked");
 }
 
 /// Validates that a free function receiving arguments correctly forwards them to the mock closure.
@@ -52,7 +55,10 @@ fn mock_crate_return_const() {
 fn mock_crate_ret_call_w_args() {
     // Register a mock for `fns::ret_call_w_args(x: i16) -> i16`. The real implementation
     // returns `x` unchanged; we override it with `x * 3` to prove our closure receives `x`.
-    fns::on_call_ret_call_w_args(fns::ReturnRet_call_w_args::from_fn(|x| x * 3));
+    fns::on_call_ret_call_w_args(
+        |_: &i16| true,
+        fns::ReturnRet_call_w_args::from_fn(|x| x * 3),
+    );
 
     // Lock the context — all mocks are now active.
     context::finish_building_context();
@@ -70,18 +76,20 @@ fn mock_crate_ret_call_w_args() {
 /// unit-return functions without panicking, and that the argument is still forwarded to the
 /// mock closure (even if the closure ignores it). If this breaks, unit-return function mocking
 /// is unsound.
+///
+/// Uses `ref_param(x: &u32)` — a function taking a reference argument and returning `()`.
 #[test]
 fn mock_crate_match_const() {
-    // Register a mock for `fns::match_const(key: u32)` which returns `()`.
-    // The closure accepts `_key` (ignored) and returns unit.
-    fns::on_call_match_const(fns::ReturnMatch_const::from_fn(|_key| ()));
+    // Register a mock for `fns::ref_param(x: &u32)` which returns `()`.
+    // The closure accepts `_x` (ignored) and returns unit.
+    fns::on_call_ref_param(|_: &&u32| true, fns::ReturnRef_param::from_fn(|_x| ()));
 
     // Finalize the mock context.
     context::finish_building_context();
 
     // Call with an arbitrary argument. Success means no panic — the mock dispatch
     // handled the unit return type correctly.
-    fns::match_const(99);
+    fns::ref_param(&99);
 }
 
 // ─── Struct method tests (using generated on_call helpers) ────────────────────
@@ -100,7 +108,10 @@ fn mock_crate_foo_fallback_with_helper() {
     // Register a mock for `Foo::fallback(&self) -> u32` using the static helper.
     // The real implementation returns 11; we override it to return 999.
     // The closure receives `_self_ref` (the &self reference) which we ignore here.
-    fns::Foo::on_call_fallback(fns::ReturnFooFallback::from_fn(|_self_ref| 999u32));
+    fns::Foo::on_call_fallback(
+        |_: &fns::Foo| true,
+        fns::ReturnFooFallback::from_fn(|_self_ref| 999u32),
+    );
 
     // Finalize — mocks are now active.
     context::finish_building_context();
@@ -126,7 +137,7 @@ fn mock_crate_foo_fallback_with_helper() {
 fn mock_crate_foo_static_method_with_helper() {
     // Register a mock for `Foo::static_method()`. The real implementation is a no-op;
     // we mock it with another no-op to confirm dispatch works without a self receiver.
-    fns::Foo::on_call_static_method(fns::ReturnFooStatic_method::from_fn(|| ()));
+    fns::Foo::on_call_static_method(|| true, fns::ReturnFooStatic_method::from_fn(|| ()));
 
     // Finalize the mock context.
     context::finish_building_context();
@@ -190,16 +201,19 @@ fn mock_crate_unmocked_panics() {
 /// only the last registered mock takes effect.
 #[test]
 fn mock_crate_multiple_mocks() {
-    // Register two independent mocks: one for return_const, one for ret_call_w_args.
+    // Register two independent mocks: one for deep_fn, one for ret_call_w_args.
     // Both are registered before finish_building_context — the context must hold both.
-    fns::on_call_return_const(fns::ReturnReturn_const::from_fn(|| 100i16));
-    fns::on_call_ret_call_w_args(fns::ReturnRet_call_w_args::from_fn(|x| x + 10));
+    fns::on_call_nested_deep_fn(|| true, fns::ReturnNested_Deep_fn::from_fn(|| "multi"));
+    fns::on_call_ret_call_w_args(
+        |_: &i16| true,
+        fns::ReturnRet_call_w_args::from_fn(|x| x + 10),
+    );
 
     // Finalize — both mocks are now active simultaneously.
     context::finish_building_context();
 
     // Verify each mock operates independently with its own return logic.
-    assert_eq!(fns::return_const(), 100);
+    assert_eq!(fns::a::nested::deep_fn(), "multi");
     assert_eq!(fns::ret_call_w_args(5), 15);
 }
 
@@ -217,7 +231,7 @@ fn mock_crate_submodule_function() {
     // Register a mock for `fns::a::modules()`. The generated helper name flattens the
     // module path: `on_call_a_modules` corresponds to `fns::a::modules`. The return type
     // wrapper follows the same convention: `ReturnA_Modules`.
-    fns::on_call_a_modules(fns::ReturnA_Modules::from_fn(|| 777u32));
+    fns::on_call_a_modules(|| true, fns::ReturnA_Modules::from_fn(|| 777u32));
 
     // Finalize the mock context.
     context::finish_building_context();
@@ -253,7 +267,7 @@ fn mock_crate_sequence() {
     fns::sequence_ret_call_w_args("counting", 0, |_x| Ok(()), |x| x + 100);
     fns::sequence_ret_call_w_args("counting", 1, |_x| Ok(()), |x| x + 200);
     fns::sequence_ret_call_w_args("counting", 2, |_x| Ok(()), |x| x + 300);
-
+    //
     // Finalize mock registrations.
     context::finish_building_context();
 
@@ -282,29 +296,29 @@ fn mock_crate_sequence() {
 /// If this fails, the checkpoint system doesn't correctly scope expectations or advance phases.
 #[test]
 fn mock_crate_checkpoints() {
-    // Register a mock for `return_const` in the default (first) checkpoint phase.
-    // This mock returns 10i16 and will be active until we advance past this phase.
-    fns::on_call_return_const(fns::ReturnReturn_const::from_fn(|| 10i16));
+    // Register a mock for `deep_fn` in the default (first) checkpoint phase.
+    // This mock returns "phase1" and will be active until we advance past this phase.
+    fns::on_call_nested_deep_fn(|| true, fns::ReturnNested_Deep_fn::from_fn(|| "phase1"));
 
     // Create a new checkpoint named "phase2". All subsequent mock registrations will
     // be associated with this new phase, not the default one.
     context::new_checkpoint("phase2").unwrap();
 
-    // Register a different mock for the same function in phase2. This mock returns 20i16
+    // Register a different mock for the same function in phase2. This mock returns "phase2"
     // and will only become active after `control_checkpoint()` is called.
-    fns::on_call_return_const(fns::ReturnReturn_const::from_fn(|| 20i16));
+    fns::on_call_nested_deep_fn(|| true, fns::ReturnNested_Deep_fn::from_fn(|| "phase2"));
 
     // Finalize — both phases' mocks are stored, but only the first phase is active.
     context::finish_building_context();
 
-    // In the first checkpoint phase: the mock returns 10.
-    assert_eq!(fns::return_const(), 10);
+    // In the first checkpoint phase: the mock returns "phase1".
+    assert_eq!(fns::a::nested::deep_fn(), "phase1");
 
-    // Advance to phase2. The first phase's mock for `return_const` is replaced by phase2's.
+    // Advance to phase2. The first phase's mock for `deep_fn` is replaced by phase2's.
     context::control_checkpoint().unwrap();
 
-    // In phase2: the same function now returns 20.
-    assert_eq!(fns::return_const(), 20);
+    // In phase2: the same function now returns "phase2".
+    assert_eq!(fns::a::nested::deep_fn(), "phase2");
 }
 
 // ─── Trait impl test ─────────────────────────────────────────────────────────
@@ -321,9 +335,10 @@ fn mock_crate_trait_impl_debug() {
     // Register a mock for the `Debug::fmt` impl on `ClosureWrapper`. The closure receives
     // `_self_ref` (the &ClosureWrapper reference) and `f` (the formatter), matching the
     // real `fmt(&self, f: &mut Formatter) -> fmt::Result` signature.
-    fns::ClosureWrapper::on_call_fmt(fns::ReturnClosureWrapperFmt::from_fn(|_self_ref, f| {
-        f.write_str("MOCKED!")
-    }));
+    fns::ClosureWrapper::on_call_fmt(
+        |_: &fns::ClosureWrapper, _: &&mut std::fmt::Formatter| true,
+        fns::ReturnClosureWrapperFmt::from_fn(|_self_ref, f| f.write_str("MOCKED!")),
+    );
 
     // Finalize the mock context.
     context::finish_building_context();
@@ -363,7 +378,10 @@ fn mock_crate_mock_struct_instance_mock() {
     // Register a mock for `get_value` on this specific instance. Unlike all-public structs
     // (where `Struct::on_call_*` is static), trackable structs use instance methods:
     // `ms.on_call_get_value(...)`. The mock is keyed to `ms`'s unique mock ID.
-    ms.on_call_get_value(fns::ReturnMockStructGet_value::from_fn(|_self_ref| 42u32));
+    ms.on_call_get_value(
+        |_: &fns::MockStruct| true,
+        fns::ReturnMockStructGet_value::from_fn(|_self_ref| 42u32),
+    );
 
     // Finalize the mock context.
     context::finish_building_context();
@@ -391,7 +409,10 @@ fn mock_crate_foo_constructor_and_expectations() {
 
     // Override the `fallback` mock via the static helper. Since Foo is all-public,
     // this shared mock applies to ALL Foo instances, including ones not yet created.
-    fns::Foo::on_call_fallback(fns::ReturnFooFallback::from_fn(|_self_ref| 123u32));
+    fns::Foo::on_call_fallback(
+        |_: &fns::Foo| true,
+        fns::ReturnFooFallback::from_fn(|_self_ref| 123u32),
+    );
 
     // Finalize — both the constructor's mocks and our explicit override are active.
     context::finish_building_context();
@@ -418,7 +439,10 @@ fn mock_crate_foo_constructor_and_expectations() {
 fn mock_crate_foo_computable_trait_mock() {
     // Register a mock for `Foo`'s implementation of `Computable::compute`. The generated
     // helper `on_call_compute` targets the trait-impl method, not an inherent method.
-    fns::Foo::on_call_compute(fns::ReturnFooCompute::from_fn(|_self_ref| 999u32));
+    fns::Foo::on_call_compute(
+        |_: &fns::Foo| true,
+        fns::ReturnFooCompute::from_fn(|_self_ref| 999u32),
+    );
 
     // Finalize the mock context.
     context::finish_building_context();
@@ -447,8 +471,14 @@ fn mock_crate_two_mock_struct_instances() {
     // Register different return values for the same method on different instances.
     // ms1's `get_value` returns 100; ms2's `get_value` returns 200.
     // These registrations must not interfere because they're keyed to different mock IDs.
-    ms1.on_call_get_value(fns::ReturnMockStructGet_value::from_fn(|_self_ref| 100u32));
-    ms2.on_call_get_value(fns::ReturnMockStructGet_value::from_fn(|_self_ref| 200u32));
+    ms1.on_call_get_value(
+        |_: &fns::MockStruct| true,
+        fns::ReturnMockStructGet_value::from_fn(|_self_ref| 100u32),
+    );
+    ms2.on_call_get_value(
+        |_: &fns::MockStruct| true,
+        fns::ReturnMockStructGet_value::from_fn(|_self_ref| 200u32),
+    );
 
     // Finalize — both instances' mocks are active.
     context::finish_building_context();
@@ -456,6 +486,6 @@ fn mock_crate_two_mock_struct_instances() {
     // Verify each instance dispatches through its own mock, not the other's.
     // If mock IDs were shared (like all-public structs), both would return whichever
     // was registered last — but trackable structs guarantee isolation.
-    assert_eq!(ms1.get_value(), 100);
     assert_eq!(ms2.get_value(), 200);
+    assert_eq!(ms1.get_value(), 100);
 }

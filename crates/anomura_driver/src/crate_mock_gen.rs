@@ -495,10 +495,18 @@ impl Predicate{fn_cap} {{
     }}
 }}
 
-pub fn on_call_{fn_name}(ret: impl Into<Return{fn_cap}>) {{
+pub fn on_call_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> bool + 'static, ret: impl Into<Return{fn_cap}>) {{
     let inner: Return{fn_cap} = ret.into();
     let mock_id = context::MockId::new_fn("{mock_id}");
-    let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(Box::new(|_| Ok(())));
+    let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
+        Box::new(move |input: &({type_tuple})| {{
+            if condition({input_access_ref}) {{
+                Ok(())
+            }} else {{
+                Err("on_call condition failed for {fn_name}".into())
+            }}
+        }})
+    );
     context::add_on_call::<({type_tuple})>(
         &mock_id,
         cond,
@@ -622,9 +630,23 @@ fn gen_method_wrappers(
     let closure_type_params_str = closure_type_params.join(", ");
 
     // Predicate closure params (all by reference)
+    // For self types that are already references (&T, &mut T), don't add another &.
+    // For &mut self, we reborrow as &T for condition closures (conditions shouldn't mutate).
+    let self_already_ref = matches!(method.receiver, ReceiverKind::Ref | ReceiverKind::RefMut);
+    let self_is_mut_ref = matches!(method.receiver, ReceiverKind::RefMut);
+    // The user-facing condition type for self: &T for both &self and &mut self
+    let condition_self_type = if self_is_mut_ref {
+        format!("&{}", struct_type_path) // &mut Foo → &Foo for condition
+    } else {
+        self_type.clone() // &Foo stays &Foo, Foo stays Foo
+    };
     let mut closure_params_ref = Vec::new();
     if method.receiver != ReceiverKind::None {
-        closure_params_ref.push(format!("_self: &{}", self_type));
+        if self_already_ref {
+            closure_params_ref.push(format!("_self: {}", condition_self_type));
+        } else {
+            closure_params_ref.push(format!("_self: &{}", self_type));
+        }
     }
     for (i, p) in method.params.iter().enumerate() {
         closure_params_ref.push(format!("_{}: &{}", i, ty_to_string(&p.ty)));
@@ -634,7 +656,11 @@ fn gen_method_wrappers(
     // Predicate closure type params (types only, by reference)
     let mut closure_type_params_ref = Vec::new();
     if method.receiver != ReceiverKind::None {
-        closure_type_params_ref.push(format!("&{}", self_type));
+        if self_already_ref {
+            closure_type_params_ref.push(condition_self_type.clone());
+        } else {
+            closure_type_params_ref.push(format!("&{}", self_type));
+        }
     }
     for p in method.params.iter() {
         closure_type_params_ref.push(format!("&{}", ty_to_string(&p.ty)));
@@ -642,13 +668,26 @@ fn gen_method_wrappers(
     let closure_type_params_ref_str = closure_type_params_ref.join(", ");
 
     // Access from &tuple reference for predicate (pass references)
+    // For &self: input.0 is &T, pass it directly → &T
+    // For &mut self: input.0 is &mut T, reborrow as &*input.0 → &T
+    // For owned self: input.0 is T, pass &input.0 → &T
+    // For params: always &input.N
     let total_fields = (if method.receiver != ReceiverKind::None {
         1
     } else {
         0
     }) + method.params.len();
+    let self_field_count = if method.receiver != ReceiverKind::None { 1 } else { 0 };
     let input_access_ref = (0..total_fields)
-        .map(|i| format!("&input.{}", i))
+        .map(|i| {
+            if i == 0 && self_is_mut_ref {
+                format!("&*input.{}", i) // reborrow &mut T as &T
+            } else if i == 0 && self_already_ref {
+                format!("input.{}", i) // &T passed directly
+            } else {
+                format!("&input.{}", i)
+            }
+        })
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -740,11 +779,19 @@ impl Predicate{suffix} {{
 }}
 
 impl {struct_type_path} {{
-    pub fn on_call_{method_name}({on_call_self_param}ret: impl Into<Return{suffix}>) {{
+    pub fn on_call_{method_name}({on_call_self_param}condition: impl Fn({closure_type_params_ref_str}) -> bool + 'static, ret: impl Into<Return{suffix}>) {{
         let inner: Return{suffix} = ret.into();
         let mock_id = {on_call_mock_id_expr};
         let object_mock_id = {on_call_object_mock_id_expr};
-        let cond = context::ConditionDoublePointer::from_fn::<({full_type_tuple})>(Box::new(|_| Ok(())));
+        let cond = context::ConditionDoublePointer::from_fn::<({full_type_tuple})>(
+            Box::new(move |input: &({full_type_tuple})| {{
+                if condition({input_access_ref}) {{
+                    Ok(())
+                }} else {{
+                    Err("on_call condition failed for {method_name}".into())
+                }}
+            }})
+        );
         context::add_method_on_call::<({full_type_tuple})>(
             &object_mock_id,
             "{method_name}",
@@ -887,10 +934,18 @@ impl Predicate{fn_cap} {{
     }}
 }}
 
-pub fn on_call_{mod_name}_{fn_name}(ret: impl Into<Return{fn_cap}>) {{
+pub fn on_call_{mod_name}_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> bool + 'static, ret: impl Into<Return{fn_cap}>) {{
     let inner: Return{fn_cap} = ret.into();
     let mock_id = context::MockId::new_fn("{mock_id}");
-    let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(Box::new(|_| Ok(())));
+    let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
+        Box::new(move |input: &({type_tuple})| {{
+            if condition({input_access_ref}) {{
+                Ok(())
+            }} else {{
+                Err("on_call condition failed for {mod_name}_{fn_name}".into())
+            }}
+        }})
+    );
     context::add_on_call::<({type_tuple})>(
         &mock_id,
         cond,
