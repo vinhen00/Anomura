@@ -2,94 +2,104 @@ use std::collections::{HashMap, HashSet};
 
 use cargo_metadata::{DependencyKind, MetadataCommand, Package, PackageId};
 
-pub fn list_transitive_build_dependencies() -> HashSet<PackageId> {
+/// Compute the set of crate **names** that must be compiled with normal `rustc`
+/// (not the discover driver) during the discover pass.
+///
+/// The discover driver intercepts compilation to find mock definitions, but it
+/// cannot correctly compile:
+///   - proc-macro crates (and their transitive dependencies)
+///   - build-script dependencies (and their transitive dependencies)
+///   - the `context` crate and its transitive dependencies (needed intact for
+///     linking during the substitution pass)
+///
+/// This function dynamically computes that full set so we don't need a fragile
+/// hardcoded list.
+pub fn list_crates_to_build_normally() -> HashSet<String> {
     let metadata = MetadataCommand::new()
         .exec()
         .expect("Failed to run `cargo metadata`");
 
+    let resolve = metadata.resolve.as_ref().expect("Missing resolve graph");
+
+    // Index packages by id for quick lookup
     let packages: HashMap<&PackageId, &Package> =
         metadata.packages.iter().map(|p| (&p.id, p)).collect();
 
-    // Determine root packages: either the single root (non-workspace) or all workspace members.
-    let root_ids: Vec<&PackageId> = match metadata.root_package() {
-        Some(root) => vec![&root.id],
-        None => {
-            // Virtual workspace — use all workspace members as roots
-            log::debug!(
-                "No root package found (virtual workspace). Using {} workspace members as roots.",
-                metadata.workspace_members.len()
-            );
-            metadata.workspace_members.iter().collect()
+    // Seeds: package IDs whose entire transitive dependency tree must be built normally.
+    let mut seeds: HashSet<&PackageId> = HashSet::new();
+
+    // ─── 1. Proc-macro crates ─────────────────────────────────────────────
+    // Any crate that produces a proc-macro artifact cannot be compiled through
+    // the discover driver. Collect them as seeds.
+    for pkg in &metadata.packages {
+        if pkg.targets.iter().any(|t| t.is_proc_macro()) {
+            log::debug!("proc-macro seed: {}", pkg.name);
+            seeds.insert(&pkg.id);
         }
-    };
+    }
 
-    let resolve = metadata.resolve.as_ref().expect("Missing resolve graph");
-
-    // =========================================================================
-    // STEP 1: Find all normal and build dependencies of root package(s) (B0..Bn)
-    // =========================================================================
-    let mut b_crates = HashSet::new();
-
-    for root_id in &root_ids {
-        if let Some(node) = resolve.nodes.iter().find(|n| &n.id == *root_id) {
-            for dep in &node.deps {
-                let is_normal_or_build = dep
-                    .dep_kinds
-                    .iter()
-                    .any(|k| k.kind == DependencyKind::Normal || k.kind == DependencyKind::Build);
-
-                if is_normal_or_build {
-                    b_crates.insert(&dep.pkg);
-                }
+    // ─── 2. Build dependencies ────────────────────────────────────────────
+    // For every package in the resolve graph, collect any dependency that is
+    // used only at build time (`DependencyKind::Build`).
+    for node in &resolve.nodes {
+        for dep in &node.deps {
+            let is_build_dep = dep
+                .dep_kinds
+                .iter()
+                .any(|k| k.kind == DependencyKind::Build);
+            if is_build_dep {
+                log::debug!("build-dep seed: {} (from {})",
+                    packages.get(&dep.pkg).map(|p| p.name.as_str()).unwrap_or("?"),
+                    packages.get(&node.id).map(|p| p.name.as_str()).unwrap_or("?"),
+                );
+                seeds.insert(&dep.pkg);
             }
         }
     }
 
-    log::debug!("b_crates: {b_crates:?}");
-
-    // =========================================================================
-    // STEP 2: Extract all build dependencies of B0..Bn (C0..Cn)
-    // =========================================================================
-    let mut c_crates = HashSet::new();
-
-    for b_id in &b_crates {
-        if let Some(node) = resolve.nodes.iter().find(|n| n.id == **b_id) {
-            for dep in &node.deps {
-                let has_build_dep = dep
-                    .dep_kinds
-                    .iter()
-                    .any(|k| k.kind == DependencyKind::Build);
-
-                if has_build_dep {
-                    c_crates.insert(&dep.pkg);
-                }
-            }
+    // ─── 3. The `context` crate ───────────────────────────────────────────
+    // The context crate must be compiled normally so its .rmeta / .rlib is
+    // available for linking in the substitution pass.
+    for pkg in &metadata.packages {
+        if pkg.name == "context" {
+            log::debug!("context seed: {}", pkg.name);
+            seeds.insert(&pkg.id);
         }
     }
 
-    log::debug!("c_crates: {c_crates:?}");
-
-    // =========================================================================
-    // STEP 3: Find ALL transitive dependencies (normal + build) of C0..Cn
-    // =========================================================================
-    let mut all_transitive_from_c: HashSet<PackageId> = HashSet::new();
-    let mut to_visit: Vec<&PackageId> = c_crates.iter().copied().collect();
+    // ─── 4. Expand seeds to full transitive closure ───────────────────────
+    let mut result: HashSet<String> = HashSet::new();
+    let mut visited: HashSet<&PackageId> = HashSet::new();
+    let mut to_visit: Vec<&PackageId> = seeds.iter().copied().collect();
 
     while let Some(current_id) = to_visit.pop() {
-        if let Some(node) = resolve.nodes.iter().find(|n| n.id == *current_id) {
+        if !visited.insert(current_id) {
+            continue;
+        }
+
+        // Add crate name to the result set.
+        // Normalize: cargo_metadata uses hyphens (e.g. "proc-macro2") but rustc
+        // uses underscores (e.g. "proc_macro2") in --crate-name. The driver
+        // matches against the rustc name, so we must normalize here.
+        if let Some(pkg) = packages.get(current_id) {
+            result.insert(pkg.name.to_string().replace('-', "_"));
+        }
+
+        // Walk all normal + build dependencies (the deps this crate needs to compile)
+        if let Some(node) = resolve.nodes.iter().find(|n| &n.id == current_id) {
             for dep in &node.deps {
-                let is_valid_edge = dep
+                let is_compile_dep = dep
                     .dep_kinds
                     .iter()
                     .any(|k| k.kind == DependencyKind::Normal || k.kind == DependencyKind::Build);
 
-                if is_valid_edge && !all_transitive_from_c.contains(&dep.pkg) {
-                    all_transitive_from_c.insert(dep.pkg.clone());
+                if is_compile_dep && !visited.contains(&dep.pkg) {
                     to_visit.push(&dep.pkg);
                 }
             }
         }
     }
 
-    all_transitive_from_c
+    log::debug!("total crates to build normally: {} entries", result.len());
+    result
 }

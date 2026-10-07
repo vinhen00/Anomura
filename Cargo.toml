@@ -7,8 +7,6 @@ members = [
 	"crates/context",
 	"crates/anomura_plugins",
 	"crates/anomura_definitions",
-	"test_project/foo", "test_project/foobar",
 	"test-suite/mocks",
 	#"test_project/bar"
 ]
-

@@ -13,8 +13,8 @@ use itertools::Itertools;
 use anomura_driver::function_intercept::FunctionIntercept;
 use anomura_driver::crate_intercept::CrateIntercept;
 use rustc_plugin::{
-    CrateFilter, PluginResult, RustcEnabledForNonFiltered, RustcPlugin, RustcPluginArgs,
-    RustcWrapperType,
+    CargoBuildCommand, CrateFilter, DefaultBuildCommand, PluginResult,
+    RustcEnabledForNonFiltered, RustcPlugin, RustcPluginArgs, RustcWrapperType,
 };
 use serde::{Deserialize, Serialize};
 
@@ -77,7 +77,7 @@ impl RustcPlugin for SubstitutePlugin {
     }
 
     fn args(&self, _target_dir: &Utf8Path) -> rustc_plugin::RustcPluginArgs {
-        let args = env::args().skip(2).collect_vec();
+        let args: Vec<String> = env::args().skip(2).filter(|a| !a.is_empty()).collect();
         args.iter()
             .for_each(|a| log::debug!("discover arg: {:?}", a));
 
@@ -90,12 +90,27 @@ impl RustcPlugin for SubstitutePlugin {
         if let CrateFilter::RunOnCrates(filt) = &filter {
             println!("{:#?}", filt);
         }
+
+        // Extract the cargo subcommand (check, test, build, etc.) from args so
+        // cli_main places it in the correct position (before flags).
+        // If no recognized command is found, fall back to check.
+        use std::str::FromStr;
+        let build_cmd = args
+            .iter()
+            .find_map(|a| CargoBuildCommand::from_str(a).ok())
+            .unwrap_or(CargoBuildCommand::Check);
+        // Remove the build command from args so it isn't duplicated
+        let args: Vec<String> = args
+            .into_iter()
+            .filter(|a| CargoBuildCommand::from_str(a).is_err())
+            .collect();
+
         RustcPluginArgs {
             args: Some(args),
             filter,
             wrapper_type: RustcWrapperType::RustcWrapper,
             rustc_enabled_for_non_filtered: RustcEnabledForNonFiltered::Yes,
-            default_build_command: None,
+            default_build_command: Some(DefaultBuildCommand::Default(build_cmd)),
         }
     }
 
@@ -133,6 +148,11 @@ impl RustcPlugin for SubstitutePlugin {
             format!("context={}", context_path.to_string_lossy()),
         );
 
+        // Suppress warnings for mocked crates — their bodies are generated code
+        // with synthetic source locations (e.g. <mock_gen_N>) that tools like
+        // rust-analyzer cannot resolve to real files.
+        compiler_args.push("--cap-lints=allow".into());
+
         if is_mock_crate_target {
             println!("Running CrateIntercept for mock_crate target: {crate_name}");
             let mut callbacks = CrateIntercept::new(crate_name.clone());
@@ -166,7 +186,9 @@ impl RustcPlugin for SubstitutePlugin {
         if let Ok(cwd) = std::env::current_dir() {
             cargo.env("ANOMURA_CWD", cwd);
         }
-        cargo.args(args);
+        // Filter out empty arguments (e.g. from rust-analyzer passing "" in its command)
+        let sanitized: Vec<&String> = args.iter().filter(|a| !a.is_empty()).collect();
+        cargo.args(sanitized);
     }
 
     fn before_execution(&mut self) {}

@@ -1,11 +1,10 @@
-use crate::list_dependencies::list_transitive_build_dependencies;
-use crate::{DISCOVER_TMP, Utf8Path, list_dependencies};
+use crate::list_dependencies::list_crates_to_build_normally;
+use crate::{DISCOVER_TMP, Utf8Path};
 use clap::Parser;
 use interprocess::local_socket::traits::{Listener as _, Stream};
 use interprocess::local_socket::{
     self, GenericFilePath, GenericNamespaced, ListenerOptions, NameType, ToFsName, ToNsName,
 };
-use itertools::Itertools;
 
 use anomura_driver::compile_mocks::CompileMocks;
 use anomura_driver::parse_mocks::ParseMocks;
@@ -44,30 +43,6 @@ pub struct DiscoverPlugin {
     listener_handle: Option<JoinHandle<(Vec<String>, Vec<String>, Vec<String>)>>,
 }
 
-pub const DISCOVER_BUILD_NORMALY: &[&str] = &[
-    "context",
-    // we needto build all transitive dependencies of context.
-    // we probably want to add version check as a condition aswell,
-    // we also don't want to mock any of these
-    //derive_more dependencies
-    "proc_macro2",
-    "unicode_ident",
-    "quote",
-    "log",
-    "toml",
-    "serde",
-    "serde_core",
-    "serde_derive",
-    "serde_spanned",
-    "toml_datetime",
-    "toml_edit",
-    "indexmap",
-    "equivalent",
-    "hashbrown",
-    "winnow",
-    "rustc_version",
-    "semver",
-];
 impl DiscoverPlugin {
     pub fn new() -> Self {
         let tmp_dir = std::env::temp_dir();
@@ -186,19 +161,13 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
     }
 
     fn args(&self, _target_dir: &Utf8Path) -> rustc_plugin::RustcPluginArgs {
-        let args = env::args().skip(2).collect_vec();
+        let args: Vec<String> = env::args().skip(2).filter(|a| !a.is_empty()).collect();
         args.iter()
             .for_each(|a| log::debug!("discover arg: {:?}", a));
-        let mut build_dependencies = list_transitive_build_dependencies()
-            .iter()
-            .map(|p| p.to_string())
-            .collect::<Vec<_>>();
-        let mut only: Vec<_> = DISCOVER_BUILD_NORMALY
-            .iter()
-            .map(|s| String::from(*s))
+        let only: Vec<String> = list_crates_to_build_normally()
+            .into_iter()
             .collect();
-        only.append(&mut build_dependencies);
-        log::debug!("rustc discover context  only: {:?}", only);
+        log::debug!("rustc discover build normally: {:?}", only);
         RustcPluginArgs {
             args: Some(args),
             filter: CrateFilter::OnlyWorkspace,
@@ -228,7 +197,12 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
 
     fn modify_cargo(&self, cargo: &mut std::process::Command, args: &Vec<String>) {
         cargo.env(DISCOVER_TMP, &self.channel_name);
-        cargo.args(args);
+        // The discover pass overrides the build command to `cargo build`, so we
+        // must strip args that only make sense for the user's original command
+        // (e.g. --message-format, --keep-going from rust-analyzer's `cargo check`).
+        // Keep only target/package selection flags like -p, --bin, --all-targets.
+        let filtered = filter_cargo_target_args(args);
+        cargo.args(&filtered);
     }
 
     fn before_execution(&mut self) {}

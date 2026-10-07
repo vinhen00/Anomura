@@ -98,6 +98,13 @@ fn my_mock_test() {
 }
 ```
 
+## Use with Rust-analyzer
+to get rid of errors and warnings in generated helper-function, you need to modify the setting for rust-analyzer in your IDE. This will supress errors and warnings given by the mocked crate but keep the errors and warnings from regularly compiled crates intact.
+#### For VS-code
+1. change rust-analyzer.check.command to "mock"
+2. change rust-analyzer.check.extraargs to "check"
+
+
 The `fns` crate (`test-suite/fns/`) provides the real function signatures that get mocked during tests.
 
 ## Troubleshooting
