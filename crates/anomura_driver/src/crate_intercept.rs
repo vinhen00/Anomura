@@ -6,6 +6,8 @@
 use rustc_ast as ast;
 use rustc_driver::Compilation;
 use rustc_interface::interface::Compiler;
+use rustc_parse::lexer::StripTokens;
+use rustc_parse::parser::AllowConstBlockItems;
 use rustc_span::symbol::Symbol;
 use rustc_span::FileName;
 
@@ -233,8 +235,8 @@ impl CrateIntercept {
 
         // Determine if it's &self, &mut self, or self
         match &first.ty.kind {
-            ast::TyKind::Ref(_, mut_ty) => {
-                if mut_ty.mutbl == ast::Mutability::Mut {
+            ast::TyKind::Ref(_, _, mutbl) => {
+                if *mutbl == ast::Mutability::Mut {
                     ReceiverKind::RefMut
                 } else {
                     ReceiverKind::Ref
@@ -600,7 +602,7 @@ impl CrateIntercept {
         let psess = &compiler.sess.psess;
         let filename = FileName::Custom(format!("mock_ty_{}", n));
 
-        let mut parser = match rustc_parse::new_parser_from_source_str(psess, filename, ty_str.to_string()) {
+        let mut parser = match rustc_parse::new_parser_from_source_str(psess, filename, ty_str.to_string(), StripTokens::Nothing) {
             Ok(p) => p,
             Err(diags) => { for d in diags { d.cancel(); } return None; }
         };
@@ -616,12 +618,12 @@ impl CrateIntercept {
         let psess = &compiler.sess.psess;
         let filename = FileName::Custom(format!("mock_field_{}", n));
 
-        let mut parser = match rustc_parse::new_parser_from_source_str(psess, filename, source) {
+        let mut parser = match rustc_parse::new_parser_from_source_str(psess, filename, source, StripTokens::Nothing) {
             Ok(p) => p,
             Err(diags) => { for d in diags { d.cancel(); } return None; }
         };
 
-        if let Ok(Some(item)) = parser.parse_item(rustc_parse::parser::ForceCollect::No) {
+        if let Ok(Some(item)) = parser.parse_item(rustc_parse::parser::ForceCollect::No, AllowConstBlockItems::Yes) {
             if let ast::ItemKind::Struct(_, _, ast::VariantData::Struct { fields, .. }) = item.kind {
                 return fields.into_iter().next();
             }
@@ -640,6 +642,7 @@ impl CrateIntercept {
             psess,
             filename,
             source.to_string(),
+            StripTokens::Nothing,
         ) {
             Ok(parser) => parser,
             Err(diags) => {
@@ -652,7 +655,7 @@ impl CrateIntercept {
         };
 
         // Parse as a single item (function)
-        match parser.parse_item(rustc_parse::parser::ForceCollect::No) {
+        match parser.parse_item(rustc_parse::parser::ForceCollect::No, AllowConstBlockItems::Yes) {
             Ok(Some(item)) => {
                 if let ast::ItemKind::Fn(fn_data) = item.kind {
                     Some(fn_data)
@@ -673,6 +676,7 @@ impl CrateIntercept {
             psess,
             filename,
             source.to_string(),
+            StripTokens::Nothing,
         ) {
             Ok(parser) => parser,
             Err(diags) => {
@@ -686,7 +690,7 @@ impl CrateIntercept {
 
         let mut injected = 0;
         loop {
-            match parser.parse_item(rustc_parse::parser::ForceCollect::No) {
+            match parser.parse_item(rustc_parse::parser::ForceCollect::No, AllowConstBlockItems::Yes) {
                 Ok(Some(item)) => {
                     krate.items.push(item);
                     injected += 1;

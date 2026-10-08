@@ -4,7 +4,6 @@ mod mock;
 pub mod mock_objects;
 pub mod mockable;
 pub mod new_expectations;
-pub mod time_mod;
 
 #[cfg(test)]
 mod unit_tests;

@@ -21,4 +21,6 @@ pub const SELECTED_CRATES: &[&str] = &["memchr", "serde_json"];
 pub const SUBSTITUTION_MOCK_PATHS: &str = "SUBSTITUTION_MOCK_PATHS";
 /// Environment variable listing crates targeted by mock_crate! (comma-separated)
 pub const MOCK_CRATE_TARGETS_ENV: &str = "MOCK_CRATE_TARGETS";
+/// Environment variable holding the resolved path to the context crate's .rmeta file
+pub const CONTEXT_RMETA_PATH_ENV: &str = "CONTEXT_RMETA_PATH";
 pub use substitution_pass::mock_map_from_program;

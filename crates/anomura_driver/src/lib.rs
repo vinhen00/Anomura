@@ -23,5 +23,6 @@ extern crate rustc_passes;
 extern crate rustc_serialize;
 extern crate rustc_session;
 extern crate rustc_span;
+extern crate rustc_structures;
 
 pub use visitors::{MockObject, MockedFun, MockedStruct};

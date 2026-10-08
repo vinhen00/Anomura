@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use rustc_driver::Compilation;
 use rustc_interface::interface::{Compiler, Config};
-use rustc_session::config::CrateType;
+use rustc_structures::CrateType;
 
 use crate::visitors::{MockObject, MockedFun, MockedStruct};
 
@@ -23,6 +23,10 @@ impl rustc_span::source_map::FileLoader for MockDefsLoader {
 
     fn read_binary_file(&self, _path: &Path) -> io::Result<Arc<[u8]>> {
         Err(io::Error::other("oops"))
+    }
+
+    fn current_directory(&self) -> io::Result<std::path::PathBuf> {
+        std::env::current_dir()
     }
 }
 

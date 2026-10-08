@@ -184,7 +184,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
     ) -> rustc_interface::interface::Result<()> {
         let mut callbacks = ParseMocks::new(true);
         println!("compiler_args: {:?}", plugin_args);
-        rustc_driver::run_compiler(&compiler_args, &mut callbacks);
+        rustc_driver::compiler_entrypoint(&compiler_args, &mut callbacks);
         println!("got callbacks {:?}", callbacks);
         let _ = send_back_results(&callbacks).inspect_err(|e| {
             eprintln!(
@@ -250,7 +250,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
 
 pub fn compile_maccalls(program: &str) -> CompileMocks {
     let mut mocked_funs = CompileMocks::new(Vec::new(), program.to_string(), false);
-    rustc_driver::run_compiler(
+    rustc_driver::compiler_entrypoint(
         &["ignored".to_string(), "anything".to_string()],
         &mut mocked_funs,
     );

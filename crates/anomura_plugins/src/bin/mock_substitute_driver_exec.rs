@@ -3,8 +3,10 @@
 use anomura_plugins::substitution_pass;
 
 use rustc_plugin::RustcPlugin;
-pub fn main() {
+use std::process::ExitCode;
+
+pub fn main() -> ExitCode {
     env_logger::init();
     log::debug!("entered substitute driver");
-    substitution_pass::SubstitutePlugin::driver_main();
+    substitution_pass::SubstitutePlugin::driver_main()
 }

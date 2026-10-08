@@ -31,7 +31,7 @@ pub struct SubstitutePlugin {
 
 pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockObject>> {
     let mut callbacks = CompileMocks::new(Vec::new(), program.clone(), true);
-    rustc_driver::run_compiler(
+    rustc_driver::compiler_entrypoint(
         &[
             "ignored".to_string(),
             "mock_defs.rs".to_string(),
@@ -130,7 +130,7 @@ impl RustcPlugin for SubstitutePlugin {
         );
 
         log::debug!("sub new compiler args: {:?}", compiler_args);
-        rustc_driver::run_compiler(&compiler_args, &mut callbacks);
+        rustc_driver::compiler_entrypoint(&compiler_args, &mut callbacks);
         Ok(())
     }
 

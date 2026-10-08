@@ -8,7 +8,7 @@ Anomura is a Rust compiler plugin that enables function and method mocking at th
 
 ## Prerequisites
 
-- Rust nightly (`nightly-2025-08-20`) — installed automatically via `rust-toolchain.toml`
+- Rust nightly (`nightly-2026-10-06`) — installed automatically via `rust-toolchain.toml`
 - Components: `rust-src`, `rustc-dev`, `llvm-tools-preview`
 
 ## Project Structure
@@ -110,5 +110,5 @@ The `fns` crate (`test-suite/fns/`) provides the real function signatures that g
 ## Troubleshooting
 
 - **Plugin not found / old version**: Reinstall with `cargo install --path crates/anomura_plugins --force`.
-- **Wrong toolchain errors**: Make sure the nightly version matches across `rust-toolchain.toml` files. Currently pinned to `nightly-2025-08-20`.
+- **Wrong toolchain errors**: Make sure the nightly version matches across `rust-toolchain.toml` files. Currently pinned to `nightly-2026-10-06`.
 - **Link errors about `context`**: The substitution pass automatically links the `context` crate. Make sure it's built as part of the workspace.

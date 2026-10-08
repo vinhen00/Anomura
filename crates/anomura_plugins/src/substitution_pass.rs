@@ -9,12 +9,11 @@ use crate::{MOCK_CRATE_TARGETS_ENV, SUBSTITUTION_MOCK_PATHS, Utf8Path};
 
 use anomura_driver::{MockObject, compile_mocks::CompileMocks};
 
-use itertools::Itertools;
-use anomura_driver::function_intercept::FunctionIntercept;
 use anomura_driver::crate_intercept::CrateIntercept;
+use anomura_driver::function_intercept::FunctionIntercept;
 use rustc_plugin::{
-    CargoBuildCommand, CrateFilter, DefaultBuildCommand, PluginResult,
-    RustcEnabledForNonFiltered, RustcPlugin, RustcPluginArgs, RustcWrapperType,
+    CargoBuildCommand, CrateFilter, DefaultBuildCommand, PluginResult, RustcEnabledForNonFiltered,
+    RustcPlugin, RustcPluginArgs, RustcWrapperType,
 };
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +32,7 @@ pub struct SubstitutePlugin {
 
 pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockObject>> {
     let mut callbacks = CompileMocks::new(Vec::new(), program.clone(), true);
-    rustc_driver::run_compiler(
+    rustc_driver::compiler_entrypoint(
         &[
             "ignored".to_string(),
             "mock_defs.rs".to_string(),
@@ -129,24 +128,13 @@ impl RustcPlugin for SubstitutePlugin {
 
         let is_mock_crate_target = mock_crate_targets.contains(&crate_name);
 
-        // Link against context crate (needed for both paths)
-        let l_index = compiler_args
-            .iter()
-            .enumerate()
-            .find(|(_, e)| *e == "-L")
-            .map(|(i, _)| i)
-            .unwrap();
-        let dependency_args = compiler_args[l_index + 1].split("=").collect_vec();
-        assert!(dependency_args[0] == "dependency");
-        let dependency_path = dependency_args[1].to_string();
-        let context_path = get_context_meta_file(Path::new(&dependency_path))
-            .expect("context .rmeta path not found");
+        // Link against context crate (needed for both paths).
+        // The context rmeta path is resolved in modify_cargo() and passed via env var.
+        let context_path = std::env::var(crate::CONTEXT_RMETA_PATH_ENV)
+            .expect("CONTEXT_RMETA_PATH env var not set — was modify_cargo() called?");
         let mut compiler_args = compiler_args;
-        compiler_args.insert(l_index + 2, "--extern".into());
-        compiler_args.insert(
-            l_index + 3,
-            format!("context={}", context_path.to_string_lossy()),
-        );
+        compiler_args.push("--extern".into());
+        compiler_args.push(format!("context={}", context_path));
 
         // Suppress warnings for mocked crates — their bodies are generated code
         // with synthetic source locations (e.g. <mock_gen_N>) that tools like
@@ -157,7 +145,7 @@ impl RustcPlugin for SubstitutePlugin {
             println!("Running CrateIntercept for mock_crate target: {crate_name}");
             let mut callbacks = CrateIntercept::new(crate_name.clone());
             log::debug!("crate_intercept compiler args: {:?}", compiler_args);
-            rustc_driver::run_compiler(&compiler_args, &mut callbacks);
+            rustc_driver::compiler_entrypoint(&compiler_args, &mut callbacks);
         } else {
             println!("Running FunctionIntercept for crate: {crate_name}");
             let program = std::env::var(SUBSTITUTION_MOCK_PATHS)
@@ -167,7 +155,7 @@ impl RustcPlugin for SubstitutePlugin {
             let mut callbacks = FunctionIntercept::new(mocks);
             println!("plugin_args: {:?}", plugin_args);
             log::debug!("sub new compiler args: {:?}", compiler_args);
-            rustc_driver::run_compiler(&compiler_args, &mut callbacks);
+            rustc_driver::compiler_entrypoint(&compiler_args, &mut callbacks);
         }
 
         Ok(())
@@ -179,9 +167,43 @@ impl RustcPlugin for SubstitutePlugin {
         if !self.mock_crate_targets.is_empty() {
             cargo.env(MOCK_CRATE_TARGETS_ENV, self.mock_crate_targets.join(","));
         }
+
+        // Resolve the context crate's .rmeta path from the plugin target directory
+        // and pass it to the driver via env var, so the driver can inject
+        // `--extern context=<path>` into compiler args regardless of whether
+        // cargo passes `-L` flags.
+        let metadata = cargo_metadata::MetadataCommand::new()
+            .no_deps()
+            .other_options(["--all-features".to_string(), "--offline".to_string()])
+            .exec()
+            .expect("cargo metadata failed");
+        let plugin_subdir = format!("plugin-{}", rustc_plugin::CHANNEL);
+        let build_dir = metadata
+            .target_directory
+            .join(plugin_subdir)
+            .join("debug")
+            .join("build");
+        if let Some(context_path) = find_context_rmeta(build_dir.as_std_path()) {
+            // Also add the context output directory as a dependency search path.
+            // Rewritten crates (e.g. fns) depend on context at the rmeta level,
+            // and rustc needs -L to resolve transitive dependencies when loading
+            // their metadata from downstream crates (e.g. mocks).
+            if let Some(context_dir) = context_path.parent() {
+                let existing_flags = std::env::var("RUSTFLAGS").unwrap_or_default();
+                let new_flags =
+                    format!("{} -L dependency={}", existing_flags, context_dir.display());
+                cargo.env("RUSTFLAGS", new_flags.trim());
+            }
+            cargo.env(crate::CONTEXT_RMETA_PATH_ENV, context_path);
+        }
+
         // Forward debug env vars
-        if let Ok(v) = std::env::var("DUMP_AST") { cargo.env("DUMP_AST", v); }
-        if let Ok(v) = std::env::var("AST_WRITE") { cargo.env("AST_WRITE", v); }
+        if let Ok(v) = std::env::var("DUMP_AST") {
+            cargo.env("DUMP_AST", v);
+        }
+        if let Ok(v) = std::env::var("AST_WRITE") {
+            cargo.env("AST_WRITE", v);
+        }
         // Propagate the user's working directory so the driver can resolve relative paths
         if let Ok(cwd) = std::env::current_dir() {
             cargo.env("ANOMURA_CWD", cwd);
@@ -197,17 +219,22 @@ impl RustcPlugin for SubstitutePlugin {
         Ok(())
     }
 }
-fn get_context_meta_file(folder_path: &Path) -> Option<PathBuf> {
-    let Ok(entries) = std::fs::read_dir(folder_path) else {
-        return None;
-    };
-
+/// Search the plugin build directory for the context crate's .rmeta file.
+///
+/// The rustc_plugin output layout is `<build_dir>/context/<hash>/out/libcontext-<hash>.rmeta`.
+fn find_context_rmeta(build_dir: &Path) -> Option<PathBuf> {
+    let context_dir = build_dir.join("context");
+    let entries = std::fs::read_dir(&context_dir).ok()?;
     for entry in entries.flatten() {
-        let file_name = entry.file_name();
-        let name_str = file_name.to_string_lossy();
-
-        if name_str.starts_with("libcontext") && name_str.ends_with(".rmeta") {
-            return Some(entry.path());
+        let out_dir = entry.path().join("out");
+        if let Ok(files) = std::fs::read_dir(&out_dir) {
+            for file in files.flatten() {
+                let name = file.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with("libcontext") && name_str.ends_with(".rmeta") {
+                    return Some(file.path());
+                }
+            }
         }
     }
     None
