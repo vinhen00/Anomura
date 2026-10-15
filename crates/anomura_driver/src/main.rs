@@ -6,11 +6,14 @@ extern crate rustc_driver;
 use anomura_driver::{
     compile_mocks::CompileMocks, function_intercept::FunctionIntercept, parse_mocks::ParseMocks,
 };
-use rustc_driver::compiler_entrypoint;
+#[cfg(rustc_has_compiler_entrypoint)]
+use rustc_driver::compiler_entrypoint as rustc_run;
+#[cfg(not(rustc_has_compiler_entrypoint))]
+use rustc_driver::run_compiler as rustc_run;
 
 fn main() {
     let mut expanded_macros = ParseMocks::new(false);
-    compiler_entrypoint(
+    rustc_run(
         &[
             "ignored".to_string(),
             "mock_defs.rs".to_string(),
@@ -27,7 +30,7 @@ fn main() {
     );
 
     let mut mocked_funs = CompileMocks::new(Vec::new(), expanded_macros.get_program(), false);
-    compiler_entrypoint(
+    rustc_run(
         &[
             "ignored".to_string(),
             "mock_defs.rs".to_string(),
@@ -41,7 +44,7 @@ fn main() {
 
     let mut insertion = FunctionIntercept::new(mocked_funs.get_mocks());
     //dbg!(&insertion);
-    compiler_entrypoint(
+    rustc_run(
         &[
             "ignored".to_string(),
             "mock_test.rs".to_string(),

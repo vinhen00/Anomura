@@ -4,7 +4,10 @@ use std::sync::Arc;
 
 use rustc_driver::Compilation;
 use rustc_interface::interface::{Compiler, Config};
+#[cfg(rustc_has_structures_crate_type)]
 use rustc_structures::CrateType;
+#[cfg(not(rustc_has_structures_crate_type))]
+use rustc_session::config::CrateType;
 
 use crate::visitors::{MockObject, MockedFun, MockedStruct};
 

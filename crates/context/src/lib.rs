@@ -65,6 +65,8 @@ impl BuildingContext {
             let _warnings = cp.finalize_sequences();
             // TODO: surface warnings to user
         }
+        // Carry over the instance counter so post-build constructors get fresh IDs
+        self.ctx.adt_instance_counter = self.adt_instance_counter;
         self.ctx
     }
 }
@@ -116,38 +118,43 @@ pub fn teardown() {
 /// - `AdtStatic` → registers a static method on a `MockObject`
 /// - `AdtInstance` → registers a per-instance method on a `MockObject`
 pub fn register_mock(mock_id: &MockId) -> Result<()> {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Building(builder) => {
-            let cp = builder
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        let cp = match ctx {
+            CtxState::Building(builder) => builder
                 .ctx
                 .latest_checkpoint_mut()
-                .ok_or_else(|| MockError::from("no checkpoints exist"))?;
-            match mock_id {
-                MockId::Fn(fn_id) => {
-                    if cp.standalone_fns.contains_key(fn_id) {
-                        return Err(MockError::AlreadyRegistered);
-                    }
-                    cp.get_or_create_standalone(fn_id);
-                }
-                MockId::AdtStatic { adt_path, fn_id } => {
-                    let adt_id = AdtId::new(adt_path.to_string(), AdtIdNumber::default());
-                    let mock_object = cp.get_or_create_mock_object(&adt_id);
-                    mock_object
-                        .static_methods
-                        .entry(fn_id.clone())
-                        .or_insert_with(|| MockFunctionObject::new(fn_id.clone()));
-                }
-                MockId::AdtInstance { adt_id, fn_id } => {
-                    let mock_object = cp.get_or_create_mock_object(adt_id);
-                    mock_object
-                        .instance_methods
-                        .entry((adt_id.number, fn_id.clone()))
-                        .or_insert_with(|| MockFunctionObject::new(fn_id.clone()));
-                }
+                .ok_or_else(|| MockError::from("no checkpoints exist"))?,
+            CtxState::Active(global_context) => global_context
+                .active_checkpoint_mut()
+                .ok_or_else(|| MockError::from("no active checkpoint"))?,
+            CtxState::Processing => {
+                return Err(MockError::from("register_mock called during processing"));
             }
-            Ok(())
+        };
+        match mock_id {
+            MockId::Fn(fn_id) => {
+                if cp.standalone_fns.contains_key(fn_id) {
+                    return Err(MockError::AlreadyRegistered);
+                }
+                cp.get_or_create_standalone(fn_id);
+            }
+            MockId::AdtStatic { adt_path, fn_id } => {
+                let adt_id = AdtId::new(adt_path.to_string(), AdtIdNumber::default());
+                let mock_object = cp.get_or_create_mock_object(&adt_id);
+                mock_object
+                    .static_methods
+                    .entry(fn_id.clone())
+                    .or_insert_with(|| MockFunctionObject::new(fn_id.clone()));
+            }
+            MockId::AdtInstance { adt_id, fn_id } => {
+                let mock_object = cp.get_or_create_mock_object(adt_id);
+                mock_object
+                    .instance_methods
+                    .entry((adt_id.number, fn_id.clone()))
+                    .or_insert_with(|| MockFunctionObject::new(fn_id.clone()));
+            }
         }
-        _ => panic!("register_mock called outside of build phase"),
+        Ok(())
     })
 }
 
@@ -195,7 +202,12 @@ fn new_number() -> AdtIdNumber {
             global_context.adt_instance_counter.0 += 1;
             r
         }
-        _ => panic!("add_mock called outside of build phase"),
+        CtxState::Active(global_context) => {
+            let r = global_context.adt_instance_counter;
+            global_context.adt_instance_counter.0 += 1;
+            r
+        }
+        _ => panic!("new_id called during processing"),
     })
 }
 pub fn new_id() -> AdtIdNumber {

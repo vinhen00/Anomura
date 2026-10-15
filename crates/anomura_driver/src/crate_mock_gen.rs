@@ -495,8 +495,7 @@ impl Predicate{fn_cap} {{
     }}
 }}
 
-pub fn on_call_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> bool + 'static, ret: impl Into<Return{fn_cap}>) {{
-    let inner: Return{fn_cap} = ret.into();
+pub fn on_call_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> bool + 'static, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static) {{
     let mock_id = context::MockId::new_fn("{mock_id}");
     let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
         Box::new(move |input: &({type_tuple})| {{
@@ -507,10 +506,13 @@ pub fn on_call_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> bool +
             }}
         }})
     );
+    let ret_ptr = context::ReturnValDoublePointer::from_fn::<({type_tuple}), {ret_type_str}>(
+        Box::new(move |{destructure_pattern}| ret({closure_args}))
+    );
     context::add_on_call::<({type_tuple})>(
         &mock_id,
         cond,
-        inner.0,
+        ret_ptr,
         None,
     ).unwrap();
 }}
@@ -737,9 +739,12 @@ fn gen_method_wrappers(
         .collect::<Vec<_>>()
         .join(", ");
 
-    // on_call: instance method for trackable, static for non-trackable
-    let on_call_self_param = if trackable { "&self, " } else { "" };
-    let on_call_mock_id_expr = if trackable {
+    // on_call: instance method for trackable structs with a self receiver,
+    // static for non-trackable or receiverless methods (constructors, static fns).
+    let has_receiver = method.receiver != super::crate_api::ReceiverKind::None;
+    let instance_scoped = trackable && has_receiver;
+    let on_call_self_param = if instance_scoped { "&self, " } else { "" };
+    let on_call_mock_id_expr = if instance_scoped {
         format!(
             "context::MockId::new_adt_instance(\"{}\", \"{}\", self.adt_mock_id)",
             object_mock_id, method_name
@@ -747,7 +752,7 @@ fn gen_method_wrappers(
     } else {
         format!("context::MockId::new_adt_static(\"{}\", \"{}\")", object_mock_id, method_name)
     };
-    let on_call_object_mock_id_expr = if trackable {
+    let on_call_object_mock_id_expr = if instance_scoped {
         format!(
             "context::AdtId::new(\"{}\", self.adt_mock_id)",
             object_mock_id
@@ -779,8 +784,7 @@ impl Predicate{suffix} {{
 }}
 
 impl {struct_type_path} {{
-    pub fn on_call_{method_name}({on_call_self_param}condition: impl Fn({closure_type_params_ref_str}) -> bool + 'static, ret: impl Into<Return{suffix}>) {{
-        let inner: Return{suffix} = ret.into();
+    pub fn on_call_{method_name}({on_call_self_param}condition: impl Fn({closure_type_params_ref_str}) -> bool + 'static, ret: impl Fn({closure_type_params_str}) -> {ret_type_str} + 'static) {{
         let mock_id = {on_call_mock_id_expr};
         let object_mock_id = {on_call_object_mock_id_expr};
         let cond = context::ConditionDoublePointer::from_fn::<({full_type_tuple})>(
@@ -792,12 +796,15 @@ impl {struct_type_path} {{
                 }}
             }})
         );
+        let ret_ptr = context::ReturnValDoublePointer::from_fn::<({full_type_tuple}), {ret_type_str}>(
+            Box::new(move |{destructure_pattern}| ret({closure_args_str}))
+        );
         context::add_method_on_call::<({full_type_tuple})>(
             &object_mock_id,
             "{method_name}",
             &mock_id,
             cond,
-            inner.0,
+            ret_ptr,
             None,
         ).unwrap();
     }}
@@ -934,8 +941,7 @@ impl Predicate{fn_cap} {{
     }}
 }}
 
-pub fn on_call_{mod_name}_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> bool + 'static, ret: impl Into<Return{fn_cap}>) {{
-    let inner: Return{fn_cap} = ret.into();
+pub fn on_call_{mod_name}_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> bool + 'static, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static) {{
     let mock_id = context::MockId::new_fn("{mock_id}");
     let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
         Box::new(move |input: &({type_tuple})| {{
@@ -946,10 +952,13 @@ pub fn on_call_{mod_name}_{fn_name}(condition: impl Fn({closure_type_params_ref}
             }}
         }})
     );
+    let ret_ptr = context::ReturnValDoublePointer::from_fn::<({type_tuple}), {ret_type_str}>(
+        Box::new(move |{destructure_pattern}| ret({closure_args}))
+    );
     context::add_on_call::<({type_tuple})>(
         &mock_id,
         cond,
-        inner.0,
+        ret_ptr,
         None,
     ).unwrap();
 }}

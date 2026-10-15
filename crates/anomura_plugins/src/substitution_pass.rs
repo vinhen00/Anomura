@@ -32,7 +32,7 @@ pub struct SubstitutePlugin {
 
 pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockObject>> {
     let mut callbacks = CompileMocks::new(Vec::new(), program.clone(), true);
-    rustc_driver::compiler_entrypoint(
+    crate::rustc_run(
         &[
             "ignored".to_string(),
             "mock_defs.rs".to_string(),
@@ -145,7 +145,7 @@ impl RustcPlugin for SubstitutePlugin {
             println!("Running CrateIntercept for mock_crate target: {crate_name}");
             let mut callbacks = CrateIntercept::new(crate_name.clone());
             log::debug!("crate_intercept compiler args: {:?}", compiler_args);
-            rustc_driver::compiler_entrypoint(&compiler_args, &mut callbacks);
+            crate::rustc_run(&compiler_args, &mut callbacks);
         } else {
             println!("Running FunctionIntercept for crate: {crate_name}");
             let program = std::env::var(SUBSTITUTION_MOCK_PATHS)
@@ -155,7 +155,7 @@ impl RustcPlugin for SubstitutePlugin {
             let mut callbacks = FunctionIntercept::new(mocks);
             println!("plugin_args: {:?}", plugin_args);
             log::debug!("sub new compiler args: {:?}", compiler_args);
-            rustc_driver::compiler_entrypoint(&compiler_args, &mut callbacks);
+            crate::rustc_run(&compiler_args, &mut callbacks);
         }
 
         Ok(())

@@ -25,9 +25,9 @@ pub struct MockStruct {
 }
 
 impl MockStruct {
-    pub fn new() -> Self {
+    pub fn new(name: u32) -> Self {
         MockStruct {
-            pubfield: 2,
+            pubfield: name,
             privfield: 1,
         }
     }

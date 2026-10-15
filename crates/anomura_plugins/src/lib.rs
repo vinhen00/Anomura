@@ -24,3 +24,12 @@ pub const MOCK_CRATE_TARGETS_ENV: &str = "MOCK_CRATE_TARGETS";
 /// Environment variable holding the resolved path to the context crate's .rmeta file
 pub const CONTEXT_RMETA_PATH_ENV: &str = "CONTEXT_RMETA_PATH";
 pub use substitution_pass::mock_map_from_program;
+
+/// Version-compatible wrapper for `rustc_driver::compiler_entrypoint` (1.100+)
+/// or `rustc_driver::run_compiler` (< 1.100).
+pub fn rustc_run(args: &[String], callbacks: &mut (dyn rustc_driver::Callbacks + Send)) {
+    #[cfg(rustc_has_compiler_entrypoint)]
+    rustc_driver::compiler_entrypoint(args, callbacks);
+    #[cfg(not(rustc_has_compiler_entrypoint))]
+    rustc_driver::run_compiler(args, callbacks);
+}

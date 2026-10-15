@@ -235,8 +235,17 @@ impl CrateIntercept {
 
         // Determine if it's &self, &mut self, or self
         match &first.ty.kind {
+            #[cfg(rustc_tyref_three_fields)]
             ast::TyKind::Ref(_, _, mutbl) => {
                 if *mutbl == ast::Mutability::Mut {
+                    ReceiverKind::RefMut
+                } else {
+                    ReceiverKind::Ref
+                }
+            }
+            #[cfg(not(rustc_tyref_three_fields))]
+            ast::TyKind::Ref(_, mut_ty) => {
+                if mut_ty.mutbl == ast::Mutability::Mut {
                     ReceiverKind::RefMut
                 } else {
                     ReceiverKind::Ref

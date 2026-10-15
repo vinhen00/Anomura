@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ConditionDoublePointer, MockId, ReturnValDoublePointer, closure_wrappers,
+    AdtIdNumber, ConditionDoublePointer, MockId, ReturnValDoublePointer, closure_wrappers,
     errors::{PredicateResult, Result},
     mock::{self, AdtId, AdtPath, FnId, MockHead},
 };
@@ -415,6 +415,10 @@ pub struct GlobalContext {
     /// Named checkpoint registry: look up checkpoints by user-assigned name.
     pub named_checkpoints: HashMap<CheckpointName, CheckpointIndex>,
     mocks: HashMap<MockId, MockHead>,
+    /// Counter for generating unique ADT instance IDs. Carried over from
+    /// `BuildingContext` when the context transitions to active, so that
+    /// constructors called post-build (via `on_call_new`) get fresh IDs.
+    pub adt_instance_counter: AdtIdNumber,
 }
 
 impl GlobalContext {
@@ -424,6 +428,7 @@ impl GlobalContext {
             checkpoints: Vec::new(),
             named_checkpoints: HashMap::new(),
             mocks: HashMap::new(),
+            adt_instance_counter: AdtIdNumber::default(),
         }
     }
 
