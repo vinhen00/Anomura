@@ -38,7 +38,7 @@ impl CrateIntercept {
                     }
                 }
                 ast::ItemKind::Struct(ident, _generics, fields) if self.is_pub(&item.vis) => {
-                    if let Some(s) = self.collect_struct(ident.name, fields) {
+                    if let Some(s) = self.collect_struct(ident.name, fields, &item.attrs) {
                         module.structs.push(s);
                     }
                 }
@@ -86,7 +86,7 @@ impl CrateIntercept {
         })
     }
 
-    fn collect_struct(&self, name: Symbol, fields: &ast::VariantData) -> Option<StructModel> {
+    fn collect_struct(&self, name: Symbol, fields: &ast::VariantData, attrs: &[ast::Attribute]) -> Option<StructModel> {
         let ast::VariantData::Struct { fields: field_list, .. } = fields else {
             // Skip tuple structs and unit structs for now
             return None;
@@ -102,8 +102,44 @@ impl CrateIntercept {
             .collect::<Vec<_>>();
 
         let trackable = fields.iter().any(|f: &FieldModel| !f.is_pub);
+        let derives = Self::fetch_derives(attrs);
 
-        Some(StructModel { name, fields, trackable })
+        Some(StructModel { name, fields, trackable, derives })
+    }
+
+    /// Inspect `#[derive(...)]` attributes and return a `Derives` with the recognized traits flagged.
+    fn fetch_derives(attrs: &[ast::Attribute]) -> Derives {
+        let mut derives = Derives::default();
+
+        for attr in attrs {
+            let ast::AttrKind::Normal(normal) = &attr.kind else { continue };
+            if normal.item.path.segments.len() != 1
+                || normal.item.path.segments[0].ident.name != Symbol::intern("derive")
+            {
+                continue;
+            }
+            let ast::AttrArgs::Delimited(delimited) = &normal.item.args else { continue };
+
+            for tree in delimited.tokens.iter() {
+                if let rustc_ast::tokenstream::TokenTree::Token(tok, _) = tree {
+                    if tok.is_ident_named(Symbol::intern("Default")) {
+                        derives.default = true;
+                    } else if tok.is_ident_named(Symbol::intern("Clone")) {
+                        derives.clone = true;
+                    } else if tok.is_ident_named(Symbol::intern("Eq")) {
+                        derives.eq = true;
+                    } else if tok.is_ident_named(Symbol::intern("PartialEq")) {
+                        derives.partial_eq = true;
+                    } else if tok.is_ident_named(Symbol::intern("Hash")) {
+                        derives.hash = true;
+                    } else if tok.is_ident_named(Symbol::intern("Debug")) {
+                        derives.debug = true;
+                    }
+                }
+            }
+        }
+
+        derives
     }
 
     fn collect_enum(&self, name: Symbol, variants: &[ast::Variant]) -> Option<EnumModel> {
@@ -596,7 +632,7 @@ impl CrateIntercept {
                 f.ident.map(|i| i.name.as_str() == "adt_mock_id").unwrap_or(false)
             });
             if !exists {
-                if let Some(mock_id_field) = self.parse_struct_field(compiler, "pub adt_mock_id: context::AdtMockId") {
+                if let Some(mock_id_field) = self.parse_struct_field(compiler, "adt_mock_id: context::AdtMockId") {
                     field_list.push(mock_id_field);
                     println!("CrateIntercept: added adt_mock_id field");
                 }

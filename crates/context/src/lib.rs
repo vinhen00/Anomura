@@ -6,14 +6,13 @@ pub mod mockable;
 pub mod new_expectations;
 
 #[cfg(test)]
-mod unit_tests;
-#[cfg(test)]
 mod property_tests;
+#[cfg(test)]
+mod unit_tests;
 pub use crate::closure_wrappers::{ConditionDoublePointer, ReturnValDoublePointer};
 pub use crate::mock::MockId;
 pub use crate::mock::{AdtId, AdtPath, FnId};
 /// Type alias used as the adt_mock_id field in mock structs with private fields.
-pub type AdtMockId = AdtIdNumber;
 pub use crate::mock_objects::{MockFunctionObject, MockObject, OnCall};
 pub use crate::new_expectations::Expectation;
 pub use crate::new_expectations::{
@@ -22,76 +21,47 @@ pub use crate::new_expectations::{
 };
 pub use errors::{MockError, PredicateError, Result};
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::mem;
 
-// ─── Context State Machine ──────────────────────────────────────────────────
+// ─── AdtIdNumber ────────────────────────────────────────────────────────────
 
-/// The context lives in one of two states:
-/// - `Building`: accepting mock registrations, expectations, sequences, checkpoints
-/// - `Active`: ready to evaluate mock calls
-/// - `Processing`: transient state during finish()
-pub enum CtxState {
-    Building(BuildingContext),
-    Active(GlobalContext),
-    Processing,
-}
+pub type AdtMockId = AdtIdNumber;
 
-/// State during the build phase. Holds a `GlobalContext` being constructed.
-/// When `finish()` is called, sequences are finalized and the context becomes Active.
-pub struct BuildingContext {
-    ctx: GlobalContext,
-    /// Default return values for mocks, keyed by MockId.
-    default_returns: HashMap<MockId, ReturnValDoublePointer>,
-    adt_instance_counter: AdtIdNumber,
-}
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct AdtIdNumber(pub u64);
 
-impl BuildingContext {
-    pub fn new() -> Self {
-        // Start with one default (unnamed) checkpoint
-        let mut ctx = GlobalContext::new();
-        ctx.add_checkpoint(Checkpoint::new());
-        Self {
-            ctx,
-            default_returns: HashMap::new(),
-            adt_instance_counter: AdtIdNumber::default(),
-        }
-    }
-
-    /// Finalize: convert all sequence builders to sequences, transition to Active.
-    pub fn finish(mut self) -> GlobalContext {
-        // Finalize sequences in all checkpoints
-        for cp in self.ctx.checkpoints_mut() {
-            let _warnings = cp.finalize_sequences();
-            // TODO: surface warnings to user
-        }
-        // Carry over the instance counter so post-build constructors get fresh IDs
-        self.ctx.adt_instance_counter = self.adt_instance_counter;
-        self.ctx
-    }
-}
-
-impl Default for BuildingContext {
+impl Default for AdtIdNumber {
     fn default() -> Self {
-        Self::new()
+        Self(0)
     }
 }
 
-impl CtxState {
-    pub fn finish(&mut self) {
-        let old_self = mem::replace(self, CtxState::Processing);
-        *self = match old_self {
-            CtxState::Building(builder) => CtxState::Active(builder.finish()),
-            _ => panic!("finish was called on state that is not Building"),
-        }
+impl std::fmt::Display for AdtIdNumber {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
+}
+
+impl AdtIdNumber {
+    fn new() -> AdtIdNumber {
+        GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+            let r = ctx.adt_instance_counter;
+            ctx.adt_instance_counter.0 += 1;
+            r
+        })
+    }
+}
+
+/// Generate a fresh unique ADT instance ID.
+pub fn new_id() -> AdtIdNumber {
+    AdtIdNumber::new()
 }
 
 // ─── Thread-Local Global Context ────────────────────────────────────────────
 
 thread_local! {
-    pub static GLOBAL_CONTEXT: RefCell<CtxState> =
-        RefCell::new(CtxState::Building(BuildingContext::new()));
+    pub static GLOBAL_CONTEXT: RefCell<GlobalContext> =
+        RefCell::new(GlobalContext::new());
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
@@ -107,11 +77,15 @@ pub fn finish_building_context() {
 /// Tear down the context and reset to a fresh build state.
 pub fn teardown() {
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
-        *ctx = CtxState::Building(BuildingContext::new());
+        *ctx = GlobalContext::new();
     });
 }
 
-/// Register a mock in the current checkpoint. Must be called during the build phase.
+/// Register a mock in the current checkpoint.
+///
+/// During the build phase, registers in the latest checkpoint.
+/// During the active phase, registers in the active checkpoint (needed for
+/// constructors called post-build via `on_call_new`).
 ///
 /// Routes based on the `MockId` variant:
 /// - `Fn` → registers a standalone function in `standalone_fns`
@@ -119,17 +93,12 @@ pub fn teardown() {
 /// - `AdtInstance` → registers a per-instance method on a `MockObject`
 pub fn register_mock(mock_id: &MockId) -> Result<()> {
     GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
-        let cp = match ctx {
-            CtxState::Building(builder) => builder
-                .ctx
-                .latest_checkpoint_mut()
-                .ok_or_else(|| MockError::from("no checkpoints exist"))?,
-            CtxState::Active(global_context) => global_context
-                .active_checkpoint_mut()
-                .ok_or_else(|| MockError::from("no active checkpoint"))?,
-            CtxState::Processing => {
-                return Err(MockError::from("register_mock called during processing"));
-            }
+        let cp = if ctx.is_building {
+            ctx.latest_checkpoint_mut()
+                .ok_or_else(|| MockError::from("no checkpoints exist"))?
+        } else {
+            ctx.active_checkpoint_mut()
+                .ok_or_else(|| MockError::from("no active checkpoint"))?
         };
         match mock_id {
             MockId::Fn(fn_id) => {
@@ -139,15 +108,14 @@ pub fn register_mock(mock_id: &MockId) -> Result<()> {
                 cp.get_or_create_standalone(fn_id);
             }
             MockId::AdtStatic { adt_path, fn_id } => {
-                let adt_id = AdtId::new(adt_path.to_string(), AdtIdNumber::default());
-                let mock_object = cp.get_or_create_mock_object(&adt_id);
+                let mock_object = cp.get_or_create_mock_object(adt_path);
                 mock_object
                     .static_methods
                     .entry(fn_id.clone())
                     .or_insert_with(|| MockFunctionObject::new(fn_id.clone()));
             }
             MockId::AdtInstance { adt_id, fn_id } => {
-                let mock_object = cp.get_or_create_mock_object(adt_id);
+                let mock_object = cp.get_or_create_mock_object(&adt_id.path);
                 mock_object
                     .instance_methods
                     .entry((adt_id.number, fn_id.clone()))
@@ -158,60 +126,34 @@ pub fn register_mock(mock_id: &MockId) -> Result<()> {
     })
 }
 
-/// Returns true if the context is in Active state and the given mock id
-/// has been registered (either as a standalone function or as an ADT method).
-pub fn ctx_built_and_contains_id(id: &MockId) -> bool {
-    GLOBAL_CONTEXT.with_borrow(|ctx| match ctx {
-        CtxState::Active(global_context) => {
-            let Some(cp) = global_context.active_checkpoint() else {
-                return false;
-            };
-            match id {
-                MockId::Fn(fn_id) => cp.standalone_fns.contains_key(fn_id),
-                MockId::AdtStatic { adt_path, fn_id } => cp
-                    .mock_objects
-                    .get(adt_path)
-                    .map(|obj| obj.static_methods.contains_key(fn_id))
-                    .unwrap_or(false),
-                MockId::AdtInstance { adt_id, fn_id } => cp
-                    .mock_objects
-                    .get(&adt_id.path)
-                    .map(|obj| {
-                        obj.instance_methods
-                            .contains_key(&(adt_id.number, fn_id.clone()))
-                    })
-                    .unwrap_or(false),
-            }
-        }
-        _ => false,
-    })
-}
-#[derive(Clone, Copy, Debug, Default, Hash, Eq, PartialEq)]
-pub struct AdtIdNumber(pub u64);
-
-impl std::fmt::Display for AdtIdNumber {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
+/// Returns true if the context has been finalized (past the build phase).
+pub fn ctx_built() -> bool {
+    GLOBAL_CONTEXT.with_borrow(|ctx| !ctx.is_building)
 }
 
-fn new_number() -> AdtIdNumber {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Building(global_context) => {
-            let r = global_context.adt_instance_counter;
-            global_context.adt_instance_counter.0 += 1;
-            r
+/// Returns true if the given mock id has been registered in the active checkpoint.
+pub fn contains_id(id: &MockId) -> bool {
+    GLOBAL_CONTEXT.with_borrow(|ctx| {
+        let Some(cp) = ctx.active_checkpoint() else {
+            return false;
+        };
+        match id {
+            MockId::Fn(fn_id) => cp.standalone_fns.contains_key(fn_id),
+            MockId::AdtStatic { adt_path, fn_id } => cp
+                .mock_objects
+                .get(adt_path)
+                .map(|obj| obj.static_methods.contains_key(fn_id))
+                .unwrap_or(false),
+            MockId::AdtInstance { adt_id, fn_id } => cp
+                .mock_objects
+                .get(&adt_id.path)
+                .map(|obj| {
+                    obj.instance_methods
+                        .contains_key(&(adt_id.number, fn_id.clone()))
+                })
+                .unwrap_or(false),
         }
-        CtxState::Active(global_context) => {
-            let r = global_context.adt_instance_counter;
-            global_context.adt_instance_counter.0 += 1;
-            r
-        }
-        _ => panic!("new_id called during processing"),
     })
-}
-pub fn new_id() -> AdtIdNumber {
-    new_number()
 }
 
 // ─── Checkpoint operations ──────────────────────────────────────────────────
@@ -219,12 +161,9 @@ pub fn new_id() -> AdtIdNumber {
 /// Create a new named checkpoint. Expectations added after this call
 /// go into this checkpoint (the latest one).
 pub fn new_checkpoint(name: impl Into<CheckpointName>) -> Result<()> {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Building(builder) => {
-            builder.ctx.add_named_checkpoint(name, Checkpoint::new())?;
-            Ok(())
-        }
-        _ => panic!("new_checkpoint called outside of build phase"),
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        ctx.add_named_checkpoint(name, Checkpoint::default())?;
+        Ok(())
     })
 }
 
@@ -232,50 +171,50 @@ pub fn new_checkpoint(name: impl Into<CheckpointName>) -> Result<()> {
 /// If yes, advance to the next checkpoint.
 /// If no, return an error with details of what's unsatisfied.
 pub fn control_checkpoint() -> Result<()> {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Active(global_context) => {
-            let cp = global_context
-                .active_checkpoint()
-                .ok_or_else(|| MockError::from("no active checkpoint"))?;
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        let cp = ctx
+            .active_checkpoint()
+            .ok_or_else(|| MockError::from("no active checkpoint"))?;
 
-            if !cp.is_complete() {
-                let unsatisfied_exp = cp.unsatisfied_expectations();
-                let unsatisfied_seq = cp.unsatisfied_sequences();
-                return Err(format!(
-                    "checkpoint not complete: {} unsatisfied expectations, {} unsatisfied sequences",
-                    unsatisfied_exp.len(),
-                    unsatisfied_seq.len(),
-                )
-                .into());
-            }
-
-            global_context.advance_checkpoint();
-            Ok(())
+        if !cp.is_complete() {
+            let unsatisfied_exp = cp.unsatisfied_expectation_count();
+            let unsatisfied_seq = cp.unsatisfied_sequences();
+            return Err(format!(
+                "checkpoint not complete: {} unsatisfied expectations, {} unsatisfied sequences",
+                unsatisfied_exp,
+                unsatisfied_seq.len(),
+            )
+            .into());
         }
-        _ => panic!("control_checkpoint called outside of active phase"),
+
+        ctx.advance_checkpoint();
+        Ok(())
     })
 }
 
 // ─── Sequence operations ────────────────────────────────────────────────────
 
 /// Create a named sequence with a declared length in the specified (or latest) checkpoint.
+/// Must be called during the build phase — sequences require finalization before use.
 pub fn new_sequence(
     name: impl Into<String>,
     size: usize,
     modifier: TimesModifier,
     checkpoint_name: Option<CheckpointName>,
 ) -> Result<()> {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Building(builder) => {
-            let cp = resolve_or_latest_checkpoint_mut(&mut builder.ctx, checkpoint_name.as_ref())?;
-            cp.create_named_sequence(name.into(), size, modifier)?;
-            Ok(())
-        }
-        _ => panic!("new_sequence called outside of build phase"),
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        assert!(
+            ctx.is_building,
+            "new_sequence called outside of build phase"
+        );
+        let cp = resolve_or_latest_checkpoint_mut(ctx, checkpoint_name.as_ref())?;
+        cp.create_named_sequence(name.into(), size, modifier)?;
+        Ok(())
     })
 }
 
 /// Add an expectation to a specific position in a named sequence.
+/// Must be called during the build phase — sequences require finalization before use.
 pub fn add_expectation_to_sequence<Input, ReturnVal>(
     mock_id: &MockId,
     condition: ConditionDoublePointer,
@@ -285,30 +224,31 @@ pub fn add_expectation_to_sequence<Input, ReturnVal>(
     checkpoint_name: Option<CheckpointName>,
 ) -> Result<()> {
     let sequence_name = sequence_name.into();
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Building(builder) => {
-            let cp = resolve_or_latest_checkpoint_mut(&mut builder.ctx, checkpoint_name.as_ref())?;
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        assert!(
+            ctx.is_building,
+            "add_expectation_to_sequence called outside of build phase"
+        );
+        let cp = resolve_or_latest_checkpoint_mut(ctx, checkpoint_name.as_ref())?;
 
-            // Create the predicate in the arena
-            let pred_idx = cp.create_single::<Input>(mock_id, condition);
+        // Create the predicate in the arena
+        let pred_idx = cp.create_single::<Input>(mock_id, condition);
 
-            // Resolve the sequence by name
-            let seq_idx = cp
-                .resolve_sequence_name(&sequence_name)
-                .ok_or_else(|| format!("sequence '{}' not found", sequence_name.0))?;
+        // Resolve the sequence by name
+        let seq_idx = cp
+            .resolve_sequence_name(&sequence_name)
+            .ok_or_else(|| format!("sequence '{}' not found", sequence_name.0))?;
 
-            // Set the step at the given index
-            cp.set_sequence_step::<Input, ReturnVal>(
-                seq_idx,
-                sequence_index,
-                mock_id,
-                pred_idx,
-                return_val_closure,
-            )?;
+        // Set the step at the given index
+        cp.set_sequence_step::<Input, ReturnVal>(
+            seq_idx,
+            sequence_index,
+            mock_id,
+            pred_idx,
+            return_val_closure,
+        )?;
 
-            Ok(())
-        }
-        _ => panic!("add_expectation_to_sequence called outside of build phase"),
+        Ok(())
     })
 }
 
@@ -317,19 +257,20 @@ pub fn add_expectation_to_sequence<Input, ReturnVal>(
 /// The sequence will hijack all mocks that appear in its steps.
 pub fn activate_sequence(sequence_name: impl Into<SequenceName>) -> Result<()> {
     let sequence_name = sequence_name.into();
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Active(global_context) => {
-            let cp = global_context
-                .active_checkpoint_mut()
-                .ok_or_else(|| MockError::from("no active checkpoint"))?;
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        assert!(
+            !ctx.is_building,
+            "activate_sequence called during build phase"
+        );
+        let cp = ctx
+            .active_checkpoint_mut()
+            .ok_or_else(|| MockError::from("no active checkpoint"))?;
 
-            let seq_idx = cp
-                .resolve_sequence_name(&sequence_name)
-                .ok_or_else(|| format!("sequence '{}' not found", sequence_name.0))?;
+        let seq_idx = cp
+            .resolve_sequence_name(&sequence_name)
+            .ok_or_else(|| format!("sequence '{}' not found", sequence_name.0))?;
 
-            cp.activate_sequence(seq_idx)
-        }
-        _ => panic!("activate_sequence called outside of active phase"),
+        cp.activate_sequence(seq_idx)
     })
 }
 
@@ -344,22 +285,19 @@ pub fn add_expectation<Input, ReturnVal>(
     checkpoint_name: Option<CheckpointName>,
     modifier: TimesModifier,
 ) -> Result<()> {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Building(builder) => {
-            let cp = resolve_or_latest_checkpoint_mut(&mut builder.ctx, checkpoint_name.as_ref())?;
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        let cp = resolve_or_latest_checkpoint_mut(ctx, checkpoint_name.as_ref())?;
 
-            // Create predicate in arena
-            let pred_idx = cp.create_single::<Input>(mock_id, condition);
+        // Create predicate in arena
+        let pred_idx = cp.create_single::<Input>(mock_id, condition);
 
-            // Wrap with cardinality in the predicate tree
-            let timed_pred = cp.times_arena(pred_idx, modifier);
+        // Wrap with cardinality in the predicate tree
+        let timed_pred = cp.times_arena(pred_idx, modifier);
 
-            // Route through the new MockFunctionObject system
-            cp.expect_standalone(mock_id, timed_pred, return_val_closure);
+        // Route through the new MockFunctionObject system
+        cp.expect_standalone(mock_id, timed_pred, return_val_closure);
 
-            Ok(())
-        }
-        _ => panic!("add_expectation called outside of build phase"),
+        Ok(())
     })
 }
 
@@ -371,13 +309,10 @@ pub fn add_on_call<Input>(
     return_val: ReturnValDoublePointer,
     checkpoint_name: Option<CheckpointName>,
 ) -> Result<()> {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Building(builder) => {
-            let cp = resolve_or_latest_checkpoint_mut(&mut builder.ctx, checkpoint_name.as_ref())?;
-            cp.on_call_standalone(mock_id, condition, return_val);
-            Ok(())
-        }
-        _ => panic!("add_on_call called outside of build phase"),
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        let cp = resolve_or_latest_checkpoint_mut(ctx, checkpoint_name.as_ref())?;
+        cp.on_call_standalone(mock_id, condition, return_val);
+        Ok(())
     })
 }
 
@@ -391,24 +326,21 @@ pub fn add_method_expectation<Input, ReturnVal>(
     checkpoint_name: Option<CheckpointName>,
     modifier: TimesModifier,
 ) -> Result<()> {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Building(builder) => {
-            let cp = resolve_or_latest_checkpoint_mut(&mut builder.ctx, checkpoint_name.as_ref())?;
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        let cp = resolve_or_latest_checkpoint_mut(ctx, checkpoint_name.as_ref())?;
 
-            let pred_idx = cp.create_single::<Input>(method_mock_id, condition);
-            let timed_pred = cp.times_arena(pred_idx, modifier);
+        let pred_idx = cp.create_single::<Input>(method_mock_id, condition);
+        let timed_pred = cp.times_arena(pred_idx, modifier);
 
-            cp.expect_method(
-                object_mock_id,
-                method_name,
-                method_mock_id,
-                timed_pred,
-                return_val_closure,
-            );
+        cp.expect_method(
+            object_mock_id,
+            method_name,
+            method_mock_id,
+            timed_pred,
+            return_val_closure,
+        );
 
-            Ok(())
-        }
-        _ => panic!("add_method_expectation called outside of build phase"),
+        Ok(())
     })
 }
 
@@ -421,68 +353,61 @@ pub fn add_method_on_call<Input>(
     return_val: ReturnValDoublePointer,
     checkpoint_name: Option<CheckpointName>,
 ) -> Result<()> {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Building(builder) => {
-            let cp = resolve_or_latest_checkpoint_mut(&mut builder.ctx, checkpoint_name.as_ref())?;
-            cp.on_call_method(
-                object_mock_id,
-                method_name,
-                method_mock_id,
-                condition,
-                return_val,
-            );
-            Ok(())
-        }
-        _ => panic!("add_method_on_call called outside of build phase"),
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        let cp = resolve_or_latest_checkpoint_mut(ctx, checkpoint_name.as_ref())?;
+        cp.on_call_method(
+            object_mock_id,
+            method_name,
+            method_mock_id,
+            condition,
+            return_val,
+        );
+        Ok(())
     })
 }
 
 // ─── Mock execution ─────────────────────────────────────────────────────────
 
 /// Execute a mock call. Evaluates the active checkpoint's expectations/sequences.
-///
 pub fn run_mock<Input, ReturnVal>(mock_id: MockId, input: Input) -> Result<ReturnVal> {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Active(global_context) => {
-            let cp = global_context
-                .active_checkpoint_mut()
-                .ok_or_else(|| MockError::from("no active checkpoint"))?;
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        assert!(!ctx.is_building, "run_mock called during build phase");
+        let cp = ctx
+            .active_checkpoint_mut()
+            .ok_or_else(|| MockError::from("no active checkpoint"))?;
 
-            // Check that mock is registered in this checkpoint
-            let has_mock = match &mock_id {
-                MockId::Fn(fn_id) => cp.standalone_fns.contains_key(fn_id),
-                MockId::AdtStatic { adt_path, fn_id } => cp
-                    .mock_objects
-                    .get(adt_path)
-                    .map(|obj| obj.static_methods.contains_key(fn_id))
-                    .unwrap_or(false),
-                MockId::AdtInstance { adt_id, fn_id } => cp
-                    .mock_objects
-                    .get(&adt_id.path)
-                    .map(|obj| {
-                        obj.instance_methods
-                            .contains_key(&(adt_id.number, fn_id.clone()))
-                    })
-                    .unwrap_or(false),
-            } || cp.expectations.contains_key(&mock_id);
+        // Check that mock is registered in this checkpoint
+        let has_mock = match &mock_id {
+            MockId::Fn(fn_id) => cp.standalone_fns.contains_key(fn_id),
+            MockId::AdtStatic { adt_path, fn_id } => cp
+                .mock_objects
+                .get(adt_path)
+                .map(|obj| obj.static_methods.contains_key(fn_id))
+                .unwrap_or(false),
+            MockId::AdtInstance { adt_id, fn_id } => cp
+                .mock_objects
+                .get(&adt_id.path)
+                .map(|obj| {
+                    obj.instance_methods
+                        .contains_key(&(adt_id.number, fn_id.clone()))
+                })
+                .unwrap_or(false),
+        } || cp.expectations.contains_key(&mock_id);
 
-            if !has_mock {
-                return Err(MockError::NoMatchingId);
-            }
-
-            // Safety: caller must ensure types match
-            let result = unsafe { cp.evaluate::<Input, ReturnVal>(&mock_id, input) };
-
-            match result {
-                Ok(Some(ret)) => Ok(ret),
-                Ok(None) => Err(
-                    "expectation matched but no return value provided and no default available"
-                        .into(),
-                ),
-                Err(e) => Err(e),
-            }
+        if !has_mock {
+            return Err(MockError::NoMatchingId);
         }
-        _ => panic!("run_mock called outside of active phase"),
+
+        // Safety: caller must ensure types match
+        let result = unsafe { cp.evaluate::<Input, ReturnVal>(&mock_id, input) };
+
+        match result {
+            Ok(Some(ret)) => Ok(ret),
+            Ok(None) => Err(
+                "expectation matched but no return value provided and no default available".into(),
+            ),
+            Err(e) => Err(e),
+        }
     })
 }
 
@@ -494,12 +419,7 @@ pub fn run_mock<Input, ReturnVal>(mock_id: MockId, input: Input) -> Result<Retur
 /// Panics if no checkpoints exist (should never happen as one is created by default).
 pub fn latest_checkpoint(f: impl FnOnce(&Checkpoint)) {
     GLOBAL_CONTEXT.with_borrow(|ctx| {
-        let global = match ctx {
-            CtxState::Building(builder) => &builder.ctx,
-            CtxState::Active(global_context) => global_context,
-            CtxState::Processing => panic!("latest_checkpoint called during processing"),
-        };
-        let cp = global.latest_checkpoint().expect("no checkpoints exist");
+        let cp = ctx.latest_checkpoint().expect("no checkpoints exist");
         f(cp);
     });
 }
@@ -510,15 +430,10 @@ pub fn latest_checkpoint(f: impl FnOnce(&Checkpoint)) {
 /// Returns an error if no checkpoint with the given name exists.
 pub fn checkpoint_by_name(name: &str, f: impl FnOnce(&Checkpoint)) -> Result<()> {
     GLOBAL_CONTEXT.with_borrow(|ctx| {
-        let global = match ctx {
-            CtxState::Building(builder) => &builder.ctx,
-            CtxState::Active(global_context) => global_context,
-            CtxState::Processing => panic!("checkpoint_by_name called during processing"),
-        };
-        let idx = global
+        let idx = ctx
             .resolve_checkpoint(name)
             .ok_or_else(|| MockError::from(format!("checkpoint '{}' not found", name)))?;
-        let cp = global
+        let cp = ctx
             .get_checkpoint(idx)
             .ok_or_else(|| MockError::from(format!("checkpoint '{}' index invalid", name)))?;
         f(cp);
@@ -548,19 +463,12 @@ fn resolve_or_latest_checkpoint_mut<'a>(
 }
 
 /// Mutable access to the latest checkpoint via a closure.
-/// Works only in the build phase.
 ///
-/// Panics if no checkpoints exist or if called outside the build phase.
+/// Panics if no checkpoints exist.
 pub fn latest_checkpoint_mut(f: impl FnOnce(&mut Checkpoint)) {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Building(builder) => {
-            let cp = builder
-                .ctx
-                .latest_checkpoint_mut()
-                .expect("no checkpoints exist");
-            f(cp);
-        }
-        _ => panic!("latest_checkpoint_mut called outside of build phase"),
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        let cp = ctx.latest_checkpoint_mut().expect("no checkpoints exist");
+        f(cp);
     });
 }
 
@@ -570,43 +478,28 @@ pub fn latest_checkpoint_mut(f: impl FnOnce(&mut Checkpoint)) {
 ///
 /// Intended for cleanup operations (e.g. Drop impls) that may run in either phase.
 pub fn active_or_latest_checkpoint_mut(f: impl FnOnce(&mut Checkpoint)) {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Building(builder) => {
-            let cp = builder
-                .ctx
-                .latest_checkpoint_mut()
-                .expect("no checkpoints exist");
-            f(cp);
-        }
-        CtxState::Active(global_context) => {
-            let cp = global_context
-                .active_checkpoint_mut()
-                .expect("no active checkpoint");
-            f(cp);
-        }
-        CtxState::Processing => panic!("cannot access checkpoint during processing"),
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        let cp = if ctx.is_building {
+            ctx.latest_checkpoint_mut().expect("no checkpoints exist")
+        } else {
+            ctx.active_checkpoint_mut().expect("no active checkpoint")
+        };
+        f(cp);
     });
 }
 
 /// Mutable access to a checkpoint looked up by name via a closure.
-/// Works only in the build phase.
 ///
-/// Panics if called outside the build phase.
 /// Returns an error if no checkpoint with the given name exists.
 pub fn checkpoint_by_name_mut(name: &str, f: impl FnOnce(&mut Checkpoint)) -> Result<()> {
-    GLOBAL_CONTEXT.with_borrow_mut(|ctx| match ctx {
-        CtxState::Building(builder) => {
-            let idx = builder
-                .ctx
-                .resolve_checkpoint(name)
-                .ok_or_else(|| MockError::from(format!("checkpoint '{}' not found", name)))?;
-            let cp = builder
-                .ctx
-                .get_checkpoint_mut(idx)
-                .ok_or_else(|| MockError::from(format!("checkpoint '{}' index invalid", name)))?;
-            f(cp);
-            Ok(())
-        }
-        _ => panic!("checkpoint_by_name_mut called outside of build phase"),
+    GLOBAL_CONTEXT.with_borrow_mut(|ctx| {
+        let idx = ctx
+            .resolve_checkpoint(name)
+            .ok_or_else(|| MockError::from(format!("checkpoint '{}' not found", name)))?;
+        let cp = ctx
+            .get_checkpoint_mut(idx)
+            .ok_or_else(|| MockError::from(format!("checkpoint '{}' index invalid", name)))?;
+        f(cp);
+        Ok(())
     })
 }

@@ -40,12 +40,24 @@ impl ModuleModel {
     }
 }
 
+/// Tracked derive implementations on a struct.
+#[derive(Debug, Clone, Default)]
+pub struct Derives {
+    pub default: bool,
+    pub clone: bool,
+    pub eq: bool,
+    pub partial_eq: bool,
+    pub hash: bool,
+    pub debug: bool,
+}
+
 /// A public struct with its fields.
 #[derive(Debug, Clone)]
 pub struct StructModel {
     pub name: Symbol,
     pub fields: Vec<FieldModel>,
     pub trackable: bool,
+    pub derives: Derives,
 }
 
 impl StructModel {

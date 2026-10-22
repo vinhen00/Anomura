@@ -22,6 +22,7 @@ impl PredicateIndex {
 /// Slots may be `None` (tombstones) after predicates are consumed by combinators
 /// via `take()`. Remaining predicates (those not consumed) are root-level or
 /// serve as `After` dependency observation points.
+#[derive(Default)]
 pub struct PredicateArena {
     predicates: Vec<Option<Predicate>>,
 }
@@ -415,21 +416,26 @@ pub struct GlobalContext {
     /// Named checkpoint registry: look up checkpoints by user-assigned name.
     pub named_checkpoints: HashMap<CheckpointName, CheckpointIndex>,
     mocks: HashMap<MockId, MockHead>,
-    /// Counter for generating unique ADT instance IDs. Carried over from
-    /// `BuildingContext` when the context transitions to active, so that
-    /// constructors called post-build (via `on_call_new`) get fresh IDs.
+    /// Counter for generating unique ADT instance IDs.
     pub adt_instance_counter: AdtIdNumber,
+    /// Whether the context is still in the build phase (accepting registrations).
+    /// After `finish()` is called, this flips to `false` and mock dispatch becomes active.
+    pub is_building: bool,
 }
 
 impl GlobalContext {
     pub fn new() -> Self {
-        Self {
+        let mut ctx = Self {
             checkpoint_index: 0,
             checkpoints: Vec::new(),
             named_checkpoints: HashMap::new(),
             mocks: HashMap::new(),
             adt_instance_counter: AdtIdNumber::default(),
-        }
+            is_building: true,
+        };
+        // Start with one default (unnamed) checkpoint
+        ctx.add_checkpoint(Checkpoint::default());
+        ctx
     }
 
     /// Add a checkpoint and return its index.
@@ -515,6 +521,20 @@ impl GlobalContext {
     pub fn checkpoints_mut(&mut self) -> &mut Vec<Checkpoint> {
         &mut self.checkpoints
     }
+
+    /// Finalize the build phase: convert all sequence builders to sequences,
+    /// then flip `is_building` to false so mock dispatch becomes active.
+    pub fn finish(&mut self) {
+        assert!(
+            self.is_building,
+            "finish() called on already-finished context"
+        );
+        for cp in self.checkpoints.iter_mut() {
+            let _warnings = cp.finalize_sequences();
+            // TODO: surface warnings to user
+        }
+        self.is_building = false;
+    }
 }
 
 impl Default for GlobalContext {
@@ -522,7 +542,7 @@ impl Default for GlobalContext {
         Self::new()
     }
 }
-
+#[derive(Default)]
 pub struct Checkpoint {
     /// The arena holding all predicates for this checkpoint.
     pub arena: PredicateArena,
@@ -555,20 +575,6 @@ pub struct Checkpoint {
 }
 
 impl Checkpoint {
-    pub fn new() -> Self {
-        Self {
-            arena: PredicateArena::new(),
-            named_predicates: HashMap::new(),
-            named_sequences: HashMap::new(),
-            standalone_fns: HashMap::new(),
-            mock_objects: HashMap::new(),
-            expectations: HashMap::new(),
-            sequences: Vec::new(),
-            sequence_builders: Vec::new(),
-            hijacked_mocks: HashMap::new(),
-        }
-    }
-
     // ─── Named predicate operations ─────────────────────────────────────
 
     /// Assign a name to any existing predicate index (leaf, combinator, or otherwise).
@@ -680,11 +686,11 @@ impl Checkpoint {
     /// Get or create a MockObject for an ADT instance.
     pub fn get_or_create_mock_object(
         &mut self,
-        object_mock_id: &AdtId,
+        adt_path: &AdtPath,
     ) -> &mut crate::mock_objects::MockObject {
         self.mock_objects
-            .entry(object_mock_id.path.clone())
-            .or_insert_with(|| crate::mock_objects::MockObject::new(object_mock_id.clone()))
+            .entry(adt_path.clone())
+            .or_insert_with(|| crate::mock_objects::MockObject::new(adt_path.clone()))
     }
 
     /// Build an Expectation from arena state and a predicate index.
@@ -746,7 +752,7 @@ impl Checkpoint {
         return_val: Option<ReturnValDoublePointer>,
     ) {
         let expectation = self.build_expectation(predicate, return_val);
-        let mock_object = self.get_or_create_mock_object(object_mock_id);
+        let mock_object = self.get_or_create_mock_object(&object_mock_id.path);
         match method_mock_id {
             MockId::AdtStatic { fn_id, .. } => {
                 mock_object
@@ -762,9 +768,11 @@ impl Checkpoint {
                     .or_insert_with(|| crate::mock_objects::MockFunctionObject::new(fn_id.clone()))
                     .add_expectation(expectation);
             }
-            MockId::Fn(_) => {
+            MockId::Fn(fn_id) => {
                 mock_object
-                    .get_or_create_method(method_name, method_mock_id.fn_id().clone())
+                    .static_methods
+                    .entry(fn_id.clone())
+                    .or_insert_with(|| crate::mock_objects::MockFunctionObject::new(fn_id.clone()))
                     .add_expectation(expectation);
             }
         }
@@ -785,7 +793,7 @@ impl Checkpoint {
             mock_id: method_mock_id.clone(),
             return_val,
         };
-        let mock_object = self.get_or_create_mock_object(object_mock_id);
+        let mock_object = self.get_or_create_mock_object(&object_mock_id.path);
         match method_mock_id {
             MockId::AdtStatic { fn_id, .. } => {
                 mock_object
@@ -801,9 +809,11 @@ impl Checkpoint {
                     .or_insert_with(|| crate::mock_objects::MockFunctionObject::new(fn_id.clone()))
                     .add_on_call(on_call);
             }
-            MockId::Fn(_) => {
+            MockId::Fn(fn_id) => {
                 mock_object
-                    .get_or_create_method(method_name, method_mock_id.fn_id().clone())
+                    .static_methods
+                    .entry(fn_id.clone())
+                    .or_insert_with(|| crate::mock_objects::MockFunctionObject::new(fn_id.clone()))
                     .add_on_call(on_call);
             }
         }
@@ -1670,7 +1680,19 @@ impl Checkpoint {
 
     /// Check whether all expectations AND all sequences are satisfied.
     pub fn is_complete(&self) -> bool {
-        // Check normal expectations
+        // Check standalone function expectations
+        for fn_obj in self.standalone_fns.values() {
+            if !fn_obj.is_complete() {
+                return false;
+            }
+        }
+        // Check ADT mock object expectations (methods, static_methods, instance_methods)
+        for mock_obj in self.mock_objects.values() {
+            if !mock_obj.is_complete() {
+                return false;
+            }
+        }
+        // Check legacy flat expectations
         for (_id, roots) in &self.expectations {
             for root in roots {
                 if !self.is_expectation_completed(root) {
@@ -1687,17 +1709,32 @@ impl Checkpoint {
         true
     }
 
-    /// Returns expectations that have NOT been satisfied yet.
-    pub fn unsatisfied_expectations(&self) -> Vec<(&MockId, usize)> {
-        let mut result = Vec::new();
-        for (id, roots) in &self.expectations {
-            for (i, root) in roots.iter().enumerate() {
+    /// Returns the number of expectations that have NOT been satisfied yet
+    /// across all sources (standalone functions, ADT mock objects, and legacy expectations).
+    pub fn unsatisfied_expectation_count(&self) -> usize {
+        let mut count = 0;
+        // Standalone function expectations
+        for fn_obj in self.standalone_fns.values() {
+            count += fn_obj.unsatisfied_expectations().len();
+        }
+        // ADT mock object expectations
+        for mock_obj in self.mock_objects.values() {
+            for method in mock_obj.static_methods.values() {
+                count += method.unsatisfied_expectations().len();
+            }
+            for method in mock_obj.instance_methods.values() {
+                count += method.unsatisfied_expectations().len();
+            }
+        }
+        // Legacy flat expectations
+        for (_id, roots) in &self.expectations {
+            for root in roots {
                 if !self.is_expectation_completed(root) {
-                    result.push((id, i));
+                    count += 1;
                 }
             }
         }
-        result
+        count
     }
 
     /// Returns sequence indices that have NOT been completed.
@@ -1708,12 +1745,6 @@ impl Checkpoint {
             .filter(|(_, seq)| !seq.is_completed())
             .map(|(i, _)| SequenceIdx(i))
             .collect()
-    }
-}
-
-impl Default for Checkpoint {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

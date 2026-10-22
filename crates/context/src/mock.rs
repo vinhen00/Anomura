@@ -22,8 +22,6 @@ pub enum StrictnessKind {
     Nice,
 }
 
-pub const CONTEXT_CONST: &str = "CONSTANT FROM CONTEXT";
-
 #[derive(Debug, Clone, Hash, core::cmp::Eq, PartialEq)]
 pub enum MockId {
     AdtInstance { adt_id: AdtId, fn_id: FnId },

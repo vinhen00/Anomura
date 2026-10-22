@@ -257,7 +257,10 @@ pub fn expand_mock_fn(input: TokenStream) -> TokenStream {
 
             std::println!("Mocked version of function {} was used", #name_str);
             let #mock_id_ident = context::MockId::new_fn(#mock_id_string);
-            if context::ctx_built_and_contains_id(&#mock_id_ident) {
+            if !context::ctx_built() {
+                panic!("mock_crate: function called during build phase — call finish_building_context() first");
+            }
+            if context::contains_id(&#mock_id_ident) {
                 match context::run_mock::<#input_type_tuple, #ret_type>(#mock_id_ident, #input_ident_tuple) {
                     Ok(res) => res,
                     Err(e) => match e {
@@ -459,7 +462,10 @@ pub fn expand_mock_method(input: TokenStream) -> TokenStream {
             fn #name(#receiver_quote #(#driver_params),*) -> #driver_ret_type {
                 std::println!("Mocked version of method {} was used", #name_str);
                 let #mock_id_ident = context::MockId::new_adt_static(#adt_path_string, #fn_id_string);
-                if context::ctx_built_and_contains_id(&#mock_id_ident) {
+                if !context::ctx_built() {
+                    panic!("mock_crate: method called during build phase — call finish_building_context() first");
+                }
+                if context::contains_id(&#mock_id_ident) {
                     match context::run_mock::<#driver_input_type_tuple, #driver_ret_type>(#mock_id_ident, #input_ident_tuple) {
                         Ok(res) => res,
                         Err(e) => match e {

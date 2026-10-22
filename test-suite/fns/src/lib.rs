@@ -18,7 +18,7 @@ pub fn foreign() {
     // implementation
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MockStruct {
     pub pubfield: u32,
     privfield: u32,
@@ -46,7 +46,7 @@ pub fn ret_call_w_args(x: i16) -> i16 {
     x
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Default)]
 pub struct Foo {
     pub x: u32,
 }
@@ -69,6 +69,23 @@ impl Foo {
 
     pub fn fallback(&self) -> u32 {
         11
+    }
+}
+
+/// A struct that intentionally does NOT derive Default.
+/// Used to test that constructors panic when no mock is registered.
+#[derive(Debug)]
+pub struct NoDefaultStruct {
+    pub value: String,
+}
+
+impl NoDefaultStruct {
+    pub fn new(value: String) -> Self {
+        NoDefaultStruct { value }
+    }
+
+    pub fn get_value(&self) -> &str {
+        &self.value
     }
 }
 

@@ -61,7 +61,10 @@ pub fn gen_mock_fn_body(crate_name: &str, func: &FunctionModel) -> String {
     format!(
         r#"pub fn {fn_name}({params_str}) -> {ret_type_str} {{
     let {mock_id}_mock_id = context::MockId::new_fn("{mock_id}");
-    if context::ctx_built_and_contains_id(&{mock_id}_mock_id) {{
+    if !context::ctx_built() {{
+        panic!("mock_crate: `{fn_name}` called during build phase — call finish_building_context() first");
+    }}
+    if context::contains_id(&{mock_id}_mock_id) {{
         match context::run_mock::<({input_types_tuple}), {ret_type_str}>({mock_id}_mock_id, ({input_idents_tuple})) {{
             Ok(res) => res,
             Err(e) => match e {{
@@ -74,7 +77,7 @@ pub fn gen_mock_fn_body(crate_name: &str, func: &FunctionModel) -> String {
             }}
         }}
     }} else {{
-        panic!("mock_crate: no mock context built for {fn_name}");
+        panic!("mock_crate: no mock registered for `{fn_name}`");
     }}
 }}"#,
         fn_name = fn_name,
@@ -188,7 +191,10 @@ pub fn gen_mock_method_body(
     format!(
         r#"pub fn {method_name}({receiver_str}{params_str}) -> {ret_type_str} {{
     let {mock_id}_mock_id = {mock_id_expr};
-    if context::ctx_built_and_contains_id(&{mock_id}_mock_id) {{
+    if !context::ctx_built() {{
+        panic!("mock_crate: `{method_name}` called during build phase — call finish_building_context() first");
+    }}
+    if context::contains_id(&{mock_id}_mock_id) {{
         match context::run_mock::<({full_input_types}), {ret_type_str}>({mock_id}_mock_id, ({full_input_values_tuple})) {{
             Ok(res) => res,
             Err(e) => match e {{
@@ -199,7 +205,7 @@ pub fn gen_mock_method_body(
             }}
         }}
     }} else {{
-        panic!("mock_crate: no mock context built for {method_name}");
+        panic!("mock_crate: no mock registered for `{method_name}`");
     }}
 }}"#,
         method_name = method_name,
@@ -1102,20 +1108,63 @@ pub fn gen_constructor_body(
         format!("context::MockId::new_adt_static(\"{}\", \"{}\")", ctor_adt_path, ctor_name)
     };
 
+    // Determine whether the fallback branches can construct the struct directly.
+    // If the struct derives Default we can fill unmatched public fields with Default::default().
+    // Otherwise we emit a panic — there is no safe way to conjure field values.
+    // We distinguish two fallback cases:
+    //   - Build phase (!ctx_built): constructor called before finish_building_context()
+    //   - Post-build (ctx_built but no mock): constructor called after context finalized
+    let default_fallback = format!(
+        r#"        let slf = Self {{
+{field_inits_str},
+{adt_mock_id_init}            }};
+{mock_registrations_str}
+            slf"#,
+        field_inits_str = field_inits_str,
+        adt_mock_id_init = adt_mock_id_init,
+        mock_registrations_str = mock_registrations_str,
+    );
+
+    let full_name = if path.segments.is_empty() {
+        format!("{}::{}", path.crate_name, struct_name)
+    } else {
+        format!("{}::{}::{}", path.crate_name, path.mod_path(), struct_name)
+    };
+
+    let build_phase_branch = if struct_model.derives.default {
+        default_fallback.clone()
+    } else {
+        format!(
+            r#"        panic!("mock_crate: `{full_name}::{ctor_name}` called during build phase, \
+but `{full_name}` does not derive Default — register an on_call for this constructor before calling it")"#,
+            ctor_name = ctor_name,
+            full_name = full_name,
+        )
+    };
+
+    let no_mock_branch = if struct_model.derives.default {
+        default_fallback
+    } else {
+        format!(
+            r#"        panic!("mock_crate: no mock registered for constructor `{ctor_name}` of `{full_name}` — \
+struct does not derive Default, so a mock_struct! invocation with on_call for this constructor is required")"#,
+            ctor_name = ctor_name,
+            full_name = full_name,
+        )
+    };
+
     format!(
         r#"pub fn {ctor_name}({params_str}) -> {ret_type_str} {{
         let {ctor_mock_id}_mock_id = {ctor_mock_id_check};
-        if context::ctx_built_and_contains_id(&{ctor_mock_id}_mock_id) {{
+        if !context::ctx_built() {{
+{build_phase_branch}
+        }} else if context::contains_id(&{ctor_mock_id}_mock_id) {{
             let public: {public_struct_name} = context::run_mock::<({ctor_input_types_tuple}), {public_struct_name}>({ctor_mock_id}_mock_id, ({ctor_input_values_tuple})).unwrap();
             let slf: Self = public.into();
 {mock_registrations_str}
             slf
         }} else {{
-            let slf = Self {{
-{field_inits_str},
-{adt_mock_id_init}            }};
-{mock_registrations_str}
-            slf
+{no_mock_branch}
         }}
     }}"#,
         ctor_name = ctor_name,
@@ -1126,9 +1175,9 @@ pub fn gen_constructor_body(
         public_struct_name = public_struct_name,
         ctor_input_types_tuple = ctor_input_types_tuple,
         ctor_input_values_tuple = ctor_input_values_tuple,
-        field_inits_str = field_inits_str,
-        adt_mock_id_init = adt_mock_id_init,
         mock_registrations_str = mock_registrations_str,
+        build_phase_branch = build_phase_branch,
+        no_mock_branch = no_mock_branch,
     )
 }
 

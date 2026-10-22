@@ -11,7 +11,7 @@
 //! stored directly in the checkpoint.
 
 use crate::closure_wrappers::ReturnValDoublePointer;
-use crate::mock::{AdtId, FnId};
+use crate::mock::{AdtPath, FnId};
 use crate::new_expectations::Expectation;
 use crate::{AdtIdNumber, ConditionDoublePointer, MockId, SequenceIdx, SequenceName};
 use std::collections::HashMap;
@@ -108,48 +108,25 @@ impl MockFunctionObject {
 /// Groups all instances and method of a Adt Object
 /// Keyed by the struct path as String
 pub struct MockObject {
-    /// The base mock_id for this object (e.g. "fns_Foo" or "fns_MockStruct42").
-    pub mock_id: AdtId,
+    /// The base path for this object (e.g. "fns_Foo" or "fns_MockStruct").
+    pub mock_path: AdtPath,
     /// not instance specific
     pub static_methods: HashMap<FnId, MockFunctionObject>,
     pub instance_methods: HashMap<(AdtIdNumber, FnId), MockFunctionObject>,
-    /// One MockFunctionObject per method, keyed by method name.
-    pub methods: HashMap<String, MockFunctionObject>,
 }
 
 impl MockObject {
-    pub fn new(mock_id: AdtId) -> Self {
+    pub fn new(mock_path: AdtPath) -> Self {
         Self {
-            mock_id,
-            methods: HashMap::new(),
+            mock_path,
             static_methods: HashMap::new(),
             instance_methods: HashMap::new(),
         }
     }
 
-    /// Get or create a MockFunctionObject for a method.
-    pub fn get_or_create_method(
-        &mut self,
-        method_name: &str,
-        method_mock_id: FnId,
-    ) -> &mut MockFunctionObject {
-        self.methods
-            .entry(method_name.to_string())
-            .or_insert_with(|| MockFunctionObject::new(method_mock_id))
-    }
-
-    /// Get a method's MockFunctionObject by name.
-    pub fn get_method(&self, method_name: &str) -> Option<&MockFunctionObject> {
-        self.methods.get(method_name)
-    }
-
-    /// Get a mutable reference to a method's MockFunctionObject by name.
-    pub fn get_method_mut(&mut self, method_name: &str) -> Option<&mut MockFunctionObject> {
-        self.methods.get_mut(method_name)
-    }
-
-    /// Check if all methods' expectations are complete.
+    /// Check if all methods' expectations are complete (across all method categories).
     pub fn is_complete(&self) -> bool {
-        self.methods.values().all(|m| m.is_complete())
+        self.static_methods.values().all(|m| m.is_complete())
+            && self.instance_methods.values().all(|m| m.is_complete())
     }
 }

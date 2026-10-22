@@ -1,6 +1,9 @@
 pub fn ref_param(x: &u32) -> () {
     let fns_ref_param_mock_id = context::MockId::new_fn("fns_ref_param");
-    if context::ctx_built_and_contains_id(&fns_ref_param_mock_id) {
+    if !context::ctx_built() {
+        panic!("mock_crate: `ref_param` called during build phase — call finish_building_context() first");
+    }
+    if context::contains_id(&fns_ref_param_mock_id) {
         match context::run_mock::<(&u32,), ()>(fns_ref_param_mock_id, (x,)) {
             Ok(res) => res,
             Err(e) =>
@@ -15,12 +18,15 @@ pub fn ref_param(x: &u32) -> () {
                     context::MockError::AlreadyRegistered => unreachable!(),
                 },
         }
-    } else { panic!("mock_crate: no mock context built for ref_param"); }
+    } else { panic!("mock_crate: no mock registered for `ref_param`"); }
 }
 
 pub fn cons_param(x: Box<u32>) -> () {
     let fns_cons_param_mock_id = context::MockId::new_fn("fns_cons_param");
-    if context::ctx_built_and_contains_id(&fns_cons_param_mock_id) {
+    if !context::ctx_built() {
+        panic!("mock_crate: `cons_param` called during build phase — call finish_building_context() first");
+    }
+    if context::contains_id(&fns_cons_param_mock_id) {
         match context::run_mock::<(Box<u32>,),
                     ()>(fns_cons_param_mock_id, (x,)) {
             Ok(res) => res,
@@ -36,7 +42,7 @@ pub fn cons_param(x: Box<u32>) -> () {
                     context::MockError::AlreadyRegistered => unreachable!(),
                 },
         }
-    } else { panic!("mock_crate: no mock context built for cons_param"); }
+    } else { panic!("mock_crate: no mock registered for `cons_param`"); }
 }
 
 #[derive(Debug)]
@@ -47,8 +53,10 @@ impl ConsSelfStruct {
         let fns_ConsSelfStruct_consume_self_mock_id =
             context::MockId::new_adt_static("fns_ConsSelfStruct",
                 "consume_self");
-        if context::ctx_built_and_contains_id(&fns_ConsSelfStruct_consume_self_mock_id)
-            {
+        if !context::ctx_built() {
+            panic!("mock_crate: `consume_self` called during build phase — call finish_building_context() first");
+        }
+        if context::contains_id(&fns_ConsSelfStruct_consume_self_mock_id) {
             match context::run_mock::<(ConsSelfStruct,),
                         ()>(fns_ConsSelfStruct_consume_self_mock_id, (self,)) {
                 Ok(res) => res,
@@ -64,7 +72,7 @@ impl ConsSelfStruct {
                     },
             }
         } else {
-            panic!("mock_crate: no mock context built for consume_self");
+            panic!("mock_crate: no mock registered for `consume_self`");
         }
     }
 }
@@ -77,7 +85,10 @@ mod ffi {
 
 pub fn foreign() -> () {
     let fns_foreign_mock_id = context::MockId::new_fn("fns_foreign");
-    if context::ctx_built_and_contains_id(&fns_foreign_mock_id) {
+    if !context::ctx_built() {
+        panic!("mock_crate: `foreign` called during build phase — call finish_building_context() first");
+    }
+    if context::contains_id(&fns_foreign_mock_id) {
         match context::run_mock::<(), ()>(fns_foreign_mock_id, ()) {
             Ok(res) => res,
             Err(e) =>
@@ -92,25 +103,36 @@ pub fn foreign() -> () {
                     context::MockError::AlreadyRegistered => unreachable!(),
                 },
         }
-    } else { panic!("mock_crate: no mock context built for foreign"); }
+    } else { panic!("mock_crate: no mock registered for `foreign`"); }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MockStruct {
     pub pubfield: u32,
     privfield: std::marker::PhantomData<u32>,
-    pub adt_mock_id: context::AdtMockId,
+    adt_mock_id: context::AdtMockId,
 }
 
 impl MockStruct {
-    pub fn new() -> Self {
+    pub fn new(name: u32) -> Self {
         let fns_MockStruct_new_mock_id =
             context::MockId::new_adt_static("fns_MockStruct", "new");
-        if context::ctx_built_and_contains_id(&fns_MockStruct_new_mock_id) {
+        if !context::ctx_built() {
+            let slf =
+                Self {
+                    pubfield: Default::default(),
+                    privfield: std::marker::PhantomData,
+                    adt_mock_id: context::new_id(),
+                };
+            let _ =
+                context::register_mock(&context::MockId::new_adt_instance("fns_MockStruct",
+                            "get_value", slf.adt_mock_id));
+            slf
+        } else if context::contains_id(&fns_MockStruct_new_mock_id) {
             let public: crate::PublicMockStruct =
-                context::run_mock::<(),
+                context::run_mock::<(u32,),
                             crate::PublicMockStruct>(fns_MockStruct_new_mock_id,
-                        ()).unwrap();
+                        (name,)).unwrap();
             let slf: Self = public.into();
             let _ =
                 context::register_mock(&context::MockId::new_adt_instance("fns_MockStruct",
@@ -132,7 +154,10 @@ impl MockStruct {
     pub fn foo() -> () {
         let fns_MockStruct_foo_mock_id =
             context::MockId::new_adt_static("fns_MockStruct", "foo");
-        if context::ctx_built_and_contains_id(&fns_MockStruct_foo_mock_id) {
+        if !context::ctx_built() {
+            panic!("mock_crate: `foo` called during build phase — call finish_building_context() first");
+        }
+        if context::contains_id(&fns_MockStruct_foo_mock_id) {
             match context::run_mock::<(), ()>(fns_MockStruct_foo_mock_id, ())
                 {
                 Ok(res) => res,
@@ -147,14 +172,16 @@ impl MockStruct {
                         context::MockError::AlreadyRegistered => unreachable!(),
                     },
             }
-        } else { panic!("mock_crate: no mock context built for foo"); }
+        } else { panic!("mock_crate: no mock registered for `foo`"); }
     }
     pub fn get_value(&self) -> u32 {
         let fns_MockStruct_get_value_mock_id =
             context::MockId::new_adt_instance("fns_MockStruct", "get_value",
                 self.adt_mock_id);
-        if context::ctx_built_and_contains_id(&fns_MockStruct_get_value_mock_id)
-            {
+        if !context::ctx_built() {
+            panic!("mock_crate: `get_value` called during build phase — call finish_building_context() first");
+        }
+        if context::contains_id(&fns_MockStruct_get_value_mock_id) {
             match context::run_mock::<(&MockStruct,),
                         u32>(fns_MockStruct_get_value_mock_id, (self,)) {
                 Ok(res) => res,
@@ -169,14 +196,17 @@ impl MockStruct {
                         context::MockError::AlreadyRegistered => unreachable!(),
                     },
             }
-        } else { panic!("mock_crate: no mock context built for get_value"); }
+        } else { panic!("mock_crate: no mock registered for `get_value`"); }
     }
 }
 
 pub fn ret_call_w_args(x: i16) -> i16 {
     let fns_ret_call_w_args_mock_id =
         context::MockId::new_fn("fns_ret_call_w_args");
-    if context::ctx_built_and_contains_id(&fns_ret_call_w_args_mock_id) {
+    if !context::ctx_built() {
+        panic!("mock_crate: `ret_call_w_args` called during build phase — call finish_building_context() first");
+    }
+    if context::contains_id(&fns_ret_call_w_args_mock_id) {
         match context::run_mock::<(i16,),
                     i16>(fns_ret_call_w_args_mock_id, (x,)) {
             Ok(res) => res,
@@ -192,12 +222,10 @@ pub fn ret_call_w_args(x: i16) -> i16 {
                     context::MockError::AlreadyRegistered => unreachable!(),
                 },
         }
-    } else {
-        panic!("mock_crate: no mock context built for ret_call_w_args");
-    }
+    } else { panic!("mock_crate: no mock registered for `ret_call_w_args`"); }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Default)]
 pub struct Foo {
     pub x: u32,
 }
@@ -206,7 +234,10 @@ impl Foo {
     pub fn ret_ref(&self) -> &u32 {
         let fns_Foo_ret_ref_mock_id =
             context::MockId::new_adt_static("fns_Foo", "ret_ref");
-        if context::ctx_built_and_contains_id(&fns_Foo_ret_ref_mock_id) {
+        if !context::ctx_built() {
+            panic!("mock_crate: `ret_ref` called during build phase — call finish_building_context() first");
+        }
+        if context::contains_id(&fns_Foo_ret_ref_mock_id) {
             match context::run_mock::<(&Foo,),
                         &u32>(fns_Foo_ret_ref_mock_id, (self,)) {
                 Ok(res) => res,
@@ -221,12 +252,15 @@ impl Foo {
                         context::MockError::AlreadyRegistered => unreachable!(),
                     },
             }
-        } else { panic!("mock_crate: no mock context built for ret_ref"); }
+        } else { panic!("mock_crate: no mock registered for `ret_ref`"); }
     }
     pub fn ret_mut_ref(&mut self) -> &mut u32 {
         let fns_Foo_ret_mut_ref_mock_id =
             context::MockId::new_adt_static("fns_Foo", "ret_mut_ref");
-        if context::ctx_built_and_contains_id(&fns_Foo_ret_mut_ref_mock_id) {
+        if !context::ctx_built() {
+            panic!("mock_crate: `ret_mut_ref` called during build phase — call finish_building_context() first");
+        }
+        if context::contains_id(&fns_Foo_ret_mut_ref_mock_id) {
             match context::run_mock::<(&mut Foo,),
                         &mut u32>(fns_Foo_ret_mut_ref_mock_id, (self,)) {
                 Ok(res) => res,
@@ -241,14 +275,24 @@ impl Foo {
                         context::MockError::AlreadyRegistered => unreachable!(),
                     },
             }
-        } else {
-            panic!("mock_crate: no mock context built for ret_mut_ref");
-        }
+        } else { panic!("mock_crate: no mock registered for `ret_mut_ref`"); }
     }
     pub fn ret_owned() -> Foo {
         let fns_Foo_ret_owned_mock_id =
             context::MockId::new_adt_static("fns_Foo", "ret_owned");
-        if context::ctx_built_and_contains_id(&fns_Foo_ret_owned_mock_id) {
+        if !context::ctx_built() {
+            let slf = Self { x: Default::default() };
+            let _ =
+                context::register_mock(&context::MockId::new_adt_static("fns_Foo",
+                            "ret_ref"));
+            let _ =
+                context::register_mock(&context::MockId::new_adt_static("fns_Foo",
+                            "ret_mut_ref"));
+            let _ =
+                context::register_mock(&context::MockId::new_adt_static("fns_Foo",
+                            "fallback"));
+            slf
+        } else if context::contains_id(&fns_Foo_ret_owned_mock_id) {
             let public: crate::PublicFoo =
                 context::run_mock::<(),
                             crate::PublicFoo>(fns_Foo_ret_owned_mock_id, ()).unwrap();
@@ -280,8 +324,10 @@ impl Foo {
     pub fn static_method() -> () {
         let fns_Foo_static_method_mock_id =
             context::MockId::new_adt_static("fns_Foo", "static_method");
-        if context::ctx_built_and_contains_id(&fns_Foo_static_method_mock_id)
-            {
+        if !context::ctx_built() {
+            panic!("mock_crate: `static_method` called during build phase — call finish_building_context() first");
+        }
+        if context::contains_id(&fns_Foo_static_method_mock_id) {
             match context::run_mock::<(),
                         ()>(fns_Foo_static_method_mock_id, ()) {
                 Ok(res) => res,
@@ -297,13 +343,16 @@ impl Foo {
                     },
             }
         } else {
-            panic!("mock_crate: no mock context built for static_method");
+            panic!("mock_crate: no mock registered for `static_method`");
         }
     }
     pub fn fallback(&self) -> u32 {
         let fns_Foo_fallback_mock_id =
             context::MockId::new_adt_static("fns_Foo", "fallback");
-        if context::ctx_built_and_contains_id(&fns_Foo_fallback_mock_id) {
+        if !context::ctx_built() {
+            panic!("mock_crate: `fallback` called during build phase — call finish_building_context() first");
+        }
+        if context::contains_id(&fns_Foo_fallback_mock_id) {
             match context::run_mock::<(&Foo,),
                         u32>(fns_Foo_fallback_mock_id, (self,)) {
                 Ok(res) => res,
@@ -318,13 +367,71 @@ impl Foo {
                         context::MockError::AlreadyRegistered => unreachable!(),
                     },
             }
-        } else { panic!("mock_crate: no mock context built for fallback"); }
+        } else { panic!("mock_crate: no mock registered for `fallback`"); }
+    }
+}
+
+/// A struct that intentionally does NOT derive Default.
+/// Used to test that constructors panic when no mock is registered.
+#[derive(Debug)]
+pub struct NoDefaultStruct {
+    pub value: String,
+}
+
+impl NoDefaultStruct {
+    pub fn new(value: String) -> Self {
+        let fns_NoDefaultStruct_new_mock_id =
+            context::MockId::new_adt_static("fns_NoDefaultStruct", "new");
+        if !context::ctx_built() {
+            panic!("mock_crate: `fns::NoDefaultStruct::new` called during build phase, \
+but `fns::NoDefaultStruct` does not derive Default — register an on_call for this constructor before calling it")
+        } else if context::contains_id(&fns_NoDefaultStruct_new_mock_id) {
+            let public: crate::PublicNoDefaultStruct =
+                context::run_mock::<(String,),
+                            crate::PublicNoDefaultStruct>(fns_NoDefaultStruct_new_mock_id,
+                        (value,)).unwrap();
+            let slf: Self = public.into();
+            let _ =
+                context::register_mock(&context::MockId::new_adt_static("fns_NoDefaultStruct",
+                            "get_value"));
+            slf
+        } else {
+            panic!("mock_crate: no mock registered for constructor `new` of `fns::NoDefaultStruct` — \
+struct does not derive Default, so a mock_struct! invocation with on_call for this constructor is required")
+        }
+    }
+    pub fn get_value(&self) -> &str {
+        let fns_NoDefaultStruct_get_value_mock_id =
+            context::MockId::new_adt_static("fns_NoDefaultStruct",
+                "get_value");
+        if !context::ctx_built() {
+            panic!("mock_crate: `get_value` called during build phase — call finish_building_context() first");
+        }
+        if context::contains_id(&fns_NoDefaultStruct_get_value_mock_id) {
+            match context::run_mock::<(&NoDefaultStruct,),
+                        &str>(fns_NoDefaultStruct_get_value_mock_id, (self,)) {
+                Ok(res) => res,
+                Err(e) =>
+                    match e {
+                        context::MockError::Other(e) =>
+                            panic!("unexpected Error: {:?}", e),
+                        context::MockError::PredicateError(e) =>
+                            panic!("{:?}", e.0),
+                        context::MockError::NoMatchingId =>
+                            panic!("failed to find mock id"),
+                        context::MockError::AlreadyRegistered => unreachable!(),
+                    },
+            }
+        } else { panic!("mock_crate: no mock registered for `get_value`"); }
     }
 }
 
 pub fn ret_param(x: &mut u32) -> () {
     let fns_ret_param_mock_id = context::MockId::new_fn("fns_ret_param");
-    if context::ctx_built_and_contains_id(&fns_ret_param_mock_id) {
+    if !context::ctx_built() {
+        panic!("mock_crate: `ret_param` called during build phase — call finish_building_context() first");
+    }
+    if context::contains_id(&fns_ret_param_mock_id) {
         match context::run_mock::<(&mut u32,),
                     ()>(fns_ret_param_mock_id, (x,)) {
             Ok(res) => res,
@@ -340,13 +447,16 @@ pub fn ret_param(x: &mut u32) -> () {
                     context::MockError::AlreadyRegistered => unreachable!(),
                 },
         }
-    } else { panic!("mock_crate: no mock context built for ret_param"); }
+    } else { panic!("mock_crate: no mock registered for `ret_param`"); }
 }
 
 pub mod a {
     pub fn modules() -> u32 {
         let fns_a_modules_mock_id = context::MockId::new_fn("fns_a_modules");
-        if context::ctx_built_and_contains_id(&fns_a_modules_mock_id) {
+        if !context::ctx_built() {
+            panic!("mock_crate: `modules` called during build phase — call finish_building_context() first");
+        }
+        if context::contains_id(&fns_a_modules_mock_id) {
             match context::run_mock::<(), u32>(fns_a_modules_mock_id, ()) {
                 Ok(res) => res,
                 Err(e) =>
@@ -361,7 +471,7 @@ pub mod a {
                         context::MockError::AlreadyRegistered => unreachable!(),
                     },
             }
-        } else { panic!("mock_crate: no mock context built for modules"); }
+        } else { panic!("mock_crate: no mock registered for `modules`"); }
     }
     pub mod nested {
         pub struct Inner {
@@ -372,7 +482,10 @@ pub mod a {
                 let fns_a_nested_Inner_new_mock_id =
                     context::MockId::new_adt_static("fns_a_nested_Inner",
                         "new");
-                if context::ctx_built_and_contains_id(&fns_a_nested_Inner_new_mock_id)
+                if !context::ctx_built() {
+                    panic!("mock_crate: `fns::a::nested::Inner::new` called during build phase, \
+but `fns::a::nested::Inner` does not derive Default — register an on_call for this constructor before calling it")
+                } else if context::contains_id(&fns_a_nested_Inner_new_mock_id)
                     {
                     let public: crate::PublicANestedInner =
                         context::run_mock::<(i32,),
@@ -387,22 +500,18 @@ pub mod a {
                                     "tripple"));
                     slf
                 } else {
-                    let slf = Self { value };
-                    let _ =
-                        context::register_mock(&context::MockId::new_adt_static("fns_a_nested_Inner",
-                                    "double"));
-                    let _ =
-                        context::register_mock(&context::MockId::new_adt_static("fns_a_nested_Inner",
-                                    "tripple"));
-                    slf
+                    panic!("mock_crate: no mock registered for constructor `new` of `fns::a::nested::Inner` — \
+struct does not derive Default, so a mock_struct! invocation with on_call for this constructor is required")
                 }
             }
             pub fn double(&self) -> i32 {
                 let fns_a_nested_Inner_double_mock_id =
                     context::MockId::new_adt_static("fns_a_nested_Inner",
                         "double");
-                if context::ctx_built_and_contains_id(&fns_a_nested_Inner_double_mock_id)
-                    {
+                if !context::ctx_built() {
+                    panic!("mock_crate: `double` called during build phase — call finish_building_context() first");
+                }
+                if context::contains_id(&fns_a_nested_Inner_double_mock_id) {
                     match context::run_mock::<(&Inner,),
                                 i32>(fns_a_nested_Inner_double_mock_id, (self,)) {
                         Ok(res) => res,
@@ -418,15 +527,17 @@ pub mod a {
                             },
                     }
                 } else {
-                    panic!("mock_crate: no mock context built for double");
+                    panic!("mock_crate: no mock registered for `double`");
                 }
             }
             pub fn tripple(&self) -> i32 {
                 let fns_a_nested_Inner_tripple_mock_id =
                     context::MockId::new_adt_static("fns_a_nested_Inner",
                         "tripple");
-                if context::ctx_built_and_contains_id(&fns_a_nested_Inner_tripple_mock_id)
-                    {
+                if !context::ctx_built() {
+                    panic!("mock_crate: `tripple` called during build phase — call finish_building_context() first");
+                }
+                if context::contains_id(&fns_a_nested_Inner_tripple_mock_id) {
                     match context::run_mock::<(&Inner,),
                                 i32>(fns_a_nested_Inner_tripple_mock_id, (self,)) {
                         Ok(res) => res,
@@ -442,15 +553,17 @@ pub mod a {
                             },
                     }
                 } else {
-                    panic!("mock_crate: no mock context built for tripple");
+                    panic!("mock_crate: no mock registered for `tripple`");
                 }
             }
         }
         pub fn deep_fn() -> &'static str {
             let fns_a_nested_deep_fn_mock_id =
                 context::MockId::new_fn("fns_a_nested_deep_fn");
-            if context::ctx_built_and_contains_id(&fns_a_nested_deep_fn_mock_id)
-                {
+            if !context::ctx_built() {
+                panic!("mock_crate: `deep_fn` called during build phase — call finish_building_context() first");
+            }
+            if context::contains_id(&fns_a_nested_deep_fn_mock_id) {
                 match context::run_mock::<(),
                             &'static str>(fns_a_nested_deep_fn_mock_id, ()) {
                     Ok(res) => res,
@@ -466,9 +579,7 @@ pub mod a {
                             context::MockError::AlreadyRegistered => unreachable!(),
                         },
                 }
-            } else {
-                panic!("mock_crate: no mock context built for deep_fn");
-            }
+            } else { panic!("mock_crate: no mock registered for `deep_fn`"); }
         }
     }
 }
@@ -477,7 +588,10 @@ pub mod a {
 pub fn return_panic() -> () {
     let fns_return_panic_mock_id =
         context::MockId::new_fn("fns_return_panic");
-    if context::ctx_built_and_contains_id(&fns_return_panic_mock_id) {
+    if !context::ctx_built() {
+        panic!("mock_crate: `return_panic` called during build phase — call finish_building_context() first");
+    }
+    if context::contains_id(&fns_return_panic_mock_id) {
         match context::run_mock::<(), ()>(fns_return_panic_mock_id, ()) {
             Ok(res) => res,
             Err(e) =>
@@ -492,7 +606,7 @@ pub fn return_panic() -> () {
                     context::MockError::AlreadyRegistered => unreachable!(),
                 },
         }
-    } else { panic!("mock_crate: no mock context built for return_panic"); }
+    } else { panic!("mock_crate: no mock registered for `return_panic`"); }
 }
 
 #[derive(Debug)]
@@ -504,8 +618,10 @@ impl std::fmt::Debug for ClosureWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let fns_ClosureWrapper_fmt_mock_id =
             context::MockId::new_adt_static("fns_ClosureWrapper", "fmt");
-        if context::ctx_built_and_contains_id(&fns_ClosureWrapper_fmt_mock_id)
-            {
+        if !context::ctx_built() {
+            panic!("mock_crate: `fmt` called during build phase — call finish_building_context() first");
+        }
+        if context::contains_id(&fns_ClosureWrapper_fmt_mock_id) {
             match context::run_mock::<(&ClosureWrapper,
                         &mut std::fmt::Formatter<'_>),
                         std::fmt::Result>(fns_ClosureWrapper_fmt_mock_id, (self, f))
@@ -522,14 +638,17 @@ impl std::fmt::Debug for ClosureWrapper {
                         context::MockError::AlreadyRegistered => unreachable!(),
                     },
             }
-        } else { panic!("mock_crate: no mock context built for fmt"); }
+        } else { panic!("mock_crate: no mock registered for `fmt`"); }
     }
 }
 
 pub fn closure_param(f: ClosureWrapper) -> u32 {
     let fns_closure_param_mock_id =
         context::MockId::new_fn("fns_closure_param");
-    if context::ctx_built_and_contains_id(&fns_closure_param_mock_id) {
+    if !context::ctx_built() {
+        panic!("mock_crate: `closure_param` called during build phase — call finish_building_context() first");
+    }
+    if context::contains_id(&fns_closure_param_mock_id) {
         match context::run_mock::<(ClosureWrapper,),
                     u32>(fns_closure_param_mock_id, (f,)) {
             Ok(res) => res,
@@ -545,7 +664,7 @@ pub fn closure_param(f: ClosureWrapper) -> u32 {
                     context::MockError::AlreadyRegistered => unreachable!(),
                 },
         }
-    } else { panic!("mock_crate: no mock context built for closure_param"); }
+    } else { panic!("mock_crate: no mock registered for `closure_param`"); }
 }
 
 trait InternalBehavior {}
@@ -561,7 +680,10 @@ impl Computable for Foo {
     fn compute(&self) -> u32 {
         let fns_Foo_compute_mock_id =
             context::MockId::new_adt_static("fns_Foo", "compute");
-        if context::ctx_built_and_contains_id(&fns_Foo_compute_mock_id) {
+        if !context::ctx_built() {
+            panic!("mock_crate: `compute` called during build phase — call finish_building_context() first");
+        }
+        if context::contains_id(&fns_Foo_compute_mock_id) {
             match context::run_mock::<(&Foo,),
                         u32>(fns_Foo_compute_mock_id, (self,)) {
                 Ok(res) => res,
@@ -576,7 +698,7 @@ impl Computable for Foo {
                         context::MockError::AlreadyRegistered => unreachable!(),
                     },
             }
-        } else { panic!("mock_crate: no mock context built for compute"); }
+        } else { panic!("mock_crate: no mock registered for `compute`"); }
     }
 }
 
@@ -604,8 +726,7 @@ impl PredicateRef_param {
 }
 
 pub fn on_call_ref_param(condition: impl Fn(&&u32) -> bool + 'static,
-    ret: impl Into<ReturnRef_param>) {
-    let inner: ReturnRef_param = ret.into();
+    ret: impl Fn(&u32) -> () + 'static) {
     let mock_id = context::MockId::new_fn("fns_ref_param");
     let cond =
         context::ConditionDoublePointer::from_fn::<(&u32,)>(Box::new(move
@@ -617,7 +738,10 @@ pub fn on_call_ref_param(condition: impl Fn(&&u32) -> bool + 'static,
                             Err("on_call condition failed for ref_param".into())
                         }
                     }));
-    context::add_on_call::<(&u32,)>(&mock_id, cond, inner.0, None).unwrap();
+    let ret_ptr =
+        context::ReturnValDoublePointer::from_fn::<(&u32,),
+                ()>(Box::new(move |(_0,)| ret(_0)));
+    context::add_on_call::<(&u32,)>(&mock_id, cond, ret_ptr, None).unwrap();
 }
 
 pub fn expect_ref_param(condition:
@@ -675,8 +799,7 @@ impl PredicateCons_param {
 }
 
 pub fn on_call_cons_param(condition: impl Fn(&Box<u32>) -> bool + 'static,
-    ret: impl Into<ReturnCons_param>) {
-    let inner: ReturnCons_param = ret.into();
+    ret: impl Fn(Box<u32>) -> () + 'static) {
     let mock_id = context::MockId::new_fn("fns_cons_param");
     let cond =
         context::ConditionDoublePointer::from_fn::<(Box<u32>,)>(Box::new(move
@@ -688,7 +811,10 @@ pub fn on_call_cons_param(condition: impl Fn(&Box<u32>) -> bool + 'static,
                             Err("on_call condition failed for cons_param".into())
                         }
                     }));
-    context::add_on_call::<(Box<u32>,)>(&mock_id, cond, inner.0,
+    let ret_ptr =
+        context::ReturnValDoublePointer::from_fn::<(Box<u32>,),
+                ()>(Box::new(move |(_0,)| ret(_0)));
+    context::add_on_call::<(Box<u32>,)>(&mock_id, cond, ret_ptr,
             None).unwrap();
 }
 
@@ -747,8 +873,7 @@ impl PredicateForeign {
 }
 
 pub fn on_call_foreign(condition: impl Fn() -> bool + 'static,
-    ret: impl Into<ReturnForeign>) {
-    let inner: ReturnForeign = ret.into();
+    ret: impl Fn() -> () + 'static) {
     let mock_id = context::MockId::new_fn("fns_foreign");
     let cond =
         context::ConditionDoublePointer::from_fn::<()>(Box::new(move
@@ -760,7 +885,10 @@ pub fn on_call_foreign(condition: impl Fn() -> bool + 'static,
                             Err("on_call condition failed for foreign".into())
                         }
                     }));
-    context::add_on_call::<()>(&mock_id, cond, inner.0, None).unwrap();
+    let ret_ptr =
+        context::ReturnValDoublePointer::from_fn::<(),
+                ()>(Box::new(move |()| ret()));
+    context::add_on_call::<()>(&mock_id, cond, ret_ptr, None).unwrap();
 }
 
 pub fn expect_foreign(condition:
@@ -817,8 +945,7 @@ impl PredicateRet_call_w_args {
 }
 
 pub fn on_call_ret_call_w_args(condition: impl Fn(&i16) -> bool + 'static,
-    ret: impl Into<ReturnRet_call_w_args>) {
-    let inner: ReturnRet_call_w_args = ret.into();
+    ret: impl Fn(i16) -> i16 + 'static) {
     let mock_id = context::MockId::new_fn("fns_ret_call_w_args");
     let cond =
         context::ConditionDoublePointer::from_fn::<(i16,)>(Box::new(move
@@ -830,7 +957,10 @@ pub fn on_call_ret_call_w_args(condition: impl Fn(&i16) -> bool + 'static,
                             Err("on_call condition failed for ret_call_w_args".into())
                         }
                     }));
-    context::add_on_call::<(i16,)>(&mock_id, cond, inner.0, None).unwrap();
+    let ret_ptr =
+        context::ReturnValDoublePointer::from_fn::<(i16,),
+                i16>(Box::new(move |(_0,)| ret(_0)));
+    context::add_on_call::<(i16,)>(&mock_id, cond, ret_ptr, None).unwrap();
 }
 
 pub fn expect_ret_call_w_args(condition:
@@ -888,8 +1018,7 @@ impl PredicateRet_param {
 }
 
 pub fn on_call_ret_param(condition: impl Fn(&&mut u32) -> bool + 'static,
-    ret: impl Into<ReturnRet_param>) {
-    let inner: ReturnRet_param = ret.into();
+    ret: impl Fn(&mut u32) -> () + 'static) {
     let mock_id = context::MockId::new_fn("fns_ret_param");
     let cond =
         context::ConditionDoublePointer::from_fn::<(&mut u32,)>(Box::new(move
@@ -901,7 +1030,10 @@ pub fn on_call_ret_param(condition: impl Fn(&&mut u32) -> bool + 'static,
                             Err("on_call condition failed for ret_param".into())
                         }
                     }));
-    context::add_on_call::<(&mut u32,)>(&mock_id, cond, inner.0,
+    let ret_ptr =
+        context::ReturnValDoublePointer::from_fn::<(&mut u32,),
+                ()>(Box::new(move |(_0,)| ret(_0)));
+    context::add_on_call::<(&mut u32,)>(&mock_id, cond, ret_ptr,
             None).unwrap();
 }
 
@@ -960,8 +1092,7 @@ impl PredicateReturn_panic {
 }
 
 pub fn on_call_return_panic(condition: impl Fn() -> bool + 'static,
-    ret: impl Into<ReturnReturn_panic>) {
-    let inner: ReturnReturn_panic = ret.into();
+    ret: impl Fn() -> () + 'static) {
     let mock_id = context::MockId::new_fn("fns_return_panic");
     let cond =
         context::ConditionDoublePointer::from_fn::<()>(Box::new(move
@@ -973,7 +1104,10 @@ pub fn on_call_return_panic(condition: impl Fn() -> bool + 'static,
                             Err("on_call condition failed for return_panic".into())
                         }
                     }));
-    context::add_on_call::<()>(&mock_id, cond, inner.0, None).unwrap();
+    let ret_ptr =
+        context::ReturnValDoublePointer::from_fn::<(),
+                ()>(Box::new(move |()| ret()));
+    context::add_on_call::<()>(&mock_id, cond, ret_ptr, None).unwrap();
 }
 
 pub fn expect_return_panic(condition:
@@ -1033,8 +1167,7 @@ impl PredicateClosure_param {
 
 pub fn on_call_closure_param(condition:
         impl Fn(&ClosureWrapper) -> bool + 'static,
-    ret: impl Into<ReturnClosure_param>) {
-    let inner: ReturnClosure_param = ret.into();
+    ret: impl Fn(ClosureWrapper) -> u32 + 'static) {
     let mock_id = context::MockId::new_fn("fns_closure_param");
     let cond =
         context::ConditionDoublePointer::from_fn::<(ClosureWrapper,)>(Box::new(move
@@ -1046,7 +1179,10 @@ pub fn on_call_closure_param(condition:
                             Err("on_call condition failed for closure_param".into())
                         }
                     }));
-    context::add_on_call::<(ClosureWrapper,)>(&mock_id, cond, inner.0,
+    let ret_ptr =
+        context::ReturnValDoublePointer::from_fn::<(ClosureWrapper,),
+                u32>(Box::new(move |(_0,)| ret(_0)));
+    context::add_on_call::<(ClosureWrapper,)>(&mock_id, cond, ret_ptr,
             None).unwrap();
 }
 
@@ -1110,8 +1246,7 @@ impl PredicateConsSelfStructConsume_self {
 impl ConsSelfStruct {
     pub fn on_call_consume_self(condition:
             impl Fn(&ConsSelfStruct) -> bool + 'static,
-        ret: impl Into<ReturnConsSelfStructConsume_self>) {
-        let inner: ReturnConsSelfStructConsume_self = ret.into();
+        ret: impl Fn(ConsSelfStruct) -> () + 'static) {
         let mock_id =
             context::MockId::new_adt_static("fns_ConsSelfStruct",
                 "consume_self");
@@ -1128,8 +1263,11 @@ impl ConsSelfStruct {
                                 Err("on_call condition failed for consume_self".into())
                             }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(ConsSelfStruct,),
+                    ()>(Box::new(move |(_self,)| ret(_self)));
         context::add_method_on_call::<(ConsSelfStruct,)>(&object_mock_id,
-                "consume_self", &mock_id, cond, inner.0, None).unwrap();
+                "consume_self", &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1152,44 +1290,47 @@ pub struct PredicateMockStructNew(pub context::Predicate);
 pub struct ReturnMockStructNew(pub context::ReturnValDoublePointer);
 
 impl ReturnMockStructNew {
-    pub fn from_fn(closure: impl Fn() -> PublicMockStruct + 'static) -> Self {
-        Self(context::ReturnValDoublePointer::from_fn::<(),
-                    PublicMockStruct>(Box::new(move |()| closure())))
+    pub fn from_fn(closure: impl Fn(u32) -> PublicMockStruct + 'static)
+        -> Self {
+        Self(context::ReturnValDoublePointer::from_fn::<(u32,),
+                    PublicMockStruct>(Box::new(move |(_0,)| closure(_0))))
     }
 }
 
 impl PredicateMockStructNew {
     pub fn from_fn(closure:
-            impl Fn() -> context::errors::PredicateResult<()> + 'static)
+            impl Fn(&u32) -> context::errors::PredicateResult<()> + 'static)
         -> Self {
         let mock_id =
             context::MockId::new_adt_static("fns_MockStruct", "new");
         let cond =
-            context::ConditionDoublePointer::from_fn::<()>(Box::new(move
-                        |input: &()| closure()));
-        Self(context::Predicate::create_single::<()>(&mock_id, cond))
+            context::ConditionDoublePointer::from_fn::<(u32,)>(Box::new(move
+                        |input: &(u32,)| closure(&input.0)));
+        Self(context::Predicate::create_single::<(u32,)>(&mock_id, cond))
     }
 }
 
 impl MockStruct {
-    pub fn on_call_new(&self, condition: impl Fn() -> bool + 'static,
-        ret: impl Into<ReturnMockStructNew>) {
-        let inner: ReturnMockStructNew = ret.into();
+    pub fn on_call_new(condition: impl Fn(&u32) -> bool + 'static,
+        ret: impl Fn(u32) -> PublicMockStruct + 'static) {
         let mock_id =
-            context::MockId::new_adt_instance("fns_MockStruct", "new",
-                self.adt_mock_id);
+            context::MockId::new_adt_static("fns_MockStruct", "new");
         let object_mock_id =
-            context::AdtId::new("fns_MockStruct", self.adt_mock_id);
+            context::AdtId::new("fns_MockStruct",
+                context::AdtIdNumber::default());
         let cond =
-            context::ConditionDoublePointer::from_fn::<()>(Box::new(move
-                        |input: &()|
+            context::ConditionDoublePointer::from_fn::<(u32,)>(Box::new(move
+                        |input: &(u32,)|
                         {
-                            if condition() {
+                            if condition(&input.0) {
                                 Ok(())
                             } else { Err("on_call condition failed for new".into()) }
                         }));
-        context::add_method_on_call::<()>(&object_mock_id, "new", &mock_id,
-                cond, inner.0, None).unwrap();
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(u32,),
+                    PublicMockStruct>(Box::new(move |(_0,)| ret(_0)));
+        context::add_method_on_call::<(u32,)>(&object_mock_id, "new",
+                &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1218,14 +1359,13 @@ impl PredicateMockStructFoo {
 }
 
 impl MockStruct {
-    pub fn on_call_foo(&self, condition: impl Fn() -> bool + 'static,
-        ret: impl Into<ReturnMockStructFoo>) {
-        let inner: ReturnMockStructFoo = ret.into();
+    pub fn on_call_foo(condition: impl Fn() -> bool + 'static,
+        ret: impl Fn() -> () + 'static) {
         let mock_id =
-            context::MockId::new_adt_instance("fns_MockStruct", "foo",
-                self.adt_mock_id);
+            context::MockId::new_adt_static("fns_MockStruct", "foo");
         let object_mock_id =
-            context::AdtId::new("fns_MockStruct", self.adt_mock_id);
+            context::AdtId::new("fns_MockStruct",
+                context::AdtIdNumber::default());
         let cond =
             context::ConditionDoublePointer::from_fn::<()>(Box::new(move
                         |input: &()|
@@ -1234,8 +1374,11 @@ impl MockStruct {
                                 Ok(())
                             } else { Err("on_call condition failed for foo".into()) }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(),
+                    ()>(Box::new(move |()| ret()));
         context::add_method_on_call::<()>(&object_mock_id, "foo", &mock_id,
-                cond, inner.0, None).unwrap();
+                cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1267,8 +1410,7 @@ impl PredicateMockStructGet_value {
 impl MockStruct {
     pub fn on_call_get_value(&self,
         condition: impl Fn(&MockStruct) -> bool + 'static,
-        ret: impl Into<ReturnMockStructGet_value>) {
-        let inner: ReturnMockStructGet_value = ret.into();
+        ret: impl Fn(&MockStruct) -> u32 + 'static) {
         let mock_id =
             context::MockId::new_adt_instance("fns_MockStruct", "get_value",
                 self.adt_mock_id);
@@ -1284,8 +1426,11 @@ impl MockStruct {
                                 Err("on_call condition failed for get_value".into())
                             }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(&MockStruct,),
+                    u32>(Box::new(move |(_self,)| ret(_self)));
         context::add_method_on_call::<(&MockStruct,)>(&object_mock_id,
-                "get_value", &mock_id, cond, inner.0, None).unwrap();
+                "get_value", &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1322,8 +1467,7 @@ impl PredicateFooRet_ref {
 
 impl Foo {
     pub fn on_call_ret_ref(condition: impl Fn(&Foo) -> bool + 'static,
-        ret: impl Into<ReturnFooRet_ref>) {
-        let inner: ReturnFooRet_ref = ret.into();
+        ret: impl Fn(&Foo) -> &u32 + 'static) {
         let mock_id = context::MockId::new_adt_static("fns_Foo", "ret_ref");
         let object_mock_id =
             context::AdtId::new("fns_Foo", context::AdtIdNumber::default());
@@ -1337,8 +1481,11 @@ impl Foo {
                                 Err("on_call condition failed for ret_ref".into())
                             }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(&Foo,),
+                    &u32>(Box::new(move |(_self,)| ret(_self)));
         context::add_method_on_call::<(&Foo,)>(&object_mock_id, "ret_ref",
-                &mock_id, cond, inner.0, None).unwrap();
+                &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1368,8 +1515,7 @@ impl PredicateFooRet_mut_ref {
 
 impl Foo {
     pub fn on_call_ret_mut_ref(condition: impl Fn(&Foo) -> bool + 'static,
-        ret: impl Into<ReturnFooRet_mut_ref>) {
-        let inner: ReturnFooRet_mut_ref = ret.into();
+        ret: impl Fn(&mut Foo) -> &mut u32 + 'static) {
         let mock_id =
             context::MockId::new_adt_static("fns_Foo", "ret_mut_ref");
         let object_mock_id =
@@ -1384,8 +1530,11 @@ impl Foo {
                                 Err("on_call condition failed for ret_mut_ref".into())
                             }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(&mut Foo,),
+                    &mut u32>(Box::new(move |(_self,)| ret(_self)));
         context::add_method_on_call::<(&mut Foo,)>(&object_mock_id,
-                "ret_mut_ref", &mock_id, cond, inner.0, None).unwrap();
+                "ret_mut_ref", &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1414,8 +1563,7 @@ impl PredicateFooRet_owned {
 
 impl Foo {
     pub fn on_call_ret_owned(condition: impl Fn() -> bool + 'static,
-        ret: impl Into<ReturnFooRet_owned>) {
-        let inner: ReturnFooRet_owned = ret.into();
+        ret: impl Fn() -> PublicFoo + 'static) {
         let mock_id = context::MockId::new_adt_static("fns_Foo", "ret_owned");
         let object_mock_id =
             context::AdtId::new("fns_Foo", context::AdtIdNumber::default());
@@ -1429,8 +1577,11 @@ impl Foo {
                                 Err("on_call condition failed for ret_owned".into())
                             }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(),
+                    PublicFoo>(Box::new(move |()| ret()));
         context::add_method_on_call::<()>(&object_mock_id, "ret_owned",
-                &mock_id, cond, inner.0, None).unwrap();
+                &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1460,8 +1611,7 @@ impl PredicateFooStatic_method {
 
 impl Foo {
     pub fn on_call_static_method(condition: impl Fn() -> bool + 'static,
-        ret: impl Into<ReturnFooStatic_method>) {
-        let inner: ReturnFooStatic_method = ret.into();
+        ret: impl Fn() -> () + 'static) {
         let mock_id =
             context::MockId::new_adt_static("fns_Foo", "static_method");
         let object_mock_id =
@@ -1476,8 +1626,11 @@ impl Foo {
                                 Err("on_call condition failed for static_method".into())
                             }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(),
+                    ()>(Box::new(move |()| ret()));
         context::add_method_on_call::<()>(&object_mock_id, "static_method",
-                &mock_id, cond, inner.0, None).unwrap();
+                &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1506,8 +1659,7 @@ impl PredicateFooFallback {
 
 impl Foo {
     pub fn on_call_fallback(condition: impl Fn(&Foo) -> bool + 'static,
-        ret: impl Into<ReturnFooFallback>) {
-        let inner: ReturnFooFallback = ret.into();
+        ret: impl Fn(&Foo) -> u32 + 'static) {
         let mock_id = context::MockId::new_adt_static("fns_Foo", "fallback");
         let object_mock_id =
             context::AdtId::new("fns_Foo", context::AdtIdNumber::default());
@@ -1521,8 +1673,123 @@ impl Foo {
                                 Err("on_call condition failed for fallback".into())
                             }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(&Foo,),
+                    u32>(Box::new(move |(_self,)| ret(_self)));
         context::add_method_on_call::<(&Foo,)>(&object_mock_id, "fallback",
-                &mock_id, cond, inner.0, None).unwrap();
+                &mock_id, cond, ret_ptr, None).unwrap();
+    }
+}
+
+pub struct PublicNoDefaultStruct {
+    pub value: String,
+}
+
+impl Into<NoDefaultStruct> for PublicNoDefaultStruct {
+    fn into(self) -> NoDefaultStruct { NoDefaultStruct { value: self.value } }
+}
+
+pub struct PredicateNoDefaultStructNew(pub context::Predicate);
+
+pub struct ReturnNoDefaultStructNew(pub context::ReturnValDoublePointer);
+
+impl ReturnNoDefaultStructNew {
+    pub fn from_fn(closure:
+            impl Fn(String) -> PublicNoDefaultStruct + 'static) -> Self {
+        Self(context::ReturnValDoublePointer::from_fn::<(String,),
+                    PublicNoDefaultStruct>(Box::new(move |(_0,)| closure(_0))))
+    }
+}
+
+impl PredicateNoDefaultStructNew {
+    pub fn from_fn(closure:
+            impl Fn(&String) -> context::errors::PredicateResult<()> +
+            'static) -> Self {
+        let mock_id =
+            context::MockId::new_adt_static("fns_NoDefaultStruct", "new");
+        let cond =
+            context::ConditionDoublePointer::from_fn::<(String,)>(Box::new(move
+                        |input: &(String,)| closure(&input.0)));
+        Self(context::Predicate::create_single::<(String,)>(&mock_id, cond))
+    }
+}
+
+impl NoDefaultStruct {
+    pub fn on_call_new(condition: impl Fn(&String) -> bool + 'static,
+        ret: impl Fn(String) -> PublicNoDefaultStruct + 'static) {
+        let mock_id =
+            context::MockId::new_adt_static("fns_NoDefaultStruct", "new");
+        let object_mock_id =
+            context::AdtId::new("fns_NoDefaultStruct",
+                context::AdtIdNumber::default());
+        let cond =
+            context::ConditionDoublePointer::from_fn::<(String,)>(Box::new(move
+                        |input: &(String,)|
+                        {
+                            if condition(&input.0) {
+                                Ok(())
+                            } else { Err("on_call condition failed for new".into()) }
+                        }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(String,),
+                    PublicNoDefaultStruct>(Box::new(move |(_0,)| ret(_0)));
+        context::add_method_on_call::<(String,)>(&object_mock_id, "new",
+                &mock_id, cond, ret_ptr, None).unwrap();
+    }
+}
+
+pub struct PredicateNoDefaultStructGet_value(pub context::Predicate);
+
+pub struct ReturnNoDefaultStructGet_value(pub context::ReturnValDoublePointer);
+
+impl ReturnNoDefaultStructGet_value {
+    pub fn from_fn(closure: impl Fn(&NoDefaultStruct) -> &str + 'static)
+        -> Self {
+        Self(context::ReturnValDoublePointer::from_fn::<(&NoDefaultStruct,),
+                    &str>(Box::new(move |(_self,)| closure(_self))))
+    }
+}
+
+impl PredicateNoDefaultStructGet_value {
+    pub fn from_fn(closure:
+            impl Fn(&NoDefaultStruct)
+            -> context::errors::PredicateResult<()> + 'static) -> Self {
+        let mock_id =
+            context::MockId::new_adt_static("fns_NoDefaultStruct",
+                "get_value");
+        let cond =
+            context::ConditionDoublePointer::from_fn::<(&NoDefaultStruct,)>(Box::new(move
+                        |input: &(&NoDefaultStruct,)| closure(input.0)));
+        Self(context::Predicate::create_single::<(&NoDefaultStruct,)>(&mock_id,
+                cond))
+    }
+}
+
+impl NoDefaultStruct {
+    pub fn on_call_get_value(condition:
+            impl Fn(&NoDefaultStruct) -> bool + 'static,
+        ret: impl Fn(&NoDefaultStruct) -> &str + 'static) {
+        let mock_id =
+            context::MockId::new_adt_static("fns_NoDefaultStruct",
+                "get_value");
+        let object_mock_id =
+            context::AdtId::new("fns_NoDefaultStruct",
+                context::AdtIdNumber::default());
+        let cond =
+            context::ConditionDoublePointer::from_fn::<(&NoDefaultStruct,)>(Box::new(move
+                        |input: &(&NoDefaultStruct,)|
+                        {
+                            if condition(input.0) {
+                                Ok(())
+                            } else {
+                                Err("on_call condition failed for get_value".into())
+                            }
+                        }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(&NoDefaultStruct,),
+                    &str>(Box::new(move |(_self,)| ret(_self)));
+        context::add_method_on_call::<(&NoDefaultStruct,)>(&object_mock_id,
+                "get_value", &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1560,8 +1827,10 @@ impl PredicateClosureWrapperFmt {
 impl ClosureWrapper {
     pub fn on_call_fmt(condition:
             impl Fn(&ClosureWrapper, &&mut std::fmt::Formatter<'_>) -> bool +
-            'static, ret: impl Into<ReturnClosureWrapperFmt>) {
-        let inner: ReturnClosureWrapperFmt = ret.into();
+            'static,
+        ret:
+            impl Fn(&ClosureWrapper, &mut std::fmt::Formatter<'_>)
+            -> std::fmt::Result + 'static) {
         let mock_id =
             context::MockId::new_adt_static("fns_ClosureWrapper", "fmt");
         let object_mock_id =
@@ -1576,9 +1845,14 @@ impl ClosureWrapper {
                                 Ok(())
                             } else { Err("on_call condition failed for fmt".into()) }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(&ClosureWrapper,
+                    &mut std::fmt::Formatter<'_>),
+                    std::fmt::Result>(Box::new(move |(_self, _0)|
+                        ret(_self, _0)));
         context::add_method_on_call::<(&ClosureWrapper,
                     &mut std::fmt::Formatter<'_>)>(&object_mock_id, "fmt",
-                &mock_id, cond, inner.0, None).unwrap();
+                &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1607,8 +1881,7 @@ impl PredicateFooSecret {
 
 impl Foo {
     pub fn on_call_secret(condition: impl Fn(&Foo) -> bool + 'static,
-        ret: impl Into<ReturnFooSecret>) {
-        let inner: ReturnFooSecret = ret.into();
+        ret: impl Fn(&Foo) -> u32 + 'static) {
         let mock_id = context::MockId::new_adt_static("fns_Foo", "secret");
         let object_mock_id =
             context::AdtId::new("fns_Foo", context::AdtIdNumber::default());
@@ -1620,8 +1893,11 @@ impl Foo {
                                 Ok(())
                             } else { Err("on_call condition failed for secret".into()) }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(&Foo,),
+                    u32>(Box::new(move |(_self,)| ret(_self)));
         context::add_method_on_call::<(&Foo,)>(&object_mock_id, "secret",
-                &mock_id, cond, inner.0, None).unwrap();
+                &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1650,8 +1926,7 @@ impl PredicateFooCompute {
 
 impl Foo {
     pub fn on_call_compute(condition: impl Fn(&Foo) -> bool + 'static,
-        ret: impl Into<ReturnFooCompute>) {
-        let inner: ReturnFooCompute = ret.into();
+        ret: impl Fn(&Foo) -> u32 + 'static) {
         let mock_id = context::MockId::new_adt_static("fns_Foo", "compute");
         let object_mock_id =
             context::AdtId::new("fns_Foo", context::AdtIdNumber::default());
@@ -1665,8 +1940,11 @@ impl Foo {
                                 Err("on_call condition failed for compute".into())
                             }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(&Foo,),
+                    u32>(Box::new(move |(_self,)| ret(_self)));
         context::add_method_on_call::<(&Foo,)>(&object_mock_id, "compute",
-                &mock_id, cond, inner.0, None).unwrap();
+                &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1694,8 +1972,7 @@ impl PredicateA_Modules {
 }
 
 pub fn on_call_a_modules(condition: impl Fn() -> bool + 'static,
-    ret: impl Into<ReturnA_Modules>) {
-    let inner: ReturnA_Modules = ret.into();
+    ret: impl Fn() -> u32 + 'static) {
     let mock_id = context::MockId::new_fn("fns_a_modules");
     let cond =
         context::ConditionDoublePointer::from_fn::<()>(Box::new(move
@@ -1707,7 +1984,10 @@ pub fn on_call_a_modules(condition: impl Fn() -> bool + 'static,
                             Err("on_call condition failed for a_modules".into())
                         }
                     }));
-    context::add_on_call::<()>(&mock_id, cond, inner.0, None).unwrap();
+    let ret_ptr =
+        context::ReturnValDoublePointer::from_fn::<(),
+                u32>(Box::new(move |()| ret()));
+    context::add_on_call::<()>(&mock_id, cond, ret_ptr, None).unwrap();
 }
 
 pub struct PredicateNested_Deep_fn(pub context::Predicate);
@@ -1734,8 +2014,7 @@ impl PredicateNested_Deep_fn {
 }
 
 pub fn on_call_nested_deep_fn(condition: impl Fn() -> bool + 'static,
-    ret: impl Into<ReturnNested_Deep_fn>) {
-    let inner: ReturnNested_Deep_fn = ret.into();
+    ret: impl Fn() -> &'static str + 'static) {
     let mock_id = context::MockId::new_fn("fns_a_nested_deep_fn");
     let cond =
         context::ConditionDoublePointer::from_fn::<()>(Box::new(move
@@ -1747,7 +2026,10 @@ pub fn on_call_nested_deep_fn(condition: impl Fn() -> bool + 'static,
                             Err("on_call condition failed for nested_deep_fn".into())
                         }
                     }));
-    context::add_on_call::<()>(&mock_id, cond, inner.0, None).unwrap();
+    let ret_ptr =
+        context::ReturnValDoublePointer::from_fn::<(),
+                &'static str>(Box::new(move |()| ret()));
+    context::add_on_call::<()>(&mock_id, cond, ret_ptr, None).unwrap();
 }
 
 pub struct PublicANestedInner {
@@ -1787,8 +2069,7 @@ impl PredicateInnerNew {
 
 impl a::nested::Inner {
     pub fn on_call_new(condition: impl Fn(&i32) -> bool + 'static,
-        ret: impl Into<ReturnInnerNew>) {
-        let inner: ReturnInnerNew = ret.into();
+        ret: impl Fn(i32) -> PublicANestedInner + 'static) {
         let mock_id =
             context::MockId::new_adt_static("fns_a_nested_Inner", "new");
         let object_mock_id =
@@ -1802,8 +2083,11 @@ impl a::nested::Inner {
                                 Ok(())
                             } else { Err("on_call condition failed for new".into()) }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(i32,),
+                    PublicANestedInner>(Box::new(move |(_0,)| ret(_0)));
         context::add_method_on_call::<(i32,)>(&object_mock_id, "new",
-                &mock_id, cond, inner.0, None).unwrap();
+                &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1836,8 +2120,7 @@ impl PredicateInnerDouble {
 impl a::nested::Inner {
     pub fn on_call_double(condition:
             impl Fn(&a::nested::Inner) -> bool + 'static,
-        ret: impl Into<ReturnInnerDouble>) {
-        let inner: ReturnInnerDouble = ret.into();
+        ret: impl Fn(&a::nested::Inner) -> i32 + 'static) {
         let mock_id =
             context::MockId::new_adt_static("fns_a_nested_Inner", "double");
         let object_mock_id =
@@ -1851,8 +2134,11 @@ impl a::nested::Inner {
                                 Ok(())
                             } else { Err("on_call condition failed for double".into()) }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(&a::nested::Inner,),
+                    i32>(Box::new(move |(_self,)| ret(_self)));
         context::add_method_on_call::<(&a::nested::Inner,)>(&object_mock_id,
-                "double", &mock_id, cond, inner.0, None).unwrap();
+                "double", &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 
@@ -1885,8 +2171,7 @@ impl PredicateInnerTripple {
 impl a::nested::Inner {
     pub fn on_call_tripple(condition:
             impl Fn(&a::nested::Inner) -> bool + 'static,
-        ret: impl Into<ReturnInnerTripple>) {
-        let inner: ReturnInnerTripple = ret.into();
+        ret: impl Fn(&a::nested::Inner) -> i32 + 'static) {
         let mock_id =
             context::MockId::new_adt_static("fns_a_nested_Inner", "tripple");
         let object_mock_id =
@@ -1902,8 +2187,11 @@ impl a::nested::Inner {
                                 Err("on_call condition failed for tripple".into())
                             }
                         }));
+        let ret_ptr =
+            context::ReturnValDoublePointer::from_fn::<(&a::nested::Inner,),
+                    i32>(Box::new(move |(_self,)| ret(_self)));
         context::add_method_on_call::<(&a::nested::Inner,)>(&object_mock_id,
-                "tripple", &mock_id, cond, inner.0, None).unwrap();
+                "tripple", &mock_id, cond, ret_ptr, None).unwrap();
     }
 }
 

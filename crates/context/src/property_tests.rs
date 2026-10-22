@@ -55,7 +55,7 @@ mod tests {
     /// - Committed as an expectation with a return closure (identity + 1)
     fn setup_flat_expectation(modifier: TimesModifier) -> (Checkpoint, MockId) {
         let mock_id = MockId::new_fn("prop");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
         let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
         let timed = cp.times_arena(pred, modifier);
         cp.expect::<u32, u32>(
@@ -75,7 +75,7 @@ mod tests {
         inner: TimesModifier,
     ) -> (Checkpoint, MockId) {
         let mock_id = MockId::new_fn("prop_nested");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
         let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
         let inner_timed = cp.times_arena(pred, inner);
         let outer_timed = cp.times_arena(inner_timed, outer);
@@ -160,14 +160,13 @@ mod tests {
     fn condition_pointer_round_trip_string(threshold: u8, input: String) -> bool {
         let threshold = threshold as usize;
         let expected = input.len() >= threshold;
-        let closure: Box<dyn Fn(&String) -> PredicateResult<()> + 'static> =
-            Box::new(move |s| {
-                if s.len() >= threshold {
-                    Ok(())
-                } else {
-                    Err("too short".into())
-                }
-            });
+        let closure: Box<dyn Fn(&String) -> PredicateResult<()> + 'static> = Box::new(move |s| {
+            if s.len() >= threshold {
+                Ok(())
+            } else {
+                Err("too short".into())
+            }
+        });
         let ptr = ConditionDoublePointer::from_fn(closure);
         let recovered = unsafe { ptr.into_fn::<String>() };
         let actual = recovered(&input).is_ok();
@@ -188,8 +187,7 @@ mod tests {
     #[quickcheck]
     fn return_pointer_round_trip_u32(factor: u32, input: u32) -> bool {
         let expected = input.wrapping_mul(factor);
-        let closure: Box<dyn Fn(u32) -> u32 + 'static> =
-            Box::new(move |x| x.wrapping_mul(factor));
+        let closure: Box<dyn Fn(u32) -> u32 + 'static> = Box::new(move |x| x.wrapping_mul(factor));
         let ptr = ReturnValDoublePointer::from_fn(closure);
         let recovered = unsafe { ptr.into_fn::<u32, u32>() };
         recovered(input) == expected
@@ -428,8 +426,7 @@ mod tests {
 
         let (mut cp_nested, mock_nested) =
             setup_nested_expectation(TimesModifier::Times(n), TimesModifier::Times(m));
-        let (mut cp_flat, mock_flat) =
-            setup_flat_expectation(TimesModifier::Times(n * m));
+        let (mut cp_flat, mock_flat) = setup_flat_expectation(TimesModifier::Times(n * m));
 
         let nested_count = count_accepted_calls(&mut cp_nested, &mock_nested, n * m + 10);
         let flat_count = count_accepted_calls(&mut cp_flat, &mock_flat, n * m + 10);
@@ -783,18 +780,26 @@ mod tests {
         let expected = input >= a && input >= b;
 
         let mock_id = MockId::new_fn("and_test");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         let pred_a = cp.create_single::<u32>(
             &mock_id,
             cond::<u32>(Box::new(move |x| {
-                if *x >= a { Ok(()) } else { Err("below a".into()) }
+                if *x >= a {
+                    Ok(())
+                } else {
+                    Err("below a".into())
+                }
             })),
         );
         let pred_b = cp.create_single::<u32>(
             &mock_id,
             cond::<u32>(Box::new(move |x| {
-                if *x >= b { Ok(()) } else { Err("below b".into()) }
+                if *x >= b {
+                    Ok(())
+                } else {
+                    Err("below b".into())
+                }
             })),
         );
 
@@ -832,18 +837,26 @@ mod tests {
         let expected = input >= a || input >= b;
 
         let mock_id = MockId::new_fn("or_test");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         let pred_a = cp.create_single::<u32>(
             &mock_id,
             cond::<u32>(Box::new(move |x| {
-                if *x >= a { Ok(()) } else { Err("below a".into()) }
+                if *x >= a {
+                    Ok(())
+                } else {
+                    Err("below a".into())
+                }
             })),
         );
         let pred_b = cp.create_single::<u32>(
             &mock_id,
             cond::<u32>(Box::new(move |x| {
-                if *x >= b { Ok(()) } else { Err("below b".into()) }
+                if *x >= b {
+                    Ok(())
+                } else {
+                    Err("below b".into())
+                }
             })),
         );
 
@@ -879,12 +892,16 @@ mod tests {
         let expected = !(input >= threshold);
 
         let mock_id = MockId::new_fn("not_test");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         let pred = cp.create_single::<u32>(
             &mock_id,
             cond::<u32>(Box::new(move |x| {
-                if *x >= threshold { Ok(()) } else { Err("below".into()) }
+                if *x >= threshold {
+                    Ok(())
+                } else {
+                    Err("below".into())
+                }
             })),
         );
 
@@ -923,18 +940,26 @@ mod tests {
         let expected = p_matches ^ q_matches;
 
         let mock_id = MockId::new_fn("xor_test");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         let pred_a = cp.create_single::<u32>(
             &mock_id,
             cond::<u32>(Box::new(move |x| {
-                if *x >= a { Ok(()) } else { Err("below a".into()) }
+                if *x >= a {
+                    Ok(())
+                } else {
+                    Err("below a".into())
+                }
             })),
         );
         let pred_b = cp.create_single::<u32>(
             &mock_id,
             cond::<u32>(Box::new(move |x| {
-                if *x >= b { Ok(()) } else { Err("below b".into()) }
+                if *x >= b {
+                    Ok(())
+                } else {
+                    Err("below b".into())
+                }
             })),
         );
 
@@ -971,11 +996,15 @@ mod tests {
 
         // Plain P
         let mock_plain = MockId::new_fn("plain");
-        let mut cp_plain = Checkpoint::new();
+        let mut cp_plain = Checkpoint::default();
         let pred_plain = cp_plain.create_single::<u32>(
             &mock_plain,
             cond::<u32>(Box::new(move |x| {
-                if *x >= threshold { Ok(()) } else { Err("below".into()) }
+                if *x >= threshold {
+                    Ok(())
+                } else {
+                    Err("below".into())
+                }
             })),
         );
         let pred_plain_any = cp_plain.times_arena(pred_plain, TimesModifier::Any);
@@ -989,11 +1018,15 @@ mod tests {
 
         // Not(Not(P))
         let mock_nn = MockId::new_fn("double_not");
-        let mut cp_nn = Checkpoint::new();
+        let mut cp_nn = Checkpoint::default();
         let pred_inner = cp_nn.create_single::<u32>(
             &mock_nn,
             cond::<u32>(Box::new(move |x| {
-                if *x >= threshold { Ok(()) } else { Err("below".into()) }
+                if *x >= threshold {
+                    Ok(())
+                } else {
+                    Err("below".into())
+                }
             })),
         );
         let not_once = cp_nn.not(pred_inner);
@@ -1035,24 +1068,34 @@ mod tests {
         let mock_id = MockId::new_fn("empty");
 
         // And([]) → completed=true (vacuous truth). Commit directly as expectation.
-        let mut cp_and = Checkpoint::new();
+        let mut cp_and = Checkpoint::default();
         let and_pred = cp_and.and(vec![]);
         cp_and.expect::<u32, u32>(
             &mock_id,
             and_pred,
-            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(|x: u32| x))),
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
         );
-        assert!(cp_and.is_complete(), "And([]) should be vacuously true → complete");
+        assert!(
+            cp_and.is_complete(),
+            "And([]) should be vacuously true → complete"
+        );
 
         // Or([]) → completed=false (vacuous falsity). Commit directly as expectation.
-        let mut cp_or = Checkpoint::new();
+        let mut cp_or = Checkpoint::default();
         let or_pred = cp_or.or(vec![]);
         cp_or.expect::<u32, u32>(
             &mock_id,
             or_pred,
-            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(|x: u32| x))),
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
         );
-        assert!(!cp_or.is_complete(), "Or([]) should be vacuously false → not complete");
+        assert!(
+            !cp_or.is_complete(),
+            "Or([]) should be vacuously false → not complete"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1076,7 +1119,7 @@ mod tests {
         // Clamp to [2, 10] — need at least 2 steps to test ordering
         let n = (n % 9) + 2;
 
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         let mock_ids: Vec<MockId> = (0..n)
             .map(|i| MockId::new_fn(&format!("step_{i}")))
@@ -1131,7 +1174,7 @@ mod tests {
     fn sequence_rejects_wrong_order() {
         let mock_a = MockId::new_fn("first");
         let mock_b = MockId::new_fn("second");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         let pred_a = cp.create_single::<u32>(&mock_a, cond::<u32>(Box::new(|_| Ok(()))));
         let pred_b = cp.create_single::<u32>(&mock_b, cond::<u32>(Box::new(|_| Ok(()))));
@@ -1173,7 +1216,7 @@ mod tests {
         }
 
         let mock_id = MockId::new_fn("ret_val");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
         let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
         let timed = cp.times_arena(pred, TimesModifier::Any);
         cp.expect::<u32, u32>(
@@ -1207,7 +1250,7 @@ mod tests {
     #[test]
     fn evaluate_with_non_matching_predicate_fails() {
         let mock_id = MockId::new_fn("reject_all");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
         let pred = cp.create_single::<u32>(
             &mock_id,
             cond::<u32>(Box::new(|_| Err("always reject".into()))),
@@ -1243,7 +1286,7 @@ mod tests {
     fn evaluate_unknown_mock_returns_none() {
         let registered = MockId::new_fn("registered");
         let unknown = MockId::new_fn("unknown");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         let pred = cp.create_single::<u32>(&registered, cond::<u32>(Box::new(|_| Ok(()))));
         let timed = cp.times_arena(pred, TimesModifier::Any);
@@ -1282,7 +1325,7 @@ mod tests {
     fn checkpoint_needs_all_expectations_satisfied(n: u32) -> TestResult {
         let n = (n % 10) + 1; // 1..=10
 
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
         let mock_ids: Vec<MockId> = (0..n)
             .map(|i| MockId::new_fn(&format!("mock_{i}")))
             .collect();
@@ -1335,14 +1378,16 @@ mod tests {
     fn checkpoint_with_zero_minimum_modifiers_is_immediately_complete() {
         let mock_any = MockId::new_fn("any");
         let mock_atmost = MockId::new_fn("atmost");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         let pred1 = cp.create_single::<u32>(&mock_any, cond::<u32>(Box::new(|_| Ok(()))));
         let timed1 = cp.times_arena(pred1, TimesModifier::Any);
         cp.expect::<u32, u32>(
             &mock_any,
             timed1,
-            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(|x: u32| x))),
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
         );
 
         let pred2 = cp.create_single::<u32>(&mock_atmost, cond::<u32>(Box::new(|_| Ok(()))));
@@ -1350,7 +1395,9 @@ mod tests {
         cp.expect::<u32, u32>(
             &mock_atmost,
             timed2,
-            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(|x: u32| x))),
+            Some(ReturnValDoublePointer::from_fn::<u32, u32>(Box::new(
+                |x: u32| x,
+            ))),
         );
 
         assert!(cp.is_complete());

@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use fns::Computable;
 use mock_macro::mock_crate;
 
@@ -55,10 +57,7 @@ fn mock_crate_return_const() {
 fn mock_crate_ret_call_w_args() {
     // Register a mock for `fns::ret_call_w_args(x: i16) -> i16`. The real implementation
     // returns `x` unchanged; we override it with `x * 3` to prove our closure receives `x`.
-    fns::on_call_ret_call_w_args(
-        |_: &i16| true,
-        |x| x * 3,
-    );
+    fns::on_call_ret_call_w_args(|_: &i16| true, |x| x * 3);
 
     // Lock the context — all mocks are now active.
     context::finish_building_context();
@@ -108,10 +107,7 @@ fn mock_crate_foo_fallback_with_helper() {
     // Register a mock for `Foo::fallback(&self) -> u32` using the static helper.
     // The real implementation returns 11; we override it to return 999.
     // The closure receives `_self_ref` (the &self reference) which we ignore here.
-    fns::Foo::on_call_fallback(
-        |_: &fns::Foo| true,
-        |_self_ref| 999u32,
-    );
+    fns::Foo::on_call_fallback(|_: &fns::Foo| true, |_self_ref| 999u32);
 
     // Finalize — mocks are now active.
     context::finish_building_context();
@@ -180,7 +176,7 @@ fn mock_crate_foo_constructor_registers_mocks() {
 /// return garbage or cause undefined behavior. The panic message must include the function name
 /// so the developer knows exactly which mock is missing.
 #[test]
-#[should_panic(expected = "mock_crate: no mock context built for return_panic")]
+#[should_panic(expected = "mock_crate: no mock registered for `return_panic`")]
 fn mock_crate_unmocked_panics() {
     // Finalize the context WITHOUT registering any mocks. This means every function
     // in the `fns` crate will hit the "no mock context" branch in the substituted body.
@@ -204,10 +200,7 @@ fn mock_crate_multiple_mocks() {
     // Register two independent mocks: one for deep_fn, one for ret_call_w_args.
     // Both are registered before finish_building_context — the context must hold both.
     fns::on_call_nested_deep_fn(|| true, || "multi");
-    fns::on_call_ret_call_w_args(
-        |_: &i16| true,
-        |x| x + 10,
-    );
+    fns::on_call_ret_call_w_args(|_: &i16| true, |x| x + 10);
 
     // Finalize — both mocks are now active simultaneously.
     context::finish_building_context();
@@ -264,8 +257,8 @@ fn mock_crate_sequence() {
     // a step index (0, 1, 2) to a matcher closure and a return closure:
     //   - The first closure `|_x| Ok(())` is the argument matcher (always matches here).
     //   - The second closure is the return-value computation for that step.
-    fns::sequence_ret_call_w_args("counting", 0, |_x| Ok(()), |x| x + 100);
     fns::sequence_ret_call_w_args("counting", 1, |_x| Ok(()), |x| x + 200);
+    fns::sequence_ret_call_w_args("counting", 0, |_x| Ok(()), |x| x + 100);
     fns::sequence_ret_call_w_args("counting", 2, |_x| Ok(()), |x| x + 300);
     //
     // Finalize mock registrations.
@@ -378,10 +371,7 @@ fn mock_crate_mock_struct_instance_mock() {
     // Register a mock for `get_value` on this specific instance. Unlike all-public structs
     // (where `Struct::on_call_*` is static), trackable structs use instance methods:
     // `ms.on_call_get_value(...)`. The mock is keyed to `ms`'s unique mock ID.
-    ms.on_call_get_value(
-        |_: &fns::MockStruct| true,
-        |_self_ref| 42u32,
-    );
+    ms.on_call_get_value(|_| true, |_self_ref| 42u32);
 
     // Finalize the mock context.
     context::finish_building_context();
@@ -409,10 +399,7 @@ fn mock_crate_foo_constructor_and_expectations() {
 
     // Override the `fallback` mock via the static helper. Since Foo is all-public,
     // this shared mock applies to ALL Foo instances, including ones not yet created.
-    fns::Foo::on_call_fallback(
-        |_: &fns::Foo| true,
-        |_self_ref| 123u32,
-    );
+    fns::Foo::on_call_fallback(|_: &fns::Foo| true, |_self_ref| 123u32);
 
     // Finalize — both the constructor's mocks and our explicit override are active.
     context::finish_building_context();
@@ -435,14 +422,18 @@ fn mock_crate_foo_constructor_and_expectations() {
 /// targets the `impl Computable for Foo` block specifically.
 /// If this fails, the discover pass misses crate-local trait impls, or the substitution pass
 /// doesn't replace their method bodies.
+///
+///
+struct E;
+#[derive(Eq, PartialEq, Hash, Clone, Debug, Copy)]
+struct Be {
+    ph: PhantomData<E>,
+}
 #[test]
 fn mock_crate_foo_computable_trait_mock() {
     // Register a mock for `Foo`'s implementation of `Computable::compute`. The generated
     // helper `on_call_compute` targets the trait-impl method, not an inherent method.
-    fns::Foo::on_call_compute(
-        |_: &fns::Foo| true,
-        |_self_ref| 999u32,
-    );
+    fns::Foo::on_call_compute(|_: &fns::Foo| true, |_self_ref| 999u32);
 
     // Finalize the mock context.
     context::finish_building_context();
@@ -471,14 +462,8 @@ fn mock_crate_two_mock_struct_instances() {
     // Register different return values for the same method on different instances.
     // ms1's `get_value` returns 100; ms2's `get_value` returns 200.
     // These registrations must not interfere because they're keyed to different mock IDs.
-    ms1.on_call_get_value(
-        |_: &fns::MockStruct| true,
-        |_self_ref| 100u32,
-    );
-    ms2.on_call_get_value(
-        |_: &fns::MockStruct| true,
-        |_self_ref| 200u32,
-    );
+    ms1.on_call_get_value(|_: &fns::MockStruct| true, |_self_ref| 100u32);
+    ms2.on_call_get_value(|_: &fns::MockStruct| true, |_self_ref| 200u32);
 
     // Finalize — both instances' mocks are active.
     context::finish_building_context();
@@ -536,4 +521,123 @@ fn mock_crate_on_call_new_with_matching() {
     // Verify each instance got the pubfield value from its matching on_call_new closure.
     assert_eq!(ms_one.pubfield, 10);
     assert_eq!(ms_two.pubfield, 20);
+}
+
+// ─── Non-Default struct constructor panic test ───────────────────────────────
+
+/// Validates that calling a constructor on a struct that does NOT derive Default panics
+/// with a descriptive error message when no mock is registered for it.
+///
+/// `NoDefaultStruct` intentionally omits `#[derive(Default)]`. Without a mock_struct!
+/// invocation providing an `on_call` for its constructor, the substituted constructor body
+/// cannot fabricate field values and must panic. This ensures developers get a clear error
+/// rather than a cryptic compile-time or runtime failure.
+#[test]
+#[should_panic(expected = "mock_crate: `fns::NoDefaultStruct::new` called during build phase")]
+fn mock_crate_no_default_struct_panics_without_mock() {
+    // Attempt to construct a NoDefaultStruct without any mock registered.
+    // The substituted constructor body should panic because the struct
+    // does not derive Default — there's no safe fallback.
+    let _nds = fns::NoDefaultStruct::new("hello".to_string());
+    context::finish_building_context();
+}
+
+/// Validates that calling a constructor on a non-Default struct AFTER context is built
+/// (but with no mock registered for it) panics with a distinct error message.
+///
+/// This is a separate failure point from the build-phase panic: the context has been
+/// finalized, but the constructor's mock ID was never registered. The panic message
+/// should indicate that a mock registration is missing, not that it was called too early.
+#[test]
+#[should_panic(expected = "mock_crate: no mock registered for constructor `new` of `fns::NoDefaultStruct`")]
+fn mock_crate_no_default_struct_panics_post_build() {
+    // Finalize the context first — no mocks registered for NoDefaultStruct.
+    context::finish_building_context();
+
+    // Now call the constructor after context is built. This should panic because
+    // there's no mock and the struct doesn't derive Default.
+    let _nds = fns::NoDefaultStruct::new("hello".to_string());
+}
+
+// ─── on_call vs expect checkpoint fulfillment tests ──────────────────────────
+
+/// Validates that a checkpoint with only on_calls (no expects) is considered complete.
+///
+/// `on_call` registers a return-value stub with no cardinality constraint — it can be
+/// called zero or more times without affecting checkpoint completion. This test registers
+/// an on_call, never invokes the function, and verifies that `control_checkpoint()` still
+/// succeeds. If this fails, on_calls are incorrectly treated as expectations.
+#[test]
+fn mock_crate_on_call_unused_passes_checkpoint() {
+    // Register an on_call for ret_call_w_args — but we'll never actually call it.
+    fns::on_call_ret_call_w_args(|_x| true, |x| x + 100);
+
+    // Create a second checkpoint so we can advance past the first.
+    context::new_checkpoint("phase2").unwrap();
+
+    context::finish_building_context();
+
+    // Advance past the first checkpoint. Since on_calls don't count as expectations,
+    // the checkpoint should be considered complete even though we never called the function.
+    context::control_checkpoint().unwrap();
+}
+
+/// Validates that an unfulfilled expect causes checkpoint advancement to fail,
+/// even when on_calls for other functions are present and satisfied.
+///
+/// This is the counterpart to the previous test: expects DO have cardinality constraints
+/// and MUST be fulfilled. Mixing on_calls (which pass freely) with expects (which must
+/// be satisfied) should still enforce the expect's requirement.
+#[test]
+fn mock_crate_expect_unfulfilled_fails_checkpoint() {
+    // Register an on_call — this should not affect checkpoint completion.
+    fns::on_call_ret_call_w_args(|_x| true, |x| x + 100);
+
+    // Register an expect for return_panic that must be called exactly once.
+    fns::expect_return_panic(
+        || Ok(()),
+        || (),
+        context::TimesModifier::Once,
+        None,
+    );
+
+    // Create a second checkpoint so we can attempt to advance.
+    context::new_checkpoint("phase2").unwrap();
+
+    context::finish_building_context();
+
+    // Try to advance. The expect was never fulfilled, so this should fail.
+    let result = context::control_checkpoint();
+    assert!(result.is_err(), "checkpoint should fail with unsatisfied expect");
+}
+
+/// Validates that on_calls don't need fulfillment even when used alongside expects
+/// that ARE fulfilled.
+///
+/// Registers both on_call and expect in the same checkpoint. The expect is fulfilled
+/// by calling the function, while the on_call for a different function is never invoked.
+/// The checkpoint should still pass because on_calls are unconditionally satisfied.
+#[test]
+fn mock_crate_on_call_with_fulfilled_expect_passes_checkpoint() {
+    // Register an on_call for ret_call_w_args — never called.
+    fns::on_call_ret_call_w_args(|_x| true, |x| x + 100);
+
+    // Register an expect for return_panic — must be called once.
+    fns::expect_return_panic(
+        || Ok(()),
+        || (),
+        context::TimesModifier::Once,
+        None,
+    );
+
+    // Create a second checkpoint so we can advance.
+    context::new_checkpoint("phase2").unwrap();
+
+    context::finish_building_context();
+
+    // Fulfill the expect by calling the function.
+    fns::return_panic();
+
+    // Advance. The expect is satisfied and the on_call doesn't count — should pass.
+    context::control_checkpoint().unwrap();
 }

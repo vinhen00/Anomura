@@ -1187,7 +1187,10 @@ fn gen_mock_method_bodies(
             pub fn #name(#receiver #receiver_comma #(#params),*) -> #ret_type {
                 std::eprintln!("INFO: Mocked version of method {} was used", #name_str);
                 let mock_id = #mock_id_expr;
-                if context::ctx_built_and_contains_id(&mock_id) {
+                if !context::ctx_built() {
+                    panic!("mock_crate: method called during build phase — call finish_building_context() first");
+                }
+                if context::contains_id(&mock_id) {
                     match context::run_mock::<(#input_tuple), #ret_type>(
                         mock_id,
                         (self as *const Self, #(#param_names),*),
@@ -2106,7 +2109,10 @@ fn gen_enum_mock_method_bodies(
             pub fn #name(#receiver #receiver_comma #(#params),*) -> #ret_type {
                 std::eprintln!("INFO: Mocked version of method {} was used", #name_str);
                 let mock_id = #mock_id_expr;
-                if context::ctx_built_and_contains_id(&mock_id) {
+                if !context::ctx_built() {
+                    panic!("mock_crate: method called during build phase — call finish_building_context() first");
+                }
+                if context::contains_id(&mock_id) {
                     match context::run_mock::<(#input_tuple), #ret_type>(
                         mock_id,
                         (self as *const Self, #(#param_names),*),
@@ -2817,7 +2823,10 @@ fn gen_trait_mock_impl(entry: &FlattenedTrait, mock_struct_name: &Ident) -> Toke
             fn #name(#receiver #receiver_comma #(#params),*) -> #ret_type {
                 std::eprintln!("INFO: Mocked version of trait method {} was used", #name_str);
                 let mock_id = context::MockId::new_adt_instance(#adt_path, #fn_id_str, self.adt_mock_id);
-                if context::ctx_built_and_contains_id(&mock_id) {
+                if !context::ctx_built() {
+                    panic!("mock_crate: method called during build phase — call finish_building_context() first");
+                }
+                if context::contains_id(&mock_id) {
                     match context::run_mock::<(#input_tuple), #ret_type>(
                         mock_id,
                         (self as *const Self, #(#param_names),*),

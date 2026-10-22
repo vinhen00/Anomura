@@ -99,7 +99,7 @@ mod tests {
 
         // Create a mock identifier for a function named "foo".
         let mock_id = MockId::new_fn("foo");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         // Create a leaf predicate: the condition closure accepts only input == 7.
         // The predicate is stored in the checkpoint's arena and returns a PredicateIndex handle.
@@ -153,7 +153,7 @@ mod tests {
     fn multiple_expectations_in_order() {
         struct Foo(u32);
         let mock_id = MockId::new_fn("foo");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         // First expectation: matches input == 7, returns Foo(100).
         // Registered first, so it will be checked first during evaluation.
@@ -222,7 +222,7 @@ mod tests {
         // Two independent mock IDs for two different functions.
         let mock_foo = MockId::new_fn("foo");
         let mock_bar = MockId::new_fn("bar");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         // Foo expectation: takes u32 input, matches input == 7, returns Foo(42).
         let pred_foo = cp.create_single::<u32>(
@@ -287,13 +287,10 @@ mod tests {
     #[test]
     fn times_any_allows_repeated_calls() {
         let mock_id = MockId::new_fn("counter");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         // Create a leaf predicate with an always-matching condition (accepts any u32).
-        let pred = cp.create_single::<u32>(
-            &mock_id,
-            cond::<u32>(Box::new(|_| Ok(()))),
-        );
+        let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
 
         // Wrap with Any: no minimum, no maximum. The predicate never exhausts.
         let pred_any = cp.times_arena(pred, TimesModifier::Any);
@@ -325,7 +322,7 @@ mod tests {
     #[test]
     fn and_combinator() {
         let mock_id = MockId::new_fn("test");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         // First child condition: input must be > 5.
         let gt5 = cp.create_single::<u32>(
@@ -379,7 +376,7 @@ mod tests {
     #[test]
     fn or_combinator() {
         let mock_id = MockId::new_fn("test");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         // First child: matches input == 1.
         let eq1 = cp.create_single::<u32>(
@@ -431,7 +428,7 @@ mod tests {
     #[test]
     fn named_predicates() {
         let mock_id = MockId::new_fn("test");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         // Create a predicate that matches input == 99.
         let pred = cp.create_single::<u32>(
@@ -474,7 +471,7 @@ mod tests {
     fn sequence_basic() {
         let mock_a = MockId::new_fn("a");
         let mock_b = MockId::new_fn("b");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         // Create always-matching predicates for each mock.
         let pred_a = cp.create_single::<u32>(&mock_a, cond::<u32>(Box::new(|_| Ok(()))));
@@ -522,7 +519,7 @@ mod tests {
     fn sequence_wrong_order_fails() {
         let mock_a = MockId::new_fn("a");
         let mock_b = MockId::new_fn("b");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         let pred_a = cp.create_single::<u32>(&mock_a, cond::<u32>(Box::new(|_| Ok(()))));
         let pred_b = cp.create_single::<u32>(&mock_b, cond::<u32>(Box::new(|_| Ok(()))));
@@ -553,7 +550,7 @@ mod tests {
     #[test]
     fn sequence_builder_slot_collision() {
         let mock_a = MockId::new_fn("a");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         let pred = cp.create_single::<u32>(&mock_a, cond::<u32>(Box::new(|_| Ok(()))));
 
@@ -581,7 +578,7 @@ mod tests {
     #[test]
     fn checkpoint_completion() {
         let mock_id = MockId::new_fn("foo");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         // Create a Once expectation: must be called exactly once.
         let pred = cp.create_single::<u32>(&mock_id, cond::<u32>(Box::new(|_| Ok(()))));
@@ -624,8 +621,8 @@ mod tests {
     fn global_api_flow() {
         use crate::new_expectations::TimesModifier;
         use crate::{
-            add_expectation, register_mock, control_checkpoint, finish_building_context,
-            run_mock, teardown,
+            add_expectation, control_checkpoint, finish_building_context, register_mock, run_mock,
+            teardown,
         };
 
         // Ensure clean thread-local state from any prior tests.
@@ -691,7 +688,7 @@ mod tests {
     #[test]
     fn after_blocks_until_dependency_completed() {
         let mock_id = MockId::new_fn("test");
-        let mut cp = Checkpoint::new();
+        let mut cp = Checkpoint::default();
 
         // === Dependency expectation (index 0) ===
         // Matches only input == 1, can fire once. This is what the guarded predicate waits for.
