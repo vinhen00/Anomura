@@ -79,7 +79,7 @@ impl ParseMocks {
             for i in items {
                 match &i.kind {
                     rustc_ast::ItemKind::MacCall(mac_data) => {
-                        self.handle_maccall(mac_data);
+                        self.read_magical_macros(mac_data);
                     }
                     rustc_ast::ItemKind::Mod(_, _, mod_data) => {
                         self.handle_mod(&mod_data);
@@ -91,10 +91,8 @@ impl ParseMocks {
     }
 
     ///This runs a new compilation process inside the callback function for the original compilation process
-    ///This new compilation compiles the expanded macros and saves
-    fn handle_maccall(&mut self, mac_call: &rustc_ast::MacCall) {
-        // println!("handle_maccall");
-
+    /// this reads and captures information associated with magical macros
+    fn read_magical_macros(&mut self, mac_call: &rustc_ast::MacCall) {
         let args = mac_call.args.clone();
         let tokens = args.tokens;
         let result;
@@ -112,7 +110,8 @@ impl ParseMocks {
                     let tokens: Vec<&TokenTree> = mac_call.args.tokens.iter().collect();
                     if let Some(TokenTree::Token(tok, _)) = tokens.first() {
                         if let TokenKind::Ident(crate_name, _) = tok.kind {
-                            self.mock_crate_targets.push(crate_name.as_str().to_string());
+                            self.mock_crate_targets
+                                .push(crate_name.as_str().to_string());
                             self.crates.push(crate_name.as_str().to_string());
                         }
                     }
@@ -153,7 +152,7 @@ impl rustc_driver::Callbacks for ParseMocks {
                     self.handle_mod(mod_data);
                 }
                 rustc_ast::ItemKind::MacCall(mac_data) => {
-                    self.handle_maccall(mac_data);
+                    self.read_magical_macros(mac_data);
                 }
                 _ => {}
             }
@@ -191,6 +190,6 @@ impl<'a> Visitor<'a> for ParseMocks {
         if let Some(path) = extract_path_value(node) {
             self.crates.push(path.as_str().to_string());
         }
-        self.handle_maccall(node);
+        self.read_magical_macros(node);
     }
 }

@@ -3,7 +3,7 @@ pub mod errors;
 mod mock;
 pub mod mock_objects;
 pub mod mockable;
-pub mod new_expectations;
+mod new_expectations;
 
 #[cfg(test)]
 mod property_tests;

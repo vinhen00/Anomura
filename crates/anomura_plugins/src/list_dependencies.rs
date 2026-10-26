@@ -91,7 +91,11 @@ pub fn list_crates_to_build_normally() -> HashSet<String> {
                 let is_compile_dep = dep
                     .dep_kinds
                     .iter()
-                    .any(|k| k.kind == DependencyKind::Normal || k.kind == DependencyKind::Build);
+                    .any(|k| {
+                        k.kind == DependencyKind::Normal
+                            || k.kind == DependencyKind::Build
+                            || k.kind == DependencyKind::Development
+                    });
 
                 if is_compile_dep && !visited.contains(&dep.pkg) {
                     to_visit.push(&dep.pkg);

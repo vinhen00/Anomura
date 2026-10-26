@@ -6,17 +6,17 @@ fn main() {
     env_logger::init();
     let Some(res) = rustc_plugin::cli_main(anomura_plugins::mock_discover_pass::DiscoverPlugin::new())
         .unwrap_or_else(|e| {
-            eprintln!("discover pass failed with error {:?},", e);
+            log::error!("discover pass failed with error {:?},", e);
             exit(1)
         })
     else {
-        println!("no mocks found");
+        log::debug!("no mocks found");
         return;
     };
 
-    println!("CRATE LIST: {:#?}", res.crate_list);
+    log::debug!("CRATE LIST: {:#?}", res.crate_list);
     if !res.mock_crate_targets.is_empty() {
-        println!("MOCK_CRATE TARGETS: {:#?}", res.mock_crate_targets);
+        log::debug!("MOCK_CRATE TARGETS: {:#?}", res.mock_crate_targets);
     }
 
     if let Err(e) = rustc_plugin::cli_main(anomura_plugins::substitution_pass::SubstitutePlugin::new(
@@ -24,7 +24,7 @@ fn main() {
         res.crate_list,
         res.mock_crate_targets,
     )) {
-        eprintln!("substitute pass failed with error: {:?}", e);
+        log::error!("substitute pass failed with error: {:?}", e);
         exit(1)
     }
 }

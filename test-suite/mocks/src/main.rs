@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use context::TimesModifier::Once;
 use fns::Computable;
 use mock_macro::mock_crate;
 
@@ -424,11 +425,6 @@ fn mock_crate_foo_constructor_and_expectations() {
 /// doesn't replace their method bodies.
 ///
 ///
-struct E;
-#[derive(Eq, PartialEq, Hash, Clone, Debug, Copy)]
-struct Be {
-    ph: PhantomData<E>,
-}
 #[test]
 fn mock_crate_foo_computable_trait_mock() {
     // Register a mock for `Foo`'s implementation of `Computable::compute`. The generated
@@ -549,7 +545,9 @@ fn mock_crate_no_default_struct_panics_without_mock() {
 /// finalized, but the constructor's mock ID was never registered. The panic message
 /// should indicate that a mock registration is missing, not that it was called too early.
 #[test]
-#[should_panic(expected = "mock_crate: no mock registered for constructor `new` of `fns::NoDefaultStruct`")]
+#[should_panic(
+    expected = "mock_crate: no mock registered for constructor `new` of `fns::NoDefaultStruct`"
+)]
 fn mock_crate_no_default_struct_panics_post_build() {
     // Finalize the context first — no mocks registered for NoDefaultStruct.
     context::finish_building_context();
@@ -594,12 +592,7 @@ fn mock_crate_expect_unfulfilled_fails_checkpoint() {
     fns::on_call_ret_call_w_args(|_x| true, |x| x + 100);
 
     // Register an expect for return_panic that must be called exactly once.
-    fns::expect_return_panic(
-        || Ok(()),
-        || (),
-        context::TimesModifier::Once,
-        None,
-    );
+    fns::expect_return_panic(|| Ok(()), || (), Once, None);
 
     // Create a second checkpoint so we can attempt to advance.
     context::new_checkpoint("phase2").unwrap();
@@ -608,7 +601,10 @@ fn mock_crate_expect_unfulfilled_fails_checkpoint() {
 
     // Try to advance. The expect was never fulfilled, so this should fail.
     let result = context::control_checkpoint();
-    assert!(result.is_err(), "checkpoint should fail with unsatisfied expect");
+    assert!(
+        result.is_err(),
+        "checkpoint should fail with unsatisfied expect"
+    );
 }
 
 /// Validates that on_calls don't need fulfillment even when used alongside expects
@@ -623,12 +619,7 @@ fn mock_crate_on_call_with_fulfilled_expect_passes_checkpoint() {
     fns::on_call_ret_call_w_args(|_x| true, |x| x + 100);
 
     // Register an expect for return_panic — must be called once.
-    fns::expect_return_panic(
-        || Ok(()),
-        || (),
-        context::TimesModifier::Once,
-        None,
-    );
+    fns::expect_return_panic(|| Ok(()), || (), Once, None);
 
     // Create a second checkpoint so we can advance.
     context::new_checkpoint("phase2").unwrap();

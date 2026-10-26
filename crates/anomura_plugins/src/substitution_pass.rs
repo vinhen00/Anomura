@@ -46,13 +46,13 @@ pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockObject>
 
     let mut crate_mock_map: HashMap<String, Vec<MockObject>> = HashMap::new();
     for mock in &callbacks.get_mocks() {
-        println!("mock fn path : {:?}", mock.get_path());
+        log::debug!("mock fn path : {:?}", mock.get_path());
         crate_mock_map
             .entry(mock.get_path())
             .and_modify(|v| v.push(mock.clone()))
             .or_insert(vec![mock.clone()]);
     }
-    println!("mock map keys: {:?}", crate_mock_map.keys());
+    log::debug!("mock map keys: {:?}", crate_mock_map.keys());
     crate_mock_map
 }
 
@@ -83,11 +83,11 @@ impl RustcPlugin for SubstitutePlugin {
         //Hashset to skip duplicates
         let crate_filters = self.crate_list.clone();
         //only execute driver on crates containing mocks
-        println!("crate filters: {:?}", crate_filters);
-        println!("here we are");
+        log::debug!("crate filters: {:?}", crate_filters);
+        log::debug!("here we are");
         let filter = CrateFilter::RunOnCrates(crate_filters);
         if let CrateFilter::RunOnCrates(filt) = &filter {
-            println!("{:#?}", filt);
+            log::debug!("{:#?}", filt);
         }
 
         // Extract the cargo subcommand (check, test, build, etc.) from args so
@@ -142,18 +142,18 @@ impl RustcPlugin for SubstitutePlugin {
         compiler_args.push("--cap-lints=allow".into());
 
         if is_mock_crate_target {
-            println!("Running CrateIntercept for mock_crate target: {crate_name}");
+            log::debug!("Running CrateIntercept for mock_crate target: {crate_name}");
             let mut callbacks = CrateIntercept::new(crate_name.clone());
             log::debug!("crate_intercept compiler args: {:?}", compiler_args);
             crate::rustc_run(&compiler_args, &mut callbacks);
         } else {
-            println!("Running FunctionIntercept for crate: {crate_name}");
+            log::debug!("Running FunctionIntercept for crate: {crate_name}");
             let program = std::env::var(SUBSTITUTION_MOCK_PATHS)
                 .expect("should always be available at this point");
             let mut mock_map = mock_map_from_program(program);
             let mocks = mock_map.remove(&crate_name).expect("should exist");
             let mut callbacks = FunctionIntercept::new(mocks);
-            println!("plugin_args: {:?}", plugin_args);
+            log::debug!("plugin_args: {:?}", plugin_args);
             log::debug!("sub new compiler args: {:?}", compiler_args);
             crate::rustc_run(&compiler_args, &mut callbacks);
         }
@@ -162,7 +162,7 @@ impl RustcPlugin for SubstitutePlugin {
     }
 
     fn modify_cargo(&self, cargo: &mut std::process::Command, args: &Vec<String>) {
-        println!("cargo args: {:?}", &args);
+        log::debug!("cargo args: {:?}", &args);
         cargo.env(SUBSTITUTION_MOCK_PATHS, self.program.clone());
         if !self.mock_crate_targets.is_empty() {
             cargo.env(MOCK_CRATE_TARGETS_ENV, self.mock_crate_targets.join(","));

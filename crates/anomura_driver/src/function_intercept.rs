@@ -277,7 +277,7 @@ impl rustc_driver::Callbacks for FunctionIntercept {
         _compiler: &Compiler,
         krate: &mut rustc_ast::Crate,
     ) -> Compilation {
-        println!("Started compilation");
+        log::debug!("Started compilation");
 
         //println!("Have Krate {:#?}", krate);
 

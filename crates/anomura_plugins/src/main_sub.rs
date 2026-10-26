@@ -50,7 +50,7 @@ pub fn mock_map_from_program(program: String) -> HashMap<String, Vec<MockObject>
             .and_modify(|v| v.push(mock.clone()))
             .or_insert(vec![mock.clone()]);
     }
-    println!("mock map keys: {:?}", crate_mock_map.keys());
+    log::debug!("mock map keys: {:?}", crate_mock_map.keys());
     crate_mock_map
 }
 
@@ -80,11 +80,11 @@ impl RustcPlugin for SubstitutePlugin {
         //Hashset to skip duplicates
         let crate_filters = self.crate_list.clone();
         //only execute driver on crates containing mocks
-        println!("crate filters: {:?}", crate_filters);
-        println!("here we are");
+        log::debug!("crate filters: {:?}", crate_filters);
+        log::debug!("here we are");
         let filter = CrateFilter::RunOnCrates(crate_filters);
         if let CrateFilter::RunOnCrates(filt) = &filter {
-            println!("{:#?}", filt);
+            log::debug!("{:#?}", filt);
         }
         RustcPluginArgs {
             args: Some(args),
@@ -100,15 +100,15 @@ impl RustcPlugin for SubstitutePlugin {
         compiler_args: Vec<String>,
         plugin_args: &Vec<String>,
     ) -> rustc_interface::interface::Result<()> {
-        println!("Test");
+        log::debug!("Test");
         let program = std::env::var(SUBSTITUTION_MOCK_PATHS)
             .expect("should always be available at this point");
         let mut mock_map = mock_map_from_program(program);
-        println!("Removing {}", crate_name);
+        log::debug!("Removing {}", crate_name);
         let mocks = mock_map.remove(&crate_name).expect("should exist");
         let mut callbacks = FunctionIntercept::new(mocks);
-        println!("runnin sugstitution plugin for crate {crate_name}");
-        println!("plugin_args: {:?}", plugin_args);
+        log::debug!("runnin sugstitution plugin for crate {crate_name}");
+        log::debug!("plugin_args: {:?}", plugin_args);
 
         //link against context
         let l_index = compiler_args
@@ -135,7 +135,7 @@ impl RustcPlugin for SubstitutePlugin {
     }
 
     fn modify_cargo(&self, cargo: &mut std::process::Command, args: &Vec<String>) {
-        println!("cargo args: {:?}", &args);
+        log::debug!("cargo args: {:?}", &args);
         cargo.env(SUBSTITUTION_MOCK_PATHS, self.program.clone());
         cargo.args(args);
     }

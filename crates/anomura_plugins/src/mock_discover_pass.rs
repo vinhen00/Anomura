@@ -59,7 +59,7 @@ impl DiscoverPlugin {
             let name = name_string.clone().to_fs_name::<GenericFilePath>().unwrap();
             (name_string, name)
         };
-        println!("Init listener to {}", name_string);
+        log::debug!("Init listener to {}", name_string);
 
         let listener = match ListenerOptions::new().name(name).create_sync() {
             Err(e) if e.kind() == io::ErrorKind::AddrInUse => {
@@ -73,7 +73,7 @@ impl DiscoverPlugin {
                 // In a real program, instead of leaving it up to the user
                 // to perform cleanup, one would use the .try_overwrite(true)
                 // listener option to try to replace the socket.
-                eprintln!(
+                log::error!(
                     "Error: could not start server because the socket file is \
             occupied. Please check if {name_string} is in use by another \
             process and try again."
@@ -83,36 +83,37 @@ impl DiscoverPlugin {
             x => x.unwrap(),
         };
 
-        let listener_handle: JoinHandle<(Vec<String>, Vec<String>, Vec<String>)> = thread::spawn(move || {
-            let mut all_mocked_fns = Vec::new();
-            let mut crate_list = Vec::new();
-            let mut mock_crate_targets = Vec::new();
-            // listener
-            //     .set_nonblocking(local_socket::ListenerNonblockingMode::Accept)
-            //     .ok();
-            //let timeout = std::time::Instant::now() + std::time::Duration::from_secs(10);
-            while let Ok(conn) = listener.accept() {
-                let mut buffer = String::with_capacity(16192);
-                if let Ok(mut _reader) = BufReader::new(conn).read_line(&mut buffer)
-                    && let Ok(deserial) = serde_json::from_str::<CallBackMessage>(&buffer)
-                {
-                    match deserial {
-                        CallBackMessage::NewMocks(text, crates) => {
-                            all_mocked_fns.push(text);
-                            crate_list.extend(crates.iter().cloned());
-                        }
-                        CallBackMessage::MockCrateTargets(targets) => {
-                            mock_crate_targets.extend(targets);
-                        }
-                        CallBackMessage::Done => {
-                            println!("got message done");
-                            return (all_mocked_fns, crate_list, mock_crate_targets);
+        let listener_handle: JoinHandle<(Vec<String>, Vec<String>, Vec<String>)> =
+            thread::spawn(move || {
+                let mut all_mocked_fns = Vec::new();
+                let mut crate_list = Vec::new();
+                let mut mock_crate_targets = Vec::new();
+                // listener
+                //     .set_nonblocking(local_socket::ListenerNonblockingMode::Accept)
+                //     .ok();
+                //let timeout = std::time::Instant::now() + std::time::Duration::from_secs(10);
+                while let Ok(conn) = listener.accept() {
+                    let mut buffer = String::with_capacity(16192);
+                    if let Ok(mut _reader) = BufReader::new(conn).read_line(&mut buffer)
+                        && let Ok(deserial) = serde_json::from_str::<CallBackMessage>(&buffer)
+                    {
+                        match deserial {
+                            CallBackMessage::NewMocks(text, crates) => {
+                                all_mocked_fns.push(text);
+                                crate_list.extend(crates.iter().cloned());
+                            }
+                            CallBackMessage::MockCrateTargets(targets) => {
+                                mock_crate_targets.extend(targets);
+                            }
+                            CallBackMessage::Done => {
+                                log::debug!("got message done");
+                                return (all_mocked_fns, crate_list, mock_crate_targets);
+                            }
                         }
                     }
                 }
-            }
-            (all_mocked_fns, crate_list, mock_crate_targets)
-        });
+                (all_mocked_fns, crate_list, mock_crate_targets)
+            });
         DiscoverPlugin {
             channel_name: name_string,
             listener_handle: Some(listener_handle),
@@ -164,9 +165,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         let args: Vec<String> = env::args().skip(2).filter(|a| !a.is_empty()).collect();
         args.iter()
             .for_each(|a| log::debug!("discover arg: {:?}", a));
-        let only: Vec<String> = list_crates_to_build_normally()
-            .into_iter()
-            .collect();
+        let only: Vec<String> = list_crates_to_build_normally().into_iter().collect();
         log::debug!("rustc discover build normally: {:?}", only);
         RustcPluginArgs {
             args: Some(args),
@@ -183,11 +182,11 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         plugin_args: &Vec<String>,
     ) -> rustc_interface::interface::Result<()> {
         let mut callbacks = ParseMocks::new(true);
-        println!("compiler_args: {:?}", plugin_args);
+        log::debug!("compiler_args: {:?}", plugin_args);
         crate::rustc_run(&compiler_args, &mut callbacks);
-        println!("got callbacks {:?}", callbacks);
+        log::debug!("got callbacks {:?}", callbacks);
         let _ = send_back_results(&callbacks).inspect_err(|e| {
-            eprintln!(
+            log::error!(
                 "callback failed to send back result, got error message {:?}",
                 e
             );
@@ -217,7 +216,7 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         };
 
         //tell the server that we are done looking for messages sent from rustc_driver instances
-        println!("Sending Done");
+        log::debug!("Sending Done");
         let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name)?);
         let json = serde_json::to_string(&CallBackMessage::Done).unwrap();
         conn.write_all(json.as_bytes())?;
@@ -236,9 +235,9 @@ impl RustcPlugin<DiscoverClientReturn> for DiscoverPlugin {
         let crate_list = mocked_fns.1;
         let mock_crate_targets = mocked_fns.2;
 
-        println!("After_execution: Found {} mocks", mocked_fns.0.len());
+        log::debug!("After_execution: Found {} mocks", mocked_fns.0.len());
         if !mock_crate_targets.is_empty() {
-            println!("mock_crate targets: {:?}", mock_crate_targets);
+            log::debug!("mock_crate targets: {:?}", mock_crate_targets);
         }
         Ok(DiscoverClientReturn {
             mocked_fns: program,
@@ -272,7 +271,7 @@ pub fn send_back_results(parse_mocks: &ParseMocks) -> io::Result<()> {
 
     // Send mock_fn/mock_method/mock_struct results
     let inline_result = CallBackMessage::NewMocks(mocks, cratelist);
-    println!("Sending mock {:?} to {}", inline_result, name_str);
+    log::debug!("Sending mock {:?} to {}", inline_result, name_str);
     let mut conn: BufWriter<local_socket::Stream> = BufWriter::new(Stream::connect(name.clone())?);
     let json = serde_json::to_string(&inline_result)?;
     conn.write_all(json.as_bytes())?;

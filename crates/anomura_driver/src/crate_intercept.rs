@@ -403,7 +403,7 @@ impl CrateIntercept {
             }
         }
 
-        println!("CrateIntercept: replaced {} function bodies", fn_count);
+        log::debug!("CrateIntercept: replaced {} function bodies", fn_count);
 
         // Phase C: Generate and inject convenience API (PredicateXxx, ReturnXxx, on_call_*)
         let convenience_source = crate_mock_gen::gen_convenience_api(api);
@@ -420,7 +420,7 @@ impl CrateIntercept {
         }
 
         if dump_ast {
-            println!("\n=== DUMP_AST: modified items ===\n{}\n=== end ===", dump_buf);
+            log::debug!("\n=== DUMP_AST: modified items ===\n{}\n=== end ===", dump_buf);
         }
 
         if let Some(path) = &ast_write {
@@ -433,9 +433,9 @@ impl CrateIntercept {
                 base.join(path)
             };
             if let Err(e) = std::fs::write(&resolved, &dump_buf) {
-                eprintln!("CrateIntercept: failed to write AST to {}: {}", resolved.display(), e);
+                log::error!("CrateIntercept: failed to write AST to {}: {}", resolved.display(), e);
             } else {
-                println!("CrateIntercept: wrote modified AST to {}", resolved.display());
+                log::debug!("CrateIntercept: wrote modified AST to {}", resolved.display());
             }
         }
     }
@@ -468,7 +468,7 @@ impl CrateIntercept {
             fn_data.sig = parsed_fn.sig;
             fn_data.body = parsed_fn.body;
         } else {
-            eprintln!("CrateIntercept: failed to parse mock body for fn {}", func.name);
+            log::error!("CrateIntercept: failed to parse mock body for fn {}", func.name);
         }
     }
 
@@ -546,8 +546,8 @@ impl CrateIntercept {
                         fn_data.sig = parsed_fn.sig;
                         fn_data.body = parsed_fn.body;
                     } else {
-                        eprintln!("CrateIntercept: failed to parse mock body for method {}.{}", struct_name, method_name);
-                        eprintln!("  source: {}", mock_source);
+                        log::error!("CrateIntercept: failed to parse mock body for method {}.{}", struct_name, method_name);
+                        log::error!("  source: {}", mock_source);
                     }
                 }
             }
@@ -623,7 +623,7 @@ impl CrateIntercept {
         }
 
         if private_count > 0 {
-            println!("CrateIntercept: replaced {} private field(s) with PhantomData", private_count);
+            log::debug!("CrateIntercept: replaced {} private field(s) with PhantomData", private_count);
         }
 
         // Add adt_mock_id for trackable structs
@@ -634,7 +634,7 @@ impl CrateIntercept {
             if !exists {
                 if let Some(mock_id_field) = self.parse_struct_field(compiler, "adt_mock_id: context::AdtMockId") {
                     field_list.push(mock_id_field);
-                    println!("CrateIntercept: added adt_mock_id field");
+                    log::debug!("CrateIntercept: added adt_mock_id field");
                 }
             }
         }
@@ -694,7 +694,7 @@ impl CrateIntercept {
                 for d in diags {
                     d.cancel();
                 }
-                eprintln!("CrateIntercept: parse error for source:\n{}", source);
+                log::error!("CrateIntercept: parse error for source:\n{}", source);
                 return None;
             }
         };
@@ -728,7 +728,7 @@ impl CrateIntercept {
                 for d in diags {
                     d.cancel();
                 }
-                eprintln!("CrateIntercept: failed to parse convenience API source");
+                log::error!("CrateIntercept: failed to parse convenience API source");
                 return;
             }
         };
@@ -743,12 +743,12 @@ impl CrateIntercept {
                 Ok(None) => break, // end of input
                 Err(diag) => {
                     diag.cancel();
-                    eprintln!("CrateIntercept: error parsing convenience API item");
+                    log::error!("CrateIntercept: error parsing convenience API item");
                     break;
                 }
             }
         }
-        println!("CrateIntercept: injected {} convenience API items", injected);
+        log::debug!("CrateIntercept: injected {} convenience API items", injected);
     }
 }
 
@@ -758,7 +758,7 @@ impl rustc_driver::Callbacks for CrateIntercept {
         compiler: &Compiler,
         krate: &mut ast::Crate,
     ) -> Compilation {
-        println!("CrateIntercept: collecting API for crate '{}'", self.crate_name);
+        log::debug!("CrateIntercept: collecting API for crate '{}'", self.crate_name);
 
         // Phase A: Collect the crate's public API
         let root = self.collect_module(
@@ -771,13 +771,13 @@ impl rustc_driver::Callbacks for CrateIntercept {
             root,
         };
 
-        println!("CrateIntercept: collected API:");
-        println!("  {} structs", api.root.structs.len());
-        println!("  {} enums", api.root.enums.len());
-        println!("  {} traits", api.root.traits.len());
-        println!("  {} functions", api.root.functions.len());
-        println!("  {} impls", api.root.impls.len());
-        println!("  {} submodules", api.root.children.len());
+        log::debug!("CrateIntercept: collected API:");
+        log::debug!("  {} structs", api.root.structs.len());
+        log::debug!("  {} enums", api.root.enums.len());
+        log::debug!("  {} traits", api.root.traits.len());
+        log::debug!("  {} functions", api.root.functions.len());
+        log::debug!("  {} impls", api.root.impls.len());
+        log::debug!("  {} submodules", api.root.children.len());
 
         // Phase B: Generate mock dispatch bodies and inject into AST
         self.apply_mock_bodies(compiler, krate, &api);

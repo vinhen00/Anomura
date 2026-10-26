@@ -57,18 +57,18 @@ fn main() {
     );
 
     // Run the compiled executable
-    println!("\n=== RUNNING COMPILED PROGRAM ===");
+    log::debug!("\n=== RUNNING COMPILED PROGRAM ===");
     let output = Command::new("./target/mocked_main").output();
 
     match output {
         Ok(output) => {
-            println!("{}", String::from_utf8_lossy(&output.stdout));
+            log::debug!("{}", String::from_utf8_lossy(&output.stdout));
             if !output.stderr.is_empty() {
-                eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+                log::error!("{}", String::from_utf8_lossy(&output.stderr));
             }
         }
         Err(e) => {
-            println!("Failed to run executable: {}", e);
+            log::error!("Failed to run executable: {}", e);
         }
     }
 }
