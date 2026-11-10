@@ -1,6 +1,6 @@
 //! A Rustc plugin that prints out the name of all items in a crate.
-
 #![feature(rustc_private)]
+#![warn(unexpected_cfgs)]
 
 extern crate rustc_ast;
 extern crate rustc_driver;

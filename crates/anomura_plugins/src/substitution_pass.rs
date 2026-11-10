@@ -142,8 +142,23 @@ impl RustcPlugin for SubstitutePlugin {
         compiler_args.push("--cap-lints=allow".into());
 
         if is_mock_crate_target {
-            log::debug!("Running CrateIntercept for mock_crate target: {crate_name}");
-            let mut callbacks = CrateIntercept::new(crate_name.clone());
+            log::debug!("Running two-pass pipeline for mock_crate target: {crate_name}");
+
+            // Pass 1: Analysis (read-only, collect expanded API)
+            log::debug!("Pass 1: AnalysisPass for {crate_name}");
+            let mut analysis = anomura_driver::analysis_pass::AnalysisPass::new(crate_name.clone());
+            crate::rustc_run(&compiler_args, &mut analysis);
+            let model = analysis.into_model();
+
+            log::debug!("AnalysisPass complete — collected {} functions, {} structs, {} impls",
+                model.root.functions.len(),
+                model.root.structs.len(),
+                model.root.impls.len(),
+            );
+
+            // Pass 2: Substitution (generative, uses the model)
+            log::debug!("Pass 2: CrateIntercept for {crate_name}");
+            let mut callbacks = CrateIntercept::new(crate_name.clone(), model);
             log::debug!("crate_intercept compiler args: {:?}", compiler_args);
             crate::rustc_run(&compiler_args, &mut callbacks);
         } else {

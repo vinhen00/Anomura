@@ -1,7 +1,8 @@
 //! CrateIntercept — the `rustc_driver::Callbacks` implementation for `mock_crate!` targets.
 //!
-//! Walks the target crate's AST in `after_crate_root_parsing`, collects the full public API
-//! into a `CrateApiModel`, generates mock infrastructure, and injects it back into the AST.
+//! In the two-pass architecture, CrateIntercept is the second pass (generative).
+//! It receives a pre-collected `CrateApiModel` from the `AnalysisPass` and uses it
+//! in `after_crate_root_parsing` to generate mock infrastructure and inject it into the AST.
 
 use rustc_ast as ast;
 use rustc_driver::Compilation;
@@ -13,22 +14,26 @@ use rustc_span::FileName;
 
 use crate::crate_api::*;
 use crate::crate_mock_gen;
+use crate::generics_model::*;
+use crate::type_repr::TypeRepr;
 
-/// The CrateIntercept driver — collects the crate's public API and generates mock infrastructure.
+/// The CrateIntercept driver — receives a pre-collected API model and generates mock infrastructure.
 #[derive(Debug)]
 pub struct CrateIntercept {
     crate_name: String,
+    /// The API model collected by the AnalysisPass (first pass).
+    api: CrateApiModel,
     parse_counter: std::cell::Cell<u32>,
 }
 
 impl CrateIntercept {
-    pub fn new(crate_name: String) -> Self {
-        Self { crate_name, parse_counter: std::cell::Cell::new(0) }
+    pub fn new(crate_name: String, api: CrateApiModel) -> Self {
+        Self { crate_name, api, parse_counter: std::cell::Cell::new(0) }
     }
 
     /// Walk a list of items (module contents) and collect the public API.
     fn collect_module(&self, name: Symbol, items: &[Box<ast::Item>]) -> ModuleModel {
-        let mut module = ModuleModel::new(name);
+        let mut module = ModuleModel::new(name.as_str());
 
         for item in items {
             match &item.kind {
@@ -38,7 +43,7 @@ impl CrateIntercept {
                     }
                 }
                 ast::ItemKind::Struct(ident, _generics, fields) if self.is_pub(&item.vis) => {
-                    if let Some(s) = self.collect_struct(ident.name, fields, &item.attrs) {
+                    if let Some(s) = self.collect_struct(ident.name, fields) {
                         module.structs.push(s);
                     }
                 }
@@ -75,18 +80,22 @@ impl CrateIntercept {
     }
 
     fn collect_function(&self, fn_data: &ast::Fn) -> Option<FunctionModel> {
-        let name = fn_data.ident.name;
+        let name = fn_data.ident.name.as_str().to_string();
         let params = self.collect_params(&fn_data.sig.decl.inputs);
         let return_type = self.collect_return_type(&fn_data.sig.decl.output);
 
         Some(FunctionModel {
             name,
+            generics: GenericsModel::empty(),
             params,
             return_type,
+            is_async: false,
+            is_unsafe: false,
+            abi: None,
         })
     }
 
-    fn collect_struct(&self, name: Symbol, fields: &ast::VariantData, attrs: &[ast::Attribute]) -> Option<StructModel> {
+    fn collect_struct(&self, name: Symbol, fields: &ast::VariantData) -> Option<StructModel> {
         let ast::VariantData::Struct { fields: field_list, .. } = fields else {
             // Skip tuple structs and unit structs for now
             return None;
@@ -95,51 +104,22 @@ impl CrateIntercept {
         let fields = field_list
             .iter()
             .map(|f| FieldModel {
-                name: f.ident.map(|i| i.name).unwrap_or(Symbol::intern("_")),
-                ty: f.ty.clone(),
+                name: f.ident.map(|i| i.name.as_str().to_string()).unwrap_or_else(|| "_".to_string()),
+                ty: self.ty_to_type_repr(&f.ty),
                 is_pub: matches!(f.vis.kind, ast::VisibilityKind::Public),
             })
             .collect::<Vec<_>>();
 
         let trackable = fields.iter().any(|f: &FieldModel| !f.is_pub);
-        let derives = Self::fetch_derives(attrs);
 
-        Some(StructModel { name, fields, trackable, derives })
-    }
-
-    /// Inspect `#[derive(...)]` attributes and return a `Derives` with the recognized traits flagged.
-    fn fetch_derives(attrs: &[ast::Attribute]) -> Derives {
-        let mut derives = Derives::default();
-
-        for attr in attrs {
-            let ast::AttrKind::Normal(normal) = &attr.kind else { continue };
-            if normal.item.path.segments.len() != 1
-                || normal.item.path.segments[0].ident.name != Symbol::intern("derive")
-            {
-                continue;
-            }
-            let ast::AttrArgs::Delimited(delimited) = &normal.item.args else { continue };
-
-            for tree in delimited.tokens.iter() {
-                if let rustc_ast::tokenstream::TokenTree::Token(tok, _) = tree {
-                    if tok.is_ident_named(Symbol::intern("Default")) {
-                        derives.default = true;
-                    } else if tok.is_ident_named(Symbol::intern("Clone")) {
-                        derives.clone = true;
-                    } else if tok.is_ident_named(Symbol::intern("Eq")) {
-                        derives.eq = true;
-                    } else if tok.is_ident_named(Symbol::intern("PartialEq")) {
-                        derives.partial_eq = true;
-                    } else if tok.is_ident_named(Symbol::intern("Hash")) {
-                        derives.hash = true;
-                    } else if tok.is_ident_named(Symbol::intern("Debug")) {
-                        derives.debug = true;
-                    }
-                }
-            }
-        }
-
-        derives
+        Some(StructModel {
+            name: name.as_str().to_string(),
+            generics: GenericsModel::empty(),
+            fields,
+            trackable,
+            repr: None,
+            trait_impls: Vec::new(),
+        })
     }
 
     fn collect_enum(&self, name: Symbol, variants: &[ast::Variant]) -> Option<EnumModel> {
@@ -148,25 +128,31 @@ impl CrateIntercept {
             .map(|v| {
                 let fields = match &v.data {
                     ast::VariantData::Tuple(fields, ..) => {
-                        fields.iter().map(|f| f.ty.clone()).collect()
+                        fields.iter().map(|f| self.ty_to_type_repr(&f.ty)).collect()
                     }
                     ast::VariantData::Struct { fields, .. } => {
-                        fields.iter().map(|f| f.ty.clone()).collect()
+                        fields.iter().map(|f| self.ty_to_type_repr(&f.ty)).collect()
                     }
                     ast::VariantData::Unit(..) => Vec::new(),
                 };
                 VariantModel {
-                    name: v.ident.name,
+                    name: v.ident.name.as_str().to_string(),
                     fields,
                 }
             })
             .collect();
 
-        Some(EnumModel { name, variants })
+        Some(EnumModel {
+            name: name.as_str().to_string(),
+            generics: GenericsModel::empty(),
+            variants,
+            repr: None,
+            trait_impls: Vec::new(),
+        })
     }
 
     fn collect_trait(&self, trait_data: &ast::Trait) -> Option<TraitModel> {
-        let name = trait_data.ident.name;
+        let name = trait_data.ident.name.as_str().to_string();
         let methods = trait_data
             .items
             .iter()
@@ -179,7 +165,13 @@ impl CrateIntercept {
             })
             .collect();
 
-        Some(TraitModel { name, methods })
+        Some(TraitModel {
+            name,
+            generics: GenericsModel::empty(),
+            supertraits: Vec::new(),
+            methods,
+            associated_types: Vec::new(),
+        })
     }
 
     fn collect_impl(&self, impl_data: &ast::Impl) -> Option<ImplModel> {
@@ -188,7 +180,7 @@ impl CrateIntercept {
 
         // Get the trait name if this is a trait impl
         let trait_name = impl_data.of_trait.as_ref().and_then(|trait_header| {
-            trait_header.trait_ref.path.segments.last().map(|seg| seg.ident.name)
+            trait_header.trait_ref.path.segments.last().map(|seg| seg.ident.name.as_str().to_string())
         });
 
         let methods = impl_data
@@ -209,15 +201,22 @@ impl CrateIntercept {
             })
             .collect();
 
+        let self_type = TypeRepr::simple(&self_type_name);
+        let trait_ref = trait_name.as_ref().map(|n| TypeRepr::simple(n));
+
         Some(ImplModel {
+            self_type,
             self_type_name,
+            trait_ref,
             trait_name,
+            generics: GenericsModel::empty(),
             methods,
+            associated_types: Vec::new(),
         })
     }
 
     fn collect_method_sig(&self, fn_data: &ast::Fn, vis: &ast::Visibility) -> MethodSigModel {
-        let name = fn_data.ident.name;
+        let name = fn_data.ident.name.as_str().to_string();
         let receiver = self.extract_receiver(&fn_data.sig.decl.inputs);
         let params = self.collect_method_params(&fn_data.sig.decl.inputs);
         let return_type = self.collect_return_type(&fn_data.sig.decl.output);
@@ -225,10 +224,13 @@ impl CrateIntercept {
 
         MethodSigModel {
             name,
+            generics: GenericsModel::empty(),
             receiver,
             params,
             return_type,
             is_pub,
+            is_async: false,
+            is_unsafe: false,
         }
     }
 
@@ -239,7 +241,7 @@ impl CrateIntercept {
                 let name = self.extract_param_name(&param.pat)?;
                 Some(ParamModel {
                     name,
-                    ty: param.ty.clone(),
+                    ty: self.ty_to_type_repr(&param.ty),
                 })
             })
             .collect()
@@ -254,7 +256,7 @@ impl CrateIntercept {
                 let name = self.extract_param_name(&param.pat)?;
                 Some(ParamModel {
                     name,
-                    ty: param.ty.clone(),
+                    ty: self.ty_to_type_repr(&param.ty),
                 })
             })
             .collect()
@@ -291,26 +293,34 @@ impl CrateIntercept {
         }
     }
 
-    fn collect_return_type(&self, output: &ast::FnRetTy) -> Option<Box<ast::Ty>> {
+    fn collect_return_type(&self, output: &ast::FnRetTy) -> TypeRepr {
         match output {
-            ast::FnRetTy::Ty(ty) => Some(ty.clone()),
-            ast::FnRetTy::Default(..) => None,
+            ast::FnRetTy::Ty(ty) => self.ty_to_type_repr(ty),
+            ast::FnRetTy::Default(..) => TypeRepr::unit(),
         }
     }
 
-    fn extract_type_name(&self, ty: &ast::Ty) -> Option<Symbol> {
+    fn extract_type_name(&self, ty: &ast::Ty) -> Option<String> {
         if let ast::TyKind::Path(_, path) = &ty.kind {
-            path.segments.last().map(|seg| seg.ident.name)
+            path.segments.last().map(|seg| seg.ident.name.as_str().to_string())
         } else {
             None
         }
     }
 
-    fn extract_param_name(&self, pat: &ast::Pat) -> Option<Symbol> {
+    fn extract_param_name(&self, pat: &ast::Pat) -> Option<String> {
         match &pat.kind {
-            ast::PatKind::Ident(_, ident, _) => Some(ident.name),
-            _ => Some(Symbol::intern("_")),
+            ast::PatKind::Ident(_, ident, _) => Some(ident.name.as_str().to_string()),
+            _ => Some("_".to_string()),
         }
+    }
+
+    /// Convert an ast::Ty to a TypeRepr.
+    /// For now, uses pprust::ty_to_string as a bridge — the AnalysisPass will
+    /// do proper structural conversion in the future.
+    fn ty_to_type_repr(&self, ty: &ast::Ty) -> TypeRepr {
+        let ty_str = rustc_ast_pretty::pprust::ty_to_string(ty);
+        TypeRepr::simple(&ty_str)
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -344,11 +354,11 @@ impl CrateIntercept {
 
         // Private traits: keep the trait definition for bounds, but strip all methods.
         // Also strip methods from impls of private traits.
-        let private_trait_names: Vec<Symbol> = krate.items.iter()
+        let private_trait_names: Vec<String> = krate.items.iter()
             .filter_map(|item| {
                 if let ast::ItemKind::Trait(trait_data) = &item.kind {
                     if !self.is_pub(&item.vis) {
-                        return Some(trait_data.ident.name);
+                        return Some(trait_data.ident.name.as_str().to_string());
                     }
                 }
                 None
@@ -363,7 +373,8 @@ impl CrateIntercept {
                 ast::ItemKind::Impl(impl_data) => {
                     if let Some(trait_header) = &impl_data.of_trait {
                         if let Some(seg) = trait_header.trait_ref.path.segments.last() {
-                            if private_trait_names.contains(&seg.ident.name) {
+                            let seg_name = seg.ident.name.as_str();
+                            if private_trait_names.iter().any(|n| n == seg_name) {
                                 impl_data.items.clear();
                             }
                         }
@@ -378,7 +389,7 @@ impl CrateIntercept {
             match &mut item.kind {
                 ast::ItemKind::Fn(fn_data) if self.is_pub(&item.vis) => {
                     let name = fn_data.ident.name.as_str().to_string();
-                    if let Some(func_model) = api.root.functions.iter().find(|f| f.name.as_str() == name) {
+                    if let Some(func_model) = api.root.functions.iter().find(|f| f.name == name) {
                         self.replace_fn_body(compiler, fn_data, &api.crate_name, func_model);
                         fn_count += 1;
                     }
@@ -388,13 +399,13 @@ impl CrateIntercept {
                     self.handle_impl_methods(compiler, impl_data, &api.root, &root_path);
                 }
                 ast::ItemKind::Struct(ident, _generics, fields) if self.is_pub(&item.vis) => {
-                    if let Some(struct_model) = api.root.structs.iter().find(|s| s.name == ident.name) {
+                    if let Some(struct_model) = api.root.structs.iter().find(|s| s.name == ident.name.as_str()) {
                         self.modify_struct_fields(compiler, fields, struct_model.trackable);
                     }
                 }
                 ast::ItemKind::Mod(_safety, ident, mod_kind) => {
                     let child = api.root.children.iter()
-                        .find(|c| c.name == ident.name);
+                        .find(|c| c.name == ident.name.as_str());
                     let root_path = ModPath::root(&api.crate_name);
                     let child_path = root_path.child(ident.name.as_str());
                     self.handle_mod_mock_bodies(compiler, mod_kind, &child_path, child);
@@ -488,7 +499,7 @@ impl CrateIntercept {
 
         // Find the matching ImplModel in the module
         let trait_name = impl_data.of_trait.as_ref().and_then(|h| {
-            h.trait_ref.path.segments.last().map(|s| s.ident.name)
+            h.trait_ref.path.segments.last().map(|s| s.ident.name.as_str().to_string())
         });
 
         let Some(impl_model) = module.impls.iter().find(|i| {
@@ -497,10 +508,10 @@ impl CrateIntercept {
             return;
         };
 
-        let struct_name = self_type_name.as_str().to_string();
+        let struct_name = self_type_name.clone();
 
         // Find the struct model for constructor generation
-        let struct_model = module.structs.iter().find(|s| s.name.as_str() == struct_name);
+        let struct_model = module.structs.iter().find(|s| s.name == struct_name);
         let all_public = struct_model.map(|s| !s.trackable).unwrap_or(true);
 
         // Remove private methods from inherent impls.
@@ -513,7 +524,7 @@ impl CrateIntercept {
         for assoc_item in impl_data.items.iter_mut() {
             if let ast::AssocItemKind::Fn(fn_data) = &mut assoc_item.kind {
                 let method_name = fn_data.ident.name.as_str().to_string();
-                if let Some(method_model) = impl_model.methods.iter().find(|m| m.name.as_str() == method_name) {
+                if let Some(method_model) = impl_model.methods.iter().find(|m| m.name == method_name) {
                     // Check if this is a constructor (no self, returns Self/StructName)
                     let mock_source = if crate_mock_gen::is_constructor(method_model, &struct_name) {
                         if let Some(sm) = struct_model {
@@ -570,7 +581,7 @@ impl CrateIntercept {
                     ast::ItemKind::Fn(fn_data) if self.is_pub(&item.vis) => {
                         if let Some(mod_model) = child_module {
                             let name = fn_data.ident.name.as_str().to_string();
-                            if let Some(func_model) = mod_model.functions.iter().find(|f| f.name.as_str() == name) {
+                            if let Some(func_model) = mod_model.functions.iter().find(|f| f.name == name) {
                                 self.replace_fn_body_with_prefix(compiler, fn_data, &path.mock_prefix(""), func_model);
                             }
                         }
@@ -582,14 +593,14 @@ impl CrateIntercept {
                     }
                     ast::ItemKind::Struct(ident, _generics, fields) if self.is_pub(&item.vis) => {
                         if let Some(mod_model) = child_module {
-                            if let Some(struct_model) = mod_model.structs.iter().find(|s| s.name == ident.name) {
+                            if let Some(struct_model) = mod_model.structs.iter().find(|s| s.name == ident.name.as_str()) {
                                 self.modify_struct_fields(compiler, fields, struct_model.trackable);
                             }
                         }
                     }
                     ast::ItemKind::Mod(_safety, ident, nested_mod_kind) if self.is_pub(&item.vis) => {
                         let nested_child = child_module.and_then(|m|
-                            m.children.iter().find(|c| c.name == ident.name)
+                            m.children.iter().find(|c| c.name == ident.name.as_str())
                         );
                         let nested_path = path.child(ident.name.as_str());
                         self.handle_mod_mock_bodies(compiler, nested_mod_kind, &nested_path, nested_child);
@@ -758,28 +769,19 @@ impl rustc_driver::Callbacks for CrateIntercept {
         compiler: &Compiler,
         krate: &mut ast::Crate,
     ) -> Compilation {
-        log::debug!("CrateIntercept: collecting API for crate '{}'", self.crate_name);
+        log::debug!("CrateIntercept: using pre-collected API for crate '{}'", self.crate_name);
 
-        // Phase A: Collect the crate's public API
-        let root = self.collect_module(
-            Symbol::intern(&self.crate_name),
-            &krate.items,
-        );
+        log::debug!("CrateIntercept: API from AnalysisPass:");
+        log::debug!("  {} structs", self.api.root.structs.len());
+        log::debug!("  {} enums", self.api.root.enums.len());
+        log::debug!("  {} traits", self.api.root.traits.len());
+        log::debug!("  {} functions", self.api.root.functions.len());
+        log::debug!("  {} impls", self.api.root.impls.len());
+        log::debug!("  {} submodules", self.api.root.children.len());
 
-        let api = CrateApiModel {
-            crate_name: self.crate_name.clone(),
-            root,
-        };
-
-        log::debug!("CrateIntercept: collected API:");
-        log::debug!("  {} structs", api.root.structs.len());
-        log::debug!("  {} enums", api.root.enums.len());
-        log::debug!("  {} traits", api.root.traits.len());
-        log::debug!("  {} functions", api.root.functions.len());
-        log::debug!("  {} impls", api.root.impls.len());
-        log::debug!("  {} submodules", api.root.children.len());
-
-        // Phase B: Generate mock dispatch bodies and inject into AST
+        // Generate mock dispatch bodies and inject into AST
+        // (uses the model collected by the AnalysisPass)
+        let api = self.api.clone();
         self.apply_mock_bodies(compiler, krate, &api);
 
         Compilation::Continue

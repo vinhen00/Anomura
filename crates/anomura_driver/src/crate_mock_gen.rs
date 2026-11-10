@@ -4,10 +4,6 @@
 //! The generated code is parsed back into AST items using `rustc_parse` and injected
 //! into the target crate's AST within the same compiler session.
 
-use rustc_ast as ast;
-use rustc_ast_pretty::pprust;
-use rustc_span::symbol::Symbol;
-
 use crate::crate_api::*;
 
 /// Generate mock dispatch body for a free function.
@@ -21,14 +17,14 @@ pub fn gen_mock_fn_body(crate_name: &str, func: &FunctionModel) -> String {
     let params_str = func
         .params
         .iter()
-        .map(|p| format!("{}: {}", p.name.as_str(), ty_to_string(&p.ty)))
+        .map(|p| format!("{}: {}", p.name.as_str(), p.ty.to_source()))
         .collect::<Vec<_>>()
         .join(", ");
 
     let input_types_str = func
         .params
         .iter()
-        .map(|p| ty_to_string(&p.ty))
+        .map(|p| p.ty.to_source())
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -39,10 +35,7 @@ pub fn gen_mock_fn_body(crate_name: &str, func: &FunctionModel) -> String {
         .collect::<Vec<_>>()
         .join(", ");
 
-    let ret_type_str = match &func.return_type {
-        Some(ty) => ty_to_string(ty),
-        None => "()".to_string(),
-    };
+    let ret_type_str = func.return_type.to_source();
 
     // Wrap input_idents for the run_mock call (needs trailing comma for single-element tuples)
     let input_idents_tuple = if func.params.len() == 1 {
@@ -103,21 +96,18 @@ pub fn gen_mock_method_body(
     let params_str = method
         .params
         .iter()
-        .map(|p| format!("{}: {}", p.name.as_str(), ty_to_string(&p.ty)))
+        .map(|p| format!("{}: {}", p.name.as_str(), p.ty.to_source()))
         .collect::<Vec<_>>()
         .join(", ");
 
     let input_types_str = method
         .params
         .iter()
-        .map(|p| ty_to_string(&p.ty))
+        .map(|p| p.ty.to_source())
         .collect::<Vec<_>>()
         .join(", ");
 
-    let ret_type_str = match &method.return_type {
-        Some(ty) => ty_to_string(ty),
-        None => "()".to_string(),
-    };
+    let ret_type_str = method.return_type.to_source();
 
     let (receiver_str, self_type_prefix, self_value_prefix) = match method.receiver {
         ReceiverKind::Ref => (
@@ -232,11 +222,6 @@ pub fn gen_full_mock_source(api: &CrateApiModel) -> String {
     // Instead, we generate standalone helper items to inject.
 
     source
-}
-
-/// Helper: convert an ast::Ty to a string representation
-fn ty_to_string(ty: &ast::Ty) -> String {
-    pprust::ty_to_string(ty)
 }
 
 /// Generate the convenience API (wrapper types + on_call helpers) for all
@@ -383,14 +368,11 @@ fn gen_fn_wrappers(crate_name: &str, func: &FunctionModel) -> String {
     let input_types_str = func
         .params
         .iter()
-        .map(|p| ty_to_string(&p.ty))
+        .map(|p| p.ty.to_source())
         .collect::<Vec<_>>()
         .join(", ");
 
-    let ret_type_str = match &func.return_type {
-        Some(ty) => ty_to_string(ty),
-        None => "()".to_string(),
-    };
+    let ret_type_str = func.return_type.to_source();
 
     // Type tuple (with trailing comma for single-element)
     let type_tuple = if func.params.len() == 1 {
@@ -404,7 +386,7 @@ fn gen_fn_wrappers(crate_name: &str, func: &FunctionModel) -> String {
         .params
         .iter()
         .enumerate()
-        .map(|(i, p)| format!("_{}: {}", i, ty_to_string(&p.ty)))
+        .map(|(i, p)| format!("_{}: {}", i, p.ty.to_source()))
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -412,7 +394,7 @@ fn gen_fn_wrappers(crate_name: &str, func: &FunctionModel) -> String {
     let closure_type_params = func
         .params
         .iter()
-        .map(|p| ty_to_string(&p.ty))
+        .map(|p| p.ty.to_source())
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -421,7 +403,7 @@ fn gen_fn_wrappers(crate_name: &str, func: &FunctionModel) -> String {
         .params
         .iter()
         .enumerate()
-        .map(|(i, p)| format!("_{}: &{}", i, ty_to_string(&p.ty)))
+        .map(|(i, p)| format!("_{}: &{}", i, p.ty.to_source()))
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -429,7 +411,7 @@ fn gen_fn_wrappers(crate_name: &str, func: &FunctionModel) -> String {
     let closure_type_params_ref = func
         .params
         .iter()
-        .map(|p| format!("&{}", ty_to_string(&p.ty)))
+        .map(|p| format!("&{}", p.ty.to_source()))
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -581,17 +563,14 @@ fn gen_method_wrappers(
     let input_types_str = method
         .params
         .iter()
-        .map(|p| ty_to_string(&p.ty))
+        .map(|p| p.ty.to_source())
         .collect::<Vec<_>>()
         .join(", ");
 
     let ret_type_str = if let Some(override_ty) = ret_type_override {
         override_ty.to_string()
     } else {
-        match &method.return_type {
-            Some(ty) => ty_to_string(ty),
-            None => "()".to_string(),
-        }
+        method.return_type.to_source()
     };
 
     // Self type for the type tuple (use qualified path for code generation)
@@ -623,7 +602,7 @@ fn gen_method_wrappers(
         closure_params.push(format!("_self: {}", self_type));
     }
     for (i, p) in method.params.iter().enumerate() {
-        closure_params.push(format!("_{}: {}", i, ty_to_string(&p.ty)));
+        closure_params.push(format!("_{}: {}", i, p.ty.to_source()));
     }
     let closure_params_str = closure_params.join(", ");
 
@@ -633,7 +612,7 @@ fn gen_method_wrappers(
         closure_type_params.push(self_type.clone());
     }
     for p in method.params.iter() {
-        closure_type_params.push(ty_to_string(&p.ty));
+        closure_type_params.push(p.ty.to_source());
     }
     let closure_type_params_str = closure_type_params.join(", ");
 
@@ -657,7 +636,7 @@ fn gen_method_wrappers(
         }
     }
     for (i, p) in method.params.iter().enumerate() {
-        closure_params_ref.push(format!("_{}: &{}", i, ty_to_string(&p.ty)));
+        closure_params_ref.push(format!("_{}: &{}", i, p.ty.to_source()));
     }
     let closure_params_ref_str = closure_params_ref.join(", ");
 
@@ -671,7 +650,7 @@ fn gen_method_wrappers(
         }
     }
     for p in method.params.iter() {
-        closure_type_params_ref.push(format!("&{}", ty_to_string(&p.ty)));
+        closure_type_params_ref.push(format!("&{}", p.ty.to_source()));
     }
     let closure_type_params_ref_str = closure_type_params_ref.join(", ");
 
@@ -867,14 +846,11 @@ fn gen_fn_wrappers_with_prefix(path: &ModPath, func: &FunctionModel, mod_name: &
     let input_types_str = func
         .params
         .iter()
-        .map(|p| ty_to_string(&p.ty))
+        .map(|p| p.ty.to_source())
         .collect::<Vec<_>>()
         .join(", ");
 
-    let ret_type_str = match &func.return_type {
-        Some(ty) => ty_to_string(ty),
-        None => "()".to_string(),
-    };
+    let ret_type_str = func.return_type.to_source();
 
     let type_tuple = if func.params.len() == 1 {
         format!("{},", input_types_str)
@@ -885,7 +861,7 @@ fn gen_fn_wrappers_with_prefix(path: &ModPath, func: &FunctionModel, mod_name: &
     let closure_type_params = func
         .params
         .iter()
-        .map(|p| ty_to_string(&p.ty))
+        .map(|p| p.ty.to_source())
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -913,7 +889,7 @@ fn gen_fn_wrappers_with_prefix(path: &ModPath, func: &FunctionModel, mod_name: &
     let closure_type_params_ref = func
         .params
         .iter()
-        .map(|p| format!("&{}", ty_to_string(&p.ty)))
+        .map(|p| format!("&{}", p.ty.to_source()))
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -1000,14 +976,11 @@ pub fn gen_constructor_body(
     let params_str = constructor
         .params
         .iter()
-        .map(|p| format!("{}: {}", p.name.as_str(), ty_to_string(&p.ty)))
+        .map(|p| format!("{}: {}", p.name.as_str(), p.ty.to_source()))
         .collect::<Vec<_>>()
         .join(", ");
 
-    let ret_type_str = match &constructor.return_type {
-        Some(ty) => ty_to_string(ty),
-        None => "Self".to_string(),
-    };
+    let ret_type_str = constructor.return_type.to_source();
 
     // Build field initializers for the build-phase fallback (direct construction)
     let field_inits: Vec<String> = struct_model
@@ -1076,7 +1049,7 @@ pub fn gen_constructor_body(
     let ctor_input_types = constructor
         .params
         .iter()
-        .map(|p| ty_to_string(&p.ty))
+        .map(|p| p.ty.to_source())
         .collect::<Vec<_>>()
         .join(", ");
     let ctor_input_types_tuple = if constructor.params.len() == 1 {
@@ -1131,7 +1104,7 @@ pub fn gen_constructor_body(
         format!("{}::{}::{}", path.crate_name, path.mod_path(), struct_name)
     };
 
-    let build_phase_branch = if struct_model.derives.default {
+    let build_phase_branch = if struct_model.has_default() {
         default_fallback.clone()
     } else {
         format!(
@@ -1142,7 +1115,7 @@ but `{full_name}` does not derive Default — register an on_call for this const
         )
     };
 
-    let no_mock_branch = if struct_model.derives.default {
+    let no_mock_branch = if struct_model.has_default() {
         default_fallback
     } else {
         format!(
@@ -1186,13 +1159,11 @@ pub fn is_constructor(method: &MethodSigModel, struct_name: &str) -> bool {
     if method.receiver != super::crate_api::ReceiverKind::None {
         return false;
     }
-    match &method.return_type {
-        Some(ty) => {
-            let ty_str = ty_to_string(ty);
-            ty_str == "Self" || ty_str == struct_name
-        }
-        None => false,
+    if method.return_type.is_unit() {
+        return false;
     }
+    let ty_str = method.return_type.to_source();
+    ty_str == "Self" || ty_str == struct_name
 }
 
 /// Generate a `Public{...}` struct containing only the public fields of the original,
@@ -1210,7 +1181,7 @@ pub fn gen_public_struct(
         .fields
         .iter()
         .filter(|f| f.is_pub)
-        .map(|f| format!("    pub {}: {},", f.name.as_str(), ty_to_string(&f.ty)))
+        .map(|f| format!("    pub {}: {},", f.name.as_str(), f.ty.to_source()))
         .collect();
     let pub_fields_str = pub_fields.join("\n");
 
