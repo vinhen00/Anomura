@@ -154,20 +154,32 @@ fn after_analysis<'tcx>(&mut self, compiler: &Compiler, tcx: TyCtxt<'tcx>) -> Co
 ```
 Both receive `TyCtxt`, NOT raw AST. Expanded AST accessed via `tcx.resolver_for_lowering_raw(()).borrow()`. HIR accessed via `tcx.hir_crate_items(()).free_items()` and `tcx.hir_node(item_id.hir_id())`.
 
-### Phase 4: after_analysis enrichment
-Goal: Enrich the model with type-level info from `TyCtxt`:
-- Trait impls per type (including auto traits, blanket impls, derived) → `StructModel.trait_impls` / `EnumModel.trait_impls`
-  - **Most urgent**: `has_default()` needs this to unblock the 4 ignored constructor tests
-- Repr info → `StructModel.repr` / `EnumModel.repr`
-- Generics (lifetimes, type params, const params, where clauses) → `GenericsModel` on all items
-- Supertraits → `TraitModel.supertraits`
-- Associated types → `TraitModel.associated_types`
+### Phase 4: after_analysis enrichment ✅ (partial — repr + trait impls done, generics placeholder)
+- **Rewrote analysis_pass.rs** from AST-based `after_expansion` to HIR-based `after_analysis` — single callback, single pass
+- **No more rustc_ast/rustc_ast_pretty dependencies** in analysis_pass.rs — only rustc_hir and rustc_middle::ty::TyCtxt
+- **Type info from TyCtxt**:
+  - Repr info via `tcx.adt_def(def_id).repr()` → `ReprInfo` with `PrimaryLayout` + `AlignmentModifier`
+  - Trait impls via `tcx.all_local_trait_impls(())` for comprehensive coverage
+  - Function signatures from `tcx.fn_sig(def_id).skip_binder().skip_binder()`
+  - Field types from `tcx.type_of(field.def_id).skip_binder()`
+  - Visibility from `tcx.visibility(def_id).is_public()`
+  - Parameter names from `tcx.fn_arg_idents(def_id)`
+  - Item names from `tcx.item_name(def_id)`
+- **Receiver detection** via `tcx.fn_arg_idents()` checking for "self" name + type string inspection
+- **Parent filtering** — `tcx.local_parent(local_def_id) == CRATE_DEF_ID` prevents double-counting submodule items from `free_items()`
+- **Module path prefix stripping** — recursive post-processing: types from TyCtxt use crate-relative paths (e.g., `a::nested::Inner`), stripped to short names when inside the matching module context
+- **External trait impls recorded as TraitImplInfo** — `has_default()` works correctly
+- Generics still placeholder (`GenericsModel::empty()`) — will be populated when needed
+- All 26 tests pass
 
-This is currently in `AnalysisPass` which only uses `after_expansion`. Need to either:
-- Add `after_analysis` callback to AnalysisPass (both callbacks fire in sequence for the same compilation)
-- Or do everything in `after_analysis` since it also has access to the expanded AST
-
-Key question: can we call `tcx.resolver_for_lowering_raw(())` in `after_analysis` too? Probably yes, since queries are memoized. Worth verifying.
+### Key technical findings from Phase 4:
+- `tcx.hir_crate_items(()).free_items()` returns ALL items including those nested in modules — must filter with `tcx.local_parent()`
+- `tcx.impl_trait_ref(def_id)` returns `EarlyBinder<TraitRef>` (not Option) — use `.skip_binder()` directly, only call for trait impls (`impl_data.of_trait.is_some()`)
+- `format!("{}", ty)` for `ty::Ty` gives crate-relative paths (e.g., `a::nested::Inner` not `Inner`)
+- `tcx.fn_arg_idents()` returns `&[Ident]` with the source parameter names
+- `AssocItemKind::Fn { has_self }` is the pattern for function items in HIR impl/trait items
+- HIR `ItemKind::Fn { sig, body, .. }` is a struct variant (not tuple)
+- The expanded AST (`resolver_for_lowering_raw`) is likely stolen by `after_analysis` time — HIR is the way to go
 
 ### Phase 6: Cleanup
 - Remove old `collect_*` methods from `crate_intercept.rs` (dead code)
