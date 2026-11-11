@@ -92,9 +92,18 @@ impl rustc_driver::Callbacks for AnalysisPass {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Walk a list of items (module contents) and collect the public API.
+///
+/// Uses a two-pass approach:
+/// 1. First pass: collect type definitions and traits (builds the set of known public names)
+/// 2. Second pass: collect impl blocks, filtering to only include impls for known public types
+///    and known public traits (or inherent impls)
+///
+/// This prevents derive-generated impls (impl Debug, impl Default, etc.) and private trait
+/// impls from leaking into the model.
 fn collect_module(name: &str, items: &[Box<ast::Item>]) -> ModuleModel {
     let mut module = ModuleModel::new(name);
 
+    // Pass 1: Collect type definitions, traits, functions, and modules
     for item in items {
         match &item.kind {
             ast::ItemKind::Fn(fn_data) if is_pub(&item.vis) => {
@@ -117,11 +126,6 @@ fn collect_module(name: &str, items: &[Box<ast::Item>]) -> ModuleModel {
                     module.traits.push(t);
                 }
             }
-            ast::ItemKind::Impl(impl_data) => {
-                if let Some(imp) = collect_impl(impl_data) {
-                    module.impls.push(imp);
-                }
-            }
             ast::ItemKind::Mod(_safety, ident, mod_kind) if is_pub(&item.vis) => {
                 if let ast::ModKind::Loaded(mod_items, ..) = mod_kind {
                     let child = collect_module(ident.name.as_str(), mod_items);
@@ -129,6 +133,81 @@ fn collect_module(name: &str, items: &[Box<ast::Item>]) -> ModuleModel {
                 }
             }
             _ => {}
+        }
+    }
+
+    // Build sets of known public type names and trait names for filtering impls
+    let known_types: std::collections::HashSet<&str> = module
+        .structs
+        .iter()
+        .map(|s| s.name.as_str())
+        .chain(module.enums.iter().map(|e| e.name.as_str()))
+        .collect();
+    let known_traits: std::collections::HashSet<&str> = module
+        .traits
+        .iter()
+        .map(|t| t.name.as_str())
+        .collect();
+
+    // Pass 2: Collect impl blocks, filtering for regeneration vs trait_impls recording.
+    //
+    // Three cases:
+    // - Inherent impls for known types → collect for regeneration (mock dispatch)
+    // - Trait impls for local public traits → collect for regeneration (mock dispatch)
+    // - Trait impls for external traits → DON'T regenerate, but DO record in trait_impls
+    //   so that has_default(), etc. can query which traits a type implements
+    let mut external_trait_impls: Vec<(String, TraitImplInfo)> = Vec::new();
+
+    for item in items {
+        if let ast::ItemKind::Impl(impl_data) = &item.kind {
+            if let Some(imp) = collect_impl(impl_data) {
+                let type_is_known = known_types.contains(imp.self_type_name.as_str());
+                if !type_is_known {
+                    log::debug!(
+                        "AnalysisPass: skipping impl for unknown/non-public type '{}'",
+                        imp.self_type_name
+                    );
+                    continue;
+                }
+
+                match &imp.trait_name {
+                    None => {
+                        // Inherent impl for a known type — always include for regeneration
+                        module.impls.push(imp);
+                    }
+                    Some(trait_name) => {
+                        if known_traits.contains(trait_name.as_str()) {
+                            // Trait impl for a known public trait — include for regeneration
+                            module.impls.push(imp);
+                        } else {
+                            // External trait impl — record for trait_impls but don't regenerate
+                            log::debug!(
+                                "AnalysisPass: recording external trait impl {} for {} (not regenerated)",
+                                trait_name,
+                                imp.self_type_name
+                            );
+                            external_trait_impls.push((
+                                imp.self_type_name.clone(),
+                                TraitImplInfo {
+                                    trait_path: trait_name.clone(),
+                                    is_auto: false,
+                                    is_blanket: false,
+                                    is_derived: false,
+                                },
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Apply collected external trait impl info to the struct/enum models
+    for (type_name, trait_info) in external_trait_impls {
+        if let Some(s) = module.structs.iter_mut().find(|s| s.name == type_name) {
+            s.trait_impls.push(trait_info);
+        } else if let Some(e) = module.enums.iter_mut().find(|e| e.name == type_name) {
+            e.trait_impls.push(trait_info);
         }
     }
 
@@ -152,37 +231,70 @@ fn collect_function(fn_data: &ast::Fn) -> Option<FunctionModel> {
     })
 }
 
-/// Collect a named struct's fields into a [`StructModel`].
+/// Collect a struct's fields into a [`StructModel`].
 ///
-/// Returns `None` for tuple structs and unit structs.
+/// Handles named structs, tuple structs, and unit structs.
 fn collect_struct(name: &str, fields: &ast::VariantData) -> Option<StructModel> {
-    let ast::VariantData::Struct { fields: field_list, .. } = fields else {
-        // Skip tuple structs and unit structs for now
-        return None;
-    };
+    match fields {
+        ast::VariantData::Struct { fields: field_list, .. } => {
+            let fields = field_list
+                .iter()
+                .map(|f| FieldModel {
+                    name: f
+                        .ident
+                        .map(|i| i.name.as_str().to_string())
+                        .unwrap_or_else(|| "_".to_string()),
+                    ty: ty_to_type_repr(&f.ty),
+                    is_pub: matches!(f.vis.kind, ast::VisibilityKind::Public),
+                })
+                .collect::<Vec<_>>();
 
-    let fields = field_list
-        .iter()
-        .map(|f| FieldModel {
-            name: f
-                .ident
-                .map(|i| i.name.as_str().to_string())
-                .unwrap_or_else(|| "_".to_string()),
-            ty: ty_to_type_repr(&f.ty),
-            is_pub: matches!(f.vis.kind, ast::VisibilityKind::Public),
-        })
-        .collect::<Vec<_>>();
+            let trackable = fields.iter().any(|f| !f.is_pub);
 
-    let trackable = fields.iter().any(|f: &FieldModel| !f.is_pub);
+            Some(StructModel {
+                name: name.to_string(),
+                generics: GenericsModel::empty(),
+                fields,
+                trackable,
+                repr: None,
+                trait_impls: Vec::new(),
+            })
+        }
+        ast::VariantData::Tuple(field_list, ..) => {
+            // Tuple struct: fields are positional (no names)
+            let fields = field_list
+                .iter()
+                .enumerate()
+                .map(|(i, f)| FieldModel {
+                    name: format!("{}", i),
+                    ty: ty_to_type_repr(&f.ty),
+                    is_pub: matches!(f.vis.kind, ast::VisibilityKind::Public),
+                })
+                .collect::<Vec<_>>();
 
-    Some(StructModel {
-        name: name.to_string(),
-        generics: GenericsModel::empty(),
-        fields,
-        trackable,
-        repr: None,
-        trait_impls: Vec::new(),
-    })
+            let trackable = fields.iter().any(|f| !f.is_pub);
+
+            Some(StructModel {
+                name: name.to_string(),
+                generics: GenericsModel::empty(),
+                fields,
+                trackable,
+                repr: None,
+                trait_impls: Vec::new(),
+            })
+        }
+        ast::VariantData::Unit(..) => {
+            // Unit struct: no fields
+            Some(StructModel {
+                name: name.to_string(),
+                generics: GenericsModel::empty(),
+                fields: Vec::new(),
+                trackable: false,
+                repr: None,
+                trait_impls: Vec::new(),
+            })
+        }
+    }
 }
 
 /// Collect an enum's variants into an [`EnumModel`].

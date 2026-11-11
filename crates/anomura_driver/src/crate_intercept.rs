@@ -769,7 +769,7 @@ impl rustc_driver::Callbacks for CrateIntercept {
         compiler: &Compiler,
         krate: &mut ast::Crate,
     ) -> Compilation {
-        log::debug!("CrateIntercept: using pre-collected API for crate '{}'", self.crate_name);
+        log::debug!("CrateIntercept: regenerating crate '{}' from analysis model", self.crate_name);
 
         log::debug!("CrateIntercept: API from AnalysisPass:");
         log::debug!("  {} structs", self.api.root.structs.len());
@@ -779,10 +779,59 @@ impl rustc_driver::Callbacks for CrateIntercept {
         log::debug!("  {} impls", self.api.root.impls.len());
         log::debug!("  {} submodules", self.api.root.children.len());
 
-        // Generate mock dispatch bodies and inject into AST
-        // (uses the model collected by the AnalysisPass)
-        let api = self.api.clone();
-        self.apply_mock_bodies(compiler, krate, &api);
+        let dump_ast = std::env::var("DUMP_AST").is_ok();
+        let ast_write = std::env::var("AST_WRITE").ok();
+
+        // Step 1: Retain only scaffolding items
+        let before_count = krate.items.len();
+        krate.items.retain(|item| matches!(&item.kind,
+            ast::ItemKind::Use(..)
+            | ast::ItemKind::TyAlias(..)
+            | ast::ItemKind::Const(..)
+            | ast::ItemKind::Static(..)
+            | ast::ItemKind::ForeignMod(..)
+            | ast::ItemKind::MacroDef(..)
+            | ast::ItemKind::ExternCrate(..)
+        ));
+        log::debug!("CrateIntercept: retained {} scaffolding items (removed {} items)",
+            krate.items.len(), before_count - krate.items.len());
+
+        // Step 2: Generate all items from the model (definitions + mock dispatch + convenience API)
+        let source = crate_mock_gen::gen_crate_from_model(&self.api);
+        if !source.is_empty() {
+            self.inject_source_items(compiler, krate, &source);
+        }
+
+        log::debug!("CrateIntercept: regenerated crate has {} total items", krate.items.len());
+
+        // Step 4: Dump the final AST if requested
+        if dump_ast || ast_write.is_some() {
+            let mut dump_buf = String::new();
+            for item in krate.items.iter() {
+                dump_buf.push_str(&rustc_ast_pretty::pprust::item_to_string(item));
+                dump_buf.push_str("\n\n");
+            }
+
+            if dump_ast {
+                log::debug!("\n=== DUMP_AST: regenerated items ===\n{}\n=== end ===", dump_buf);
+            }
+
+            if let Some(path) = &ast_write {
+                let resolved = if std::path::Path::new(path).is_absolute() {
+                    std::path::PathBuf::from(path)
+                } else {
+                    let base = std::env::var("ANOMURA_CWD")
+                        .map(std::path::PathBuf::from)
+                        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default());
+                    base.join(path)
+                };
+                if let Err(e) = std::fs::write(&resolved, &dump_buf) {
+                    log::error!("CrateIntercept: failed to write AST to {}: {}", resolved.display(), e);
+                } else {
+                    log::debug!("CrateIntercept: wrote regenerated AST to {}", resolved.display());
+                }
+            }
+        }
 
         Compilation::Continue
     }

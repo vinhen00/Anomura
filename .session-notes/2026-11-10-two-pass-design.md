@@ -90,9 +90,128 @@ Covers:
 3. Conditional compilation — should be automatic (same compiler_args for both passes)
 4. Trait object mock identity recovery — supertrait bounds vs thread-local vs other approaches
 
-## Files Modified This Session
+## Implementation Progress
+
+### Phase 1: TypeRepr + model update ✅
+- Created `type_repr.rs` with `TypeRepr` (11 variants, no `Inferred`) and `RawTypeRepr` (12 variants, includes `Inferred`). "Parse, don't validate" pattern: `RawTypeRepr::resolve() -> Result<TypeRepr, _>`.
+- Invalid states made unrepresentable: `Lifetime`, `ArrayLength`, `Abi` newtypes (non-empty by construction). `DynTrait`/`ImplTrait` have `first_bound` field guaranteeing at least one bound. `Path` has `first: String` + `rest: Vec<String>`.
+- Created `generics_model.rs` with `GenericsModel`, `ReprInfo` (with `PrimaryLayout` enum and `AlignmentModifier` enum for mutual exclusivity), `TraitImplInfo`, etc.
+- Updated `crate_api.rs`: `Symbol` → `String`, `Box<ast::Ty>` → `TypeRepr`, removed `Derives`, added generics/repr/trait_impls fields.
+- Updated `crate_mock_gen.rs`: removed rustc dependencies, uses `.to_source()` everywhere.
+- Updated `crate_intercept.rs`: collect_* methods produce String/TypeRepr, `ty_to_type_repr` bridge.
+- All 22 e2e tests pass.
+
+### Phase 2: AnalysisPass scaffold ✅
+- Created `analysis_pass.rs` with `AnalysisPass` implementing `Callbacks::after_expansion`.
+- Confirmed callback signatures: `after_expansion(compiler, tcx: TyCtxt)` and `after_analysis(compiler, tcx: TyCtxt)` — both receive TyCtxt, not raw AST.
+- Accesses expanded AST via `tcx.resolver_for_lowering_raw(()).borrow()`.
+- Wired into `SubstitutePlugin::run()`: two sequential `rustc_run` calls in the same process.
+- `CrateIntercept::new()` now takes `CrateApiModel` as second parameter.
+- All 22 e2e tests pass.
+
+### Phase 3: Regenerative CrateIntercept ✅
+- Added to `crate_mock_gen.rs`: `gen_crate_from_model()`, `gen_module_items()`, `gen_struct_def()`, `gen_enum_def()`, `gen_trait_def()`, `gen_impl_block()`.
+- Rewrote `after_crate_root_parsing`: retains scaffolding (use, const, static, type alias, extern crate, extern blocks, macro defs), removes everything else, regenerates from model.
+- Macro calls are removed from source; their expanded items come from the analysis model.
+- All 22 e2e tests pass.
+
+### Phase 5: Macro-generated item testing ✅ (done before Phase 4)
+- **macro_rules! tests**: Added `define_fn!` macro to fns crate generating `macro_generated_add()` and `macro_generated_greeting()`. Both mocked successfully.
+- **Derive proc macro tests**: Created `test-suite/test-macros/` crate with `#[derive(Describe)]` that generates `impl Describable { fn describe() }`. Mocked successfully.
+- **Attribute proc macro tests**: Added `#[generate_doubled]` attribute macro that generates companion function `magic_number_doubled()`. Both original and generated functions mocked successfully.
+- All macro types work: declarative macros, derive proc macros, attribute proc macros.
+
+### Issues found and fixed during Phase 3/5:
+1. **Expanded AST collects too many impls** — derive-generated impls (Debug, Default, PartialEq, StructuralPartialEq) and private trait impls were leaking into the model. Fixed with two-pass collection: collect types/traits first, then filter impls to only known public types.
+2. **Duplicate items** — `gen_convenience_api` was a separate pass generating items alongside `gen_crate_from_model`. Merged convenience API generation inline into `gen_crate_from_model` — single source of truth, single pass.
+3. **Trait impl visibility** — `gen_mock_method_body` always emitted `pub fn`, but trait impl methods can't have `pub`. Fixed with `replacen("pub fn ", "fn ", 1)` for trait impls.
+4. **Tuple/unit structs unsupported** — `collect_struct` only handled named structs. `ClosureWrapper(pub Box<dyn Fn(u32) -> u32>)` wasn't collected. Added tuple struct and unit struct support to both collection and code generation.
+5. **Submodule convenience wrappers placed inside modules** — wrappers for `a::nested::Inner` methods were generated inside `pub mod a { ... }` but referenced `a::nested::Inner` from outside. Fixed by collecting `root_wrappers` separately and emitting them at crate root.
+6. **External trait impl mocking** — `impl Debug for ClosureWrapper` (hand-written external trait impl) is not yet regenerated. Test temporarily commented out. Needs external trait impl support.
+
+### Current test results (2026-11-11):
+- **22 pass**: Including 5 macro-generated item tests (2 macro_rules, 1 derive proc macro, 2 attribute proc macro)
+- **4 ignored**: Constructor tests requiring `has_default()` type enrichment (Phase 4)
+- **1 commented out**: External trait impl mocking (`mock_crate_trait_impl_debug`)
+
+### Remaining phases:
+- Phase 4: after_analysis enrichment (trait impls for has_default, repr info, generics)
+- Phase 6: Cleanup (remove old collect_* methods, apply_mock_bodies, gen_convenience_api, etc.)
+- External trait impl support (impl Debug/Clone/etc. for crate types)
+
+## Continuation Notes (for next session)
+
+### What's working now
+- Two-pass architecture: AnalysisPass (after_expansion) → CrateIntercept (after_crate_root_parsing)
+- Both passes run as sequential `rustc_run()` calls in the same driver process (SubstitutePlugin::run)
+- CrateIntercept retains scaffolding (use/const/static/type alias/extern crate/extern blocks/macro defs), regenerates everything else from model
+- All 22 existing e2e tests pass
+
+### Callback signatures confirmed on nightly-2026-10-06
+```rust
+fn after_expansion<'tcx>(&mut self, compiler: &Compiler, tcx: TyCtxt<'tcx>) -> Compilation
+fn after_analysis<'tcx>(&mut self, compiler: &Compiler, tcx: TyCtxt<'tcx>) -> Compilation
+```
+Both receive `TyCtxt`, NOT raw AST. Expanded AST accessed via `tcx.resolver_for_lowering_raw(()).borrow()`. HIR accessed via `tcx.hir_crate_items(()).free_items()` and `tcx.hir_node(item_id.hir_id())`.
+
+### Phase 4: after_analysis enrichment
+Goal: Enrich the model with type-level info from `TyCtxt`:
+- Trait impls per type (including auto traits, blanket impls, derived) → `StructModel.trait_impls` / `EnumModel.trait_impls`
+  - **Most urgent**: `has_default()` needs this to unblock the 4 ignored constructor tests
+- Repr info → `StructModel.repr` / `EnumModel.repr`
+- Generics (lifetimes, type params, const params, where clauses) → `GenericsModel` on all items
+- Supertraits → `TraitModel.supertraits`
+- Associated types → `TraitModel.associated_types`
+
+This is currently in `AnalysisPass` which only uses `after_expansion`. Need to either:
+- Add `after_analysis` callback to AnalysisPass (both callbacks fire in sequence for the same compilation)
+- Or do everything in `after_analysis` since it also has access to the expanded AST
+
+Key question: can we call `tcx.resolver_for_lowering_raw(())` in `after_analysis` too? Probably yes, since queries are memoized. Worth verifying.
+
+### Phase 6: Cleanup
+- Remove old `collect_*` methods from `crate_intercept.rs` (dead code)
+- Remove `apply_mock_bodies`, `replace_fn_body`, `handle_impl_methods`, etc. from `crate_intercept.rs`
+- Remove `gen_convenience_api` and `gen_module_convenience_wrappers` from `crate_mock_gen.rs` (replaced by inline generation)
+- Remove `gen_full_mock_source` from `crate_mock_gen.rs` (unused stub)
+- Keep in `crate_intercept.rs`: `inject_source_items`, `parse_fn_item`, and `after_crate_root_parsing` callback
+
+### External trait impl support (new task)
+- Need to regenerate hand-written impls for external traits (e.g., `impl Debug for ClosureWrapper`)
+- Currently filtered out because `Debug` is not a local trait
+- Options: keep all trait impls for known types (but then derive-generated ones also come back), or distinguish hand-written from derive-generated
+- The `mock_crate_trait_impl_debug` test is commented out pending this
+
+### Key technical details to remember
+- `TypeRepr::Path` has `first: String, rest: Vec<String>` (NOT `segments: Vec<String>`)
+- `TypeRepr::DynTrait/ImplTrait` have `first_bound + additional_bounds` (NOT `bounds: Vec`)
+- `Lifetime`, `ArrayLength`, `Abi` are newtypes that panic on empty construction
+- `RawTypeRepr` has `Inferred` variant; `TypeRepr` does not. `RawTypeRepr::resolve() -> Result<TypeRepr, _>` is the boundary.
+- `ReprInfo` uses `PrimaryLayout` enum (Rust/C/Transparent/Int) + `AlignmentModifier` enum (Packed/Align) for mutual exclusivity
+- `StructModel.has_default()` replaces old `derives.default` check — currently always false (needs Phase 4)
+- The `ty_to_type_repr` bridge in both `analysis_pass.rs` and `crate_intercept.rs` uses `TypeRepr::simple(&pprust::ty_to_string(ty))` — flattens the type to a single Path segment. Works but loses structure.
+- `gen_crate_from_model` now generates EVERYTHING (definitions + mock dispatch + convenience API) in a single pass
+- `gen_module_items` takes `root_wrappers: &mut String` parameter — convenience wrappers bubble up to crate root
+- Impl blocks for trait impls strip `pub` from method signatures via `replacen("pub fn ", "fn ", 1)`
+- Analysis pass uses two-pass collection: types/traits first, then impls filtered to known types only
+
+## Files Modified (both sessions)
 
 - `/home/eli/anomura/docs/design/two_pass_analysis_substitution.md` (NEW — design doc)
+- `/home/eli/anomura/crates/anomura_driver/src/type_repr.rs` (NEW — TypeRepr + RawTypeRepr)
+- `/home/eli/anomura/crates/anomura_driver/src/generics_model.rs` (NEW — GenericsModel, ReprInfo, etc.)
+- `/home/eli/anomura/crates/anomura_driver/src/analysis_pass.rs` (NEW — AnalysisPass with impl filtering)
+- `/home/eli/anomura/crates/anomura_driver/src/crate_api.rs` (rewritten — TypeRepr + String)
+- `/home/eli/anomura/crates/anomura_driver/src/crate_mock_gen.rs` (updated — regeneration functions, inline convenience API)
+- `/home/eli/anomura/crates/anomura_driver/src/crate_intercept.rs` (updated — receives model, regenerative callback)
+- `/home/eli/anomura/crates/anomura_driver/src/lib.rs` (added module declarations)
+- `/home/eli/anomura/crates/anomura_plugins/src/substitution_pass.rs` (two-pass wiring)
+- `/home/eli/anomura/crates/anomura_plugins/src/lib.rs` (fixed attribute ordering)
+- `/home/eli/anomura/test-suite/fns/src/lib.rs` (added macro_rules + proc macro items)
+- `/home/eli/anomura/test-suite/fns/Cargo.toml` (added test-macros dependency)
+- `/home/eli/anomura/test-suite/test-macros/` (NEW — proc macro test crate with Describe derive + generate_doubled attr)
+- `/home/eli/anomura/test-suite/mocks/src/main.rs` (added macro/proc macro tests, ignored constructor tests, commented out Debug test)
+- `/home/eli/anomura/Cargo.toml` (added fns + test-macros to workspace)
 
 ## Key Files (reference)
 

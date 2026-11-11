@@ -1226,3 +1226,279 @@ impl Into<{struct_type_path}> for {public_name} {{
         adt_mock_id_field = adt_mock_id_field,
     )
 }
+
+/// Generate the entire crate body from the analysis model.
+///
+/// Generates all mockable items (definitions + mock dispatch + convenience API)
+/// in a single pass. Convenience wrappers for all items (including submodule items)
+/// are placed at the crate root level.
+pub fn gen_crate_from_model(api: &CrateApiModel) -> String {
+    let root_path = ModPath::root(&api.crate_name);
+    let mut root_wrappers = String::new();
+    let module_source = gen_module_items(&api.root, &root_path, &api.crate_name, &mut root_wrappers);
+
+    // Module items first, then all convenience wrappers at root level
+    let mut source = module_source;
+    source.push_str(&root_wrappers);
+    source
+}
+
+/// Generate all items for a module (recursive).
+///
+/// `root_wrappers` collects convenience API wrappers that should be emitted
+/// at the crate root level (not inside submodules).
+fn gen_module_items(
+    module: &ModuleModel,
+    path: &ModPath,
+    crate_name: &str,
+    root_wrappers: &mut String,
+) -> String {
+    let mut source = String::new();
+
+    // 1. Struct definitions
+    for s in &module.structs {
+        source.push_str(&gen_struct_def(s));
+        source.push_str("\n\n");
+    }
+
+    // 2. Enum definitions
+    for e in &module.enums {
+        source.push_str(&gen_enum_def(e));
+        source.push_str("\n\n");
+    }
+
+    // 3. Trait definitions
+    for t in &module.traits {
+        source.push_str(&gen_trait_def(t));
+        source.push_str("\n\n");
+    }
+
+    // 4. Free functions with mock dispatch
+    for func in &module.functions {
+        // Mock dispatch body goes in the module
+        source.push_str(&gen_mock_fn_body(&path.mock_prefix(""), func));
+        source.push_str("\n\n");
+        // Convenience wrappers go at root level
+        if path.segments.is_empty() {
+            root_wrappers.push_str(&gen_fn_wrappers(crate_name, func));
+        } else {
+            let mod_name = module.name.as_str();
+            root_wrappers.push_str(&gen_fn_wrappers_with_prefix(path, func, mod_name));
+        }
+        root_wrappers.push_str("\n\n");
+    }
+
+    // 5. Impl blocks with mock dispatch + convenience wrappers
+    for imp in &module.impls {
+        let struct_name = &imp.self_type_name;
+        let struct_model = module.structs.iter().find(|s| s.name == *struct_name);
+        let trackable = struct_model.map(|s| s.trackable).unwrap_or(false);
+
+        // The struct type path used in generated code (qualified for submodules)
+        let struct_type_path = if path.segments.is_empty() {
+            struct_name.clone()
+        } else {
+            format!("{}::{}", path.mod_path(), struct_name)
+        };
+
+        // Generate the impl block — goes in the module
+        source.push_str(&gen_impl_block(imp, module, path));
+        source.push_str("\n\n");
+
+        // If this impl has constructors, emit PublicStruct + Into impl at root level
+        let has_constructors = imp.methods.iter().any(|m| is_constructor(m, struct_name));
+        if has_constructors {
+            if let Some(sm) = struct_model {
+                let pub_name = public_struct_name(path, struct_name);
+                root_wrappers.push_str(&gen_public_struct(&pub_name, &struct_type_path, sm));
+                root_wrappers.push_str("\n\n");
+            }
+        }
+
+        // Convenience wrappers for each method — at root level
+        for method in &imp.methods {
+            let ret_override = if is_constructor(method, struct_name) {
+                Some(public_struct_name(path, struct_name))
+            } else {
+                None
+            };
+            root_wrappers.push_str(&gen_method_wrappers(
+                path,
+                struct_name,
+                method,
+                trackable,
+                &struct_type_path,
+                ret_override.as_deref(),
+            ));
+            root_wrappers.push_str("\n\n");
+        }
+    }
+
+    // 6. Child modules (recursive)
+    for child in &module.children {
+        let child_path = path.child(&child.name);
+        let child_items = gen_module_items(child, &child_path, crate_name, root_wrappers);
+        source.push_str(&format!("pub mod {} {{\n{}}}\n\n", child.name, child_items));
+    }
+
+    source
+}
+
+/// Generate a struct definition.
+///
+/// Handles three kinds:
+/// - **Named structs**: `pub struct Foo { fields... }`
+///   - Private fields → `PhantomData<OriginalType>`
+///   - Trackable structs get `adt_mock_id: context::AdtMockId`
+/// - **Tuple structs**: `pub struct Foo(pub Type1, Type2);`
+///   - Fields have numeric names ("0", "1", ...)
+/// - **Unit structs**: `pub struct Foo;`
+fn gen_struct_def(s: &StructModel) -> String {
+    if s.fields.is_empty() {
+        // Unit struct
+        return format!("pub struct {};", s.name);
+    }
+
+    // Detect tuple struct: fields have numeric names
+    let is_tuple_struct = s.fields.first().map(|f| f.name.parse::<usize>().is_ok()).unwrap_or(false);
+
+    if is_tuple_struct {
+        // Tuple struct: pub struct Foo(pub Type1, Type2);
+        let field_types: Vec<String> = s.fields.iter().map(|f| {
+            let vis = if f.is_pub { "pub " } else { "" };
+            format!("{}{}", vis, f.ty.to_source())
+        }).collect();
+        format!("pub struct {}({});", s.name, field_types.join(", "))
+    } else {
+        // Named struct
+        let mut fields = Vec::new();
+        for f in &s.fields {
+            if f.is_pub {
+                fields.push(format!("    pub {}: {},", f.name, f.ty.to_source()));
+            } else {
+                fields.push(format!(
+                    "    {}: std::marker::PhantomData<{}>,",
+                    f.name,
+                    f.ty.to_source()
+                ));
+            }
+        }
+        if s.trackable {
+            fields.push("    pub adt_mock_id: context::AdtMockId,".to_string());
+        }
+        let fields_str = fields.join("\n");
+        format!("pub struct {} {{\n{}\n}}", s.name, fields_str)
+    }
+}
+
+/// Generate an enum definition (passed through from model).
+fn gen_enum_def(e: &EnumModel) -> String {
+    let variants: Vec<String> = e
+        .variants
+        .iter()
+        .map(|v| {
+            if v.fields.is_empty() {
+                format!("    {},", v.name)
+            } else {
+                let field_types: Vec<String> =
+                    v.fields.iter().map(|f| f.to_source()).collect();
+                format!("    {}({}),", v.name, field_types.join(", "))
+            }
+        })
+        .collect();
+    format!("pub enum {} {{\n{}\n}}", e.name, variants.join("\n"))
+}
+
+/// Generate a trait definition with method signatures (no default bodies).
+fn gen_trait_def(t: &TraitModel) -> String {
+    let methods: Vec<String> = t
+        .methods
+        .iter()
+        .map(|m| {
+            let receiver_str = match m.receiver {
+                ReceiverKind::Ref => "&self",
+                ReceiverKind::RefMut => "&mut self",
+                ReceiverKind::Owned => "self",
+                ReceiverKind::None => "",
+            };
+            let params_str = m
+                .params
+                .iter()
+                .map(|p| format!("{}: {}", p.name, p.ty.to_source()))
+                .collect::<Vec<_>>()
+                .join(", ");
+            // Combine receiver and params
+            let full_params = if receiver_str.is_empty() {
+                params_str
+            } else if params_str.is_empty() {
+                receiver_str.to_string()
+            } else {
+                format!("{}, {}", receiver_str, params_str)
+            };
+            let ret_str = if m.return_type.is_unit() {
+                String::new()
+            } else {
+                format!(" -> {}", m.return_type.to_source())
+            };
+            format!("    fn {}({}){};\n", m.name, full_params, ret_str)
+        })
+        .collect();
+    format!("pub trait {} {{\n{}}}", t.name, methods.join(""))
+}
+
+/// Generate an impl block with mock dispatch bodies for all methods.
+fn gen_impl_block(imp: &ImplModel, module: &ModuleModel, path: &ModPath) -> String {
+    let struct_name = &imp.self_type_name;
+    let struct_model = module.structs.iter().find(|s| s.name == *struct_name);
+    let all_public = struct_model.map(|s| !s.trackable).unwrap_or(true);
+    let trackable = !all_public;
+    let is_trait_impl = imp.trait_name.is_some();
+
+    // Build the impl header
+    let impl_header = if let Some(trait_name) = &imp.trait_name {
+        format!("impl {} for {}", trait_name, struct_name)
+    } else {
+        format!("impl {}", struct_name)
+    };
+
+    let mut methods_source = String::new();
+    for method in &imp.methods {
+        let method_source = if is_constructor(method, struct_name) {
+            if let Some(sm) = struct_model {
+                gen_constructor_body(
+                    path,
+                    struct_name,
+                    method,
+                    sm,
+                    &imp.methods,
+                    all_public,
+                )
+            } else {
+                gen_mock_method_body(
+                    &path.mock_prefix(""),
+                    struct_name,
+                    method,
+                    trackable,
+                )
+            }
+        } else {
+            gen_mock_method_body(
+                &path.mock_prefix(""),
+                struct_name,
+                method,
+                trackable,
+            )
+        };
+        // Trait impl methods must not have `pub` visibility qualifier
+        let method_source = if is_trait_impl {
+            method_source.replacen("pub fn ", "fn ", 1)
+        } else {
+            method_source
+        };
+        methods_source.push_str("    ");
+        methods_source.push_str(&method_source);
+        methods_source.push('\n');
+    }
+
+    format!("{} {{\n{}}}\n", impl_header, methods_source)
+}

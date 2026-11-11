@@ -170,3 +170,43 @@ impl Computable for Foo {
         self.x * 2
     }
 }
+
+// ─── Macro-generated items (tests the two-pass analysis architecture) ─────────
+
+/// A macro that generates a public function. Before the two-pass architecture,
+/// this function would be invisible to the mock system because macro expansion
+/// hadn't happened yet at the point of API collection.
+macro_rules! define_fn {
+    ($name:ident, $ret:ty, $body:expr) => {
+        pub fn $name() -> $ret {
+            $body
+        }
+    };
+}
+
+define_fn!(macro_generated_add, u32, 42);
+define_fn!(macro_generated_greeting, &'static str, "hello from macro");
+
+// ─── Proc-macro-generated items (tests proc macro expansion in two-pass architecture) ───
+
+/// A struct that uses a derive proc macro to generate a `describe()` method.
+/// The `Describe` derive macro generates `impl Describable { pub fn describe(&self) -> &'static str }`.
+/// This tests that proc-macro-generated impl blocks are visible to the analysis pass.
+#[derive(test_macros::Describe)]
+pub struct Describable {
+    pub label: String,
+}
+
+impl Describable {
+    pub fn new(label: String) -> Self {
+        Describable { label }
+    }
+}
+
+/// A function decorated with an attribute proc macro that generates a companion function.
+/// `#[generate_doubled]` on `magic_number() -> u32` generates `magic_number_doubled() -> u32`.
+/// This tests that attribute-macro-generated functions are visible to the analysis pass.
+#[test_macros::generate_doubled]
+pub fn magic_number() -> u32 {
+    21
+}
