@@ -130,12 +130,35 @@ Covers:
 6. **External trait impl mocking** — `impl Debug for ClosureWrapper` (hand-written external trait impl) is not yet regenerated. Test temporarily commented out. Needs external trait impl support.
 
 ### Current test results (2026-11-11):
-- **22 pass**: Including 5 macro-generated item tests (2 macro_rules, 1 derive proc macro, 2 attribute proc macro)
-- **4 ignored**: Constructor tests requiring `has_default()` type enrichment (Phase 4)
+- **26 pass**: Including 5 macro-generated item tests + all constructor tests restored
 - **1 commented out**: External trait impl mocking (`mock_crate_trait_impl_debug`)
+- **38 unit tests** in type_repr module
+
+### Type information completeness (Phase 4):
+| Information | Status |
+|---|---|
+| Lifetime params + bounds | ✅ |
+| Type params + trait bounds + defaults | ✅ |
+| Const params + types | ✅ |
+| Where clause type bounds (T: Clone) | ✅ |
+| Where clause lifetime bounds ('a: 'b) | ✅ |
+| Lifetime bounds in type bounds (T: 'static) | ✅ |
+| Supertraits (trait Foo: Bar) | ✅ |
+| Associated types on traits (type Item: Display) | ✅ |
+| Associated type bindings on impls (type Item = u32) | ✅ |
+| Trait bound generic args (Iterator\<Item = u32\>) | ✅ via GenericArg::Binding |
+| Repr info (#[repr(C)]) | ✅ |
+| Trait impls per type | ✅ |
+
+### GenericArg enum (added 2026-11-11):
+- `TypeRepr::Path` changed from `generics: Vec<TypeRepr>` to `args: Vec<GenericArg>`
+- `GenericArg` has: `Type(TypeRepr)`, `Lifetime(Lifetime)`, `Binding(String, TypeRepr)`, `Const(String)`
+- `RawGenericArg` mirrors with additional `Inferred` variant
+- `TypeRepr::with_args()` new constructor; `with_generics()` still works (wraps in GenericArg::Type)
+- `extract_generic_args_from_segment()` extracts from HIR `PathSegment.args` including constraints
 
 ### Remaining phases:
-- Phase 4: after_analysis enrichment (trait impls for has_default, repr info, generics)
+- Phase 6: Cleanup (remove old dead code from crate_intercept.rs, gen_convenience_api, etc.)
 - Phase 6: Cleanup (remove old collect_* methods, apply_mock_bodies, gen_convenience_api, etc.)
 - External trait impl support (impl Debug/Clone/etc. for crate types)
 
@@ -154,9 +177,10 @@ fn after_analysis<'tcx>(&mut self, compiler: &Compiler, tcx: TyCtxt<'tcx>) -> Co
 ```
 Both receive `TyCtxt`, NOT raw AST. Expanded AST accessed via `tcx.resolver_for_lowering_raw(()).borrow()`. HIR accessed via `tcx.hir_crate_items(()).free_items()` and `tcx.hir_node(item_id.hir_id())`.
 
-### Phase 4: after_analysis enrichment ✅ (partial — repr + trait impls done, generics placeholder)
+### Phase 4: after_analysis enrichment ✅
 - **Rewrote analysis_pass.rs** from AST-based `after_expansion` to HIR-based `after_analysis` — single callback, single pass
-- **No more rustc_ast/rustc_ast_pretty dependencies** in analysis_pass.rs — only rustc_hir and rustc_middle::ty::TyCtxt
+- **No more rustc_ast/rustc_ast_pretty dependencies** in analysis_pass.rs — only rustc_hir, rustc_hir_pretty, and rustc_middle::ty::TyCtxt
+- **Unified `collect_generics(tcx, def_id)` function** — works for any item (functions, structs, enums, traits, impls, trait items, impl items). Looks up HIR node internally via `tcx.hir_node_by_def_id()`. Uses `rustc_hir_pretty::ty_to_string()` for proper type formatting.
 - **Type info from TyCtxt**:
   - Repr info via `tcx.adt_def(def_id).repr()` → `ReprInfo` with `PrimaryLayout` + `AlignmentModifier`
   - Trait impls via `tcx.all_local_trait_impls(())` for comprehensive coverage
@@ -165,11 +189,16 @@ Both receive `TyCtxt`, NOT raw AST. Expanded AST accessed via `tcx.resolver_for_
   - Visibility from `tcx.visibility(def_id).is_public()`
   - Parameter names from `tcx.fn_arg_idents(def_id)`
   - Item names from `tcx.item_name(def_id)`
+- **Generics fully collected**:
+  - Lifetime params with bounds ('a: 'b)
+  - Type params with trait bounds (T: Clone + Send) and defaults (T = i32)
+  - Const params with proper types (const N: usize) via `rustc_hir_pretty::ty_to_string`
+  - Where clause predicates (where T: Display) with proper bounded type printing
+  - Supertraits on TraitModel (trait Foo: Bar + Baz)
 - **Receiver detection** via `tcx.fn_arg_idents()` checking for "self" name + type string inspection
 - **Parent filtering** — `tcx.local_parent(local_def_id) == CRATE_DEF_ID` prevents double-counting submodule items from `free_items()`
-- **Module path prefix stripping** — recursive post-processing: types from TyCtxt use crate-relative paths (e.g., `a::nested::Inner`), stripped to short names when inside the matching module context
+- **Module path prefix stripping** — recursive post-processing ensures types use short names inside their module context
 - **External trait impls recorded as TraitImplInfo** — `has_default()` works correctly
-- Generics still placeholder (`GenericsModel::empty()`) — will be populated when needed
 - All 26 tests pass
 
 ### Key technical findings from Phase 4:
@@ -178,8 +207,16 @@ Both receive `TyCtxt`, NOT raw AST. Expanded AST accessed via `tcx.resolver_for_
 - `format!("{}", ty)` for `ty::Ty` gives crate-relative paths (e.g., `a::nested::Inner` not `Inner`)
 - `tcx.fn_arg_idents()` returns `&[Ident]` with the source parameter names
 - `AssocItemKind::Fn { has_self }` is the pattern for function items in HIR impl/trait items
-- HIR `ItemKind::Fn { sig, body, .. }` is a struct variant (not tuple)
-- The expanded AST (`resolver_for_lowering_raw`) is likely stolen by `after_analysis` time — HIR is the way to go
+- HIR `ItemKind::Fn { sig, body, generics, .. }` is a struct variant (not tuple)
+- HIR `ItemKind::Trait { generics, bounds, items, ident, .. }` is also a struct variant
+- `rustc_hir_pretty::ty_to_string(ann, hir_ty)` needs `ann: &dyn PpAnn` created via:
+  ```rust
+  let hir_ctx: &dyn rustc_hir::intravisit::HirTyCtxt<'_> = &tcx;
+  let ann: &dyn rustc_hir_pretty::PpAnn = &hir_ctx;
+  ```
+- `tcx.hir_node_by_def_id(local_id)` gives Node::Item/TraitItem/ImplItem from which HIR generics can be extracted
+- `WherePredicate` on nightly-2026-10-06 has a `kind` field → `WherePredicateKind::BoundPredicate(bound_pred)`
+- The expanded AST (`resolver_for_lowering_raw`) is stolen by `after_analysis` time — HIR is the way to go
 
 ### Phase 6: Cleanup
 - Remove old `collect_*` methods from `crate_intercept.rs` (dead code)

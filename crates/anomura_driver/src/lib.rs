@@ -19,6 +19,7 @@ extern crate rustc_driver_impl;
 extern crate rustc_error_codes;
 extern crate rustc_errors;
 extern crate rustc_hir;
+extern crate rustc_hir_pretty;
 extern crate rustc_interface;
 extern crate rustc_middle;
 extern crate rustc_parse;

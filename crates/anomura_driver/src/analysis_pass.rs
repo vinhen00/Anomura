@@ -138,13 +138,13 @@ fn collect_crate_api<'tcx>(tcx: TyCtxt<'tcx>, crate_name: &str) -> ModuleModel {
             }
             rustc_hir::ItemKind::Enum(_ident, _generics, enum_def) => {
                 let name = tcx.item_name(def_id).to_string();
-                if let Some(e) = collect_enum(tcx, &name, enum_def) {
+                if let Some(e) = collect_enum(tcx, def_id, &name, enum_def) {
                     module.enums.push(e);
                 }
             }
-            rustc_hir::ItemKind::Trait { items, .. } => {
-                let name = tcx.item_name(def_id).to_string();
-                if let Some(t) = collect_trait(tcx, def_id, &name, items) {
+            rustc_hir::ItemKind::Trait { ident, items, bounds, .. } => {
+                let name = ident.name.to_string();
+                if let Some(t) = collect_trait(tcx, def_id, &name, items, bounds) {
                     module.traits.push(t);
                 }
             }
@@ -199,13 +199,13 @@ fn collect_module<'tcx>(
             }
             rustc_hir::ItemKind::Enum(_ident, _generics, enum_def) => {
                 let name = tcx.item_name(def_id).to_string();
-                if let Some(e) = collect_enum(tcx, &name, enum_def) {
+                if let Some(e) = collect_enum(tcx, def_id, &name, enum_def) {
                     module.enums.push(e);
                 }
             }
-            rustc_hir::ItemKind::Trait { items, .. } => {
-                let name = tcx.item_name(def_id).to_string();
-                if let Some(t) = collect_trait(tcx, def_id, &name, items) {
+            rustc_hir::ItemKind::Trait { ident, items, bounds, .. } => {
+                let name = ident.name.to_string();
+                if let Some(t) = collect_trait(tcx, def_id, &name, items, bounds) {
                     module.traits.push(t);
                 }
             }
@@ -271,7 +271,7 @@ fn collect_function<'tcx>(
 
     Some(FunctionModel {
         name,
-        generics: GenericsModel::empty(),
+        generics: collect_generics(tcx, def_id),
         params,
         return_type,
         is_async,
@@ -293,7 +293,7 @@ fn collect_struct<'tcx>(
 
     Some(StructModel {
         name: name.to_string(),
-        generics: GenericsModel::empty(),
+        generics: collect_generics(tcx, def_id),
         fields,
         trackable,
         repr,
@@ -345,6 +345,7 @@ fn collect_variant_fields<'tcx>(
 /// Collect an enum's variants from HIR + TyCtxt.
 fn collect_enum<'tcx>(
     tcx: TyCtxt<'tcx>,
+    def_id: rustc_hir::def_id::DefId,
     name: &str,
     enum_def: &rustc_hir::EnumDef<'tcx>,
 ) -> Option<EnumModel> {
@@ -383,7 +384,7 @@ fn collect_enum<'tcx>(
 
     Some(EnumModel {
         name: name.to_string(),
-        generics: GenericsModel::empty(),
+        generics: collect_generics(tcx, def_id),
         variants,
         repr: None,
         trait_impls: Vec::new(),
@@ -393,10 +394,15 @@ fn collect_enum<'tcx>(
 /// Collect a trait definition from HIR + TyCtxt.
 fn collect_trait<'tcx>(
     tcx: TyCtxt<'tcx>,
-    _trait_def_id: rustc_hir::def_id::DefId,
+    def_id: rustc_hir::def_id::DefId,
     name: &str,
     trait_item_ids: &[rustc_hir::TraitItemId],
+    bounds: &[rustc_hir::GenericBound<'tcx>],
 ) -> Option<TraitModel> {
+    // Build the pretty-printer annotation for type printing
+    let hir_ctx: &dyn rustc_hir::intravisit::HirTyCtxt<'_> = &tcx;
+    let ann: &dyn rustc_hir_pretty::PpAnn = &hir_ctx;
+
     let methods = trait_item_ids
         .iter()
         .filter_map(|&trait_item_id| {
@@ -436,7 +442,7 @@ fn collect_trait<'tcx>(
 
                 Some(MethodSigModel {
                     name: method_name,
-                    generics: GenericsModel::empty(),
+                    generics: collect_generics(tcx, method_def_id),
                     receiver,
                     params,
                     return_type,
@@ -450,12 +456,49 @@ fn collect_trait<'tcx>(
         })
         .collect();
 
+    // Collect associated types from the trait definition
+    let associated_types: Vec<AssociatedTypeModel> = trait_item_ids
+        .iter()
+        .filter_map(|&trait_item_id| {
+            let trait_item = tcx.hir_trait_item(trait_item_id);
+            if let rustc_hir::TraitItemKind::Type(type_bounds, default_ty) = &trait_item.kind {
+                let type_name = trait_item.ident.name.to_string();
+                let bounds: Vec<TypeRepr> = type_bounds.iter().filter_map(|b| match b {
+                    rustc_hir::GenericBound::Trait(poly) => {
+                        let segments = &poly.trait_ref.path.segments;
+                        let path: Vec<String> = segments.iter()
+                            .map(|s| s.ident.name.to_string())
+                            .collect();
+                        if path.is_empty() { return None; }
+                        let args = if let Some(last_seg) = segments.last() {
+                            extract_generic_args_from_segment(tcx, last_seg)
+                        } else {
+                            vec![]
+                        };
+                        Some(TypeRepr::with_args(path, args))
+                    }
+                    _ => None,
+                }).collect();
+                let default = default_ty.map(|ty| {
+                    ty_to_type_repr(&rustc_hir_pretty::ty_to_string(ann, ty))
+                });
+                Some(AssociatedTypeModel {
+                    name: type_name,
+                    bounds,
+                    default,
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+
     Some(TraitModel {
         name: name.to_string(),
-        generics: GenericsModel::empty(),
-        supertraits: Vec::new(),
+        generics: collect_generics(tcx, def_id),
+        supertraits: collect_supertraits(tcx, bounds),
         methods,
-        associated_types: Vec::new(),
+        associated_types,
     })
 }
 
@@ -465,6 +508,10 @@ fn collect_impl<'tcx>(
     def_id: rustc_hir::def_id::DefId,
     impl_data: &rustc_hir::Impl<'tcx>,
 ) -> Option<ImplModel> {
+    // Build the pretty-printer annotation for type printing
+    let hir_ctx: &dyn rustc_hir::intravisit::HirTyCtxt<'_> = &tcx;
+    let ann: &dyn rustc_hir_pretty::PpAnn = &hir_ctx;
+
     // Get the self type
     let self_ty = tcx.type_of(def_id).skip_binder();
     let self_type_name = extract_type_name_from_ty(&format!("{}", self_ty));
@@ -502,14 +549,33 @@ fn collect_impl<'tcx>(
         })
         .collect();
 
+    // Collect associated type bindings from impl items (e.g., `type Item = u32;`)
+    let associated_types: Vec<AssociatedTypeBinding> = impl_data
+        .items
+        .iter()
+        .filter_map(|&impl_item_id| {
+            let impl_item = tcx.hir_impl_item(impl_item_id);
+            if let rustc_hir::ImplItemKind::Type(ty) = &impl_item.kind {
+                let type_name = impl_item.ident.name.to_string();
+                let ty_str = rustc_hir_pretty::ty_to_string(ann, ty);
+                Some(AssociatedTypeBinding {
+                    name: type_name,
+                    ty: ty_to_type_repr(&ty_str),
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+
     Some(ImplModel {
         self_type,
         self_type_name,
         trait_ref: trait_ref_type,
         trait_name,
-        generics: GenericsModel::empty(),
+        generics: collect_generics(tcx, def_id),
         methods,
-        associated_types: Vec::new(),
+        associated_types,
     })
 }
 
@@ -560,7 +626,7 @@ fn collect_method_from_impl<'tcx>(
 
     Some(MethodSigModel {
         name: method_name,
-        generics: GenericsModel::empty(),
+        generics: collect_generics(tcx, method_def_id),
         receiver,
         params,
         return_type,
@@ -902,6 +968,271 @@ fn find_struct_mut<'a>(structs: &'a mut [StructModel], name: &str) -> Option<&'a
 /// Find a mutable reference to an enum by name.
 fn find_enum_mut<'a>(enums: &'a mut [EnumModel], name: &str) -> Option<&'a mut EnumModel> {
     enums.iter_mut().find(|e| e.name == name)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Generics and supertrait collection from HIR
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Collect generic parameters, bounds, and where clauses for any item via its DefId.
+///
+/// Looks up the HIR node for the item and extracts generics from it. Works for
+/// functions, structs, enums, traits, impls, trait items, and impl items.
+/// Uses `rustc_hir_pretty::ty_to_string` for proper type formatting.
+fn collect_generics<'tcx>(tcx: TyCtxt<'tcx>, def_id: rustc_hir::def_id::DefId) -> GenericsModel {
+    let Some(local_id) = def_id.as_local() else {
+        return GenericsModel::empty();
+    };
+
+    // Look up HIR generics for this item
+    let hir_generics = match tcx.hir_node_by_def_id(local_id) {
+        rustc_hir::Node::Item(item) => match &item.kind {
+            rustc_hir::ItemKind::Fn { generics, .. } => Some(*generics),
+            rustc_hir::ItemKind::Struct(_, generics, _) => Some(*generics),
+            rustc_hir::ItemKind::Enum(_, generics, _) => Some(*generics),
+            rustc_hir::ItemKind::Trait { generics, .. } => Some(*generics),
+            rustc_hir::ItemKind::Impl(impl_data) => Some(impl_data.generics),
+            _ => None,
+        },
+        rustc_hir::Node::TraitItem(item) => Some(item.generics),
+        rustc_hir::Node::ImplItem(item) => Some(item.generics),
+        _ => None,
+    };
+
+    let Some(hir_gen) = hir_generics else {
+        return GenericsModel::empty();
+    };
+
+    // Build the pretty-printer annotation from TyCtxt
+    let hir_ctx: &dyn rustc_hir::intravisit::HirTyCtxt<'_> = &tcx;
+    let ann: &dyn rustc_hir_pretty::PpAnn = &hir_ctx;
+
+    let mut lifetimes = Vec::new();
+    let mut type_params = Vec::new();
+    let mut const_params = Vec::new();
+    let mut where_clauses = Vec::new();
+
+    for param in hir_gen.params {
+        // Collect trait bounds for this parameter
+        let bounds: Vec<TypeRepr> = hir_gen
+            .bounds_for_param(param.def_id)
+            .flat_map(|bp| {
+                bp.bounds.iter().filter_map(|b| match b {
+                    rustc_hir::GenericBound::Trait(poly) => {
+                        let segments = &poly.trait_ref.path.segments;
+                        let path: Vec<String> = segments
+                            .iter()
+                            .map(|s| s.ident.name.to_string())
+                            .collect();
+                        if path.is_empty() {
+                            return None;
+                        }
+                        let args = if let Some(last_seg) = segments.last() {
+                            extract_generic_args_from_segment(tcx, last_seg)
+                        } else {
+                            vec![]
+                        };
+                        Some(TypeRepr::with_args(path, args))
+                    }
+                    _ => None,
+                })
+            })
+            .collect();
+
+        // Collect lifetime bounds separately
+        let lifetime_bounds: Vec<String> = hir_gen
+            .bounds_for_param(param.def_id)
+            .flat_map(|bp| {
+                bp.bounds.iter().filter_map(|b| match b {
+                    rustc_hir::GenericBound::Outlives(lt) => {
+                        Some(format!("'{}", lt.ident.name))
+                    }
+                    _ => None,
+                })
+            })
+            .collect();
+
+        match &param.kind {
+            rustc_hir::GenericParamKind::Lifetime { .. } => {
+                lifetimes.push(LifetimeParam {
+                    name: format!("'{}", param.name.ident().name),
+                    bounds: lifetime_bounds,
+                });
+            }
+            rustc_hir::GenericParamKind::Type { default, .. } => {
+                let default_type = default.map(|hir_ty| {
+                    ty_to_type_repr(&rustc_hir_pretty::ty_to_string(ann, hir_ty))
+                });
+                type_params.push(TypeParam {
+                    name: param.name.ident().name.to_string(),
+                    bounds,
+                    default: default_type,
+                });
+            }
+            rustc_hir::GenericParamKind::Const { ty, .. } => {
+                const_params.push(ConstParam {
+                    name: param.name.ident().name.to_string(),
+                    ty: ty_to_type_repr(&rustc_hir_pretty::ty_to_string(ann, ty)),
+                });
+            }
+        }
+    }
+
+    // Collect where clause predicates
+    for pred in hir_gen.predicates {
+        match pred.kind {
+            rustc_hir::WherePredicateKind::BoundPredicate(bound_pred) => {
+                let pred_bounds: Vec<TypeRepr> = bound_pred
+                    .bounds
+                    .iter()
+                    .filter_map(|b| match b {
+                        rustc_hir::GenericBound::Trait(poly) => {
+                            let segments = &poly.trait_ref.path.segments;
+                            let path: Vec<String> = segments
+                                .iter()
+                                .map(|s| s.ident.name.to_string())
+                                .collect();
+                            if path.is_empty() {
+                                return None;
+                            }
+                            let args = if let Some(last_seg) = segments.last() {
+                                extract_generic_args_from_segment(tcx, last_seg)
+                            } else {
+                                vec![]
+                            };
+                            Some(TypeRepr::with_args(path, args))
+                        }
+                        rustc_hir::GenericBound::Outlives(lt) => {
+                            // Represent lifetime bounds as simple TypeRepr
+                            // e.g., 'static becomes TypeRepr::simple("'static")
+                            Some(TypeRepr::simple(&format!("'{}", lt.ident.name)))
+                        }
+                        _ => None,
+                    })
+                    .collect();
+
+                if !pred_bounds.is_empty() {
+                    let bounded_ty_str = rustc_hir_pretty::ty_to_string(ann, bound_pred.bounded_ty);
+                    where_clauses.push(WherePredicate::TypeBound {
+                        ty: ty_to_type_repr(&bounded_ty_str),
+                        bounds: pred_bounds,
+                    });
+                }
+            }
+            rustc_hir::WherePredicateKind::RegionPredicate(region_pred) => {
+                let lifetime_bounds: Vec<String> = region_pred.bounds.iter().filter_map(|b| {
+                    match b {
+                        rustc_hir::GenericBound::Outlives(lt) => Some(format!("'{}", lt.ident.name)),
+                        _ => None,
+                    }
+                }).collect();
+                if !lifetime_bounds.is_empty() {
+                    where_clauses.push(WherePredicate::LifetimeBound {
+                        lifetime: format!("'{}", region_pred.lifetime.ident.name),
+                        bounds: lifetime_bounds,
+                    });
+                }
+            }
+            _ => {
+                // Other predicate kinds (e.g., equality predicates) are unstable
+                // or rarely used; skip for now.
+            }
+        }
+    }
+
+    GenericsModel {
+        lifetimes,
+        type_params,
+        const_params,
+        where_clauses,
+    }
+}
+
+/// Extract generic arguments from a HIR path segment.
+///
+/// Handles positional type/lifetime/const args and associated type constraint
+/// bindings (e.g., `Item = u32` in `Iterator<Item = u32>`).
+fn extract_generic_args_from_segment<'tcx>(
+    tcx: TyCtxt<'tcx>,
+    segment: &rustc_hir::PathSegment<'tcx>,
+) -> Vec<crate::type_repr::GenericArg> {
+    use crate::type_repr::GenericArg as GA;
+
+    let Some(args) = segment.args else { return vec![]; };
+
+    let hir_ctx: &dyn rustc_hir::intravisit::HirTyCtxt<'_> = &tcx;
+    let ann: &dyn rustc_hir_pretty::PpAnn = &hir_ctx;
+
+    let mut result = Vec::new();
+
+    // Process positional args (types, lifetimes, consts)
+    for arg in args.args {
+        match arg {
+            rustc_hir::GenericArg::Type(ty) => {
+                let ty_str = rustc_hir_pretty::ty_to_string(ann, ty.as_unambig_ty());
+                result.push(GA::Type(ty_to_type_repr(&ty_str)));
+            }
+            rustc_hir::GenericArg::Lifetime(lt) => {
+                let name = lt.ident.name.to_string();
+                if name != "'_" {
+                    result.push(GA::Lifetime(crate::type_repr::Lifetime::new(
+                        name.trim_start_matches('\''),
+                    )));
+                }
+            }
+            rustc_hir::GenericArg::Const(ct) => {
+                result.push(GA::Const(format!("{:?}", ct)));
+            }
+            _ => {}
+        }
+    }
+
+    // Process associated type constraints (bindings like Item = u32)
+    for constraint in args.constraints {
+        match constraint.kind {
+            rustc_hir::AssocItemConstraintKind::Equality { ref term } => {
+                match term {
+                    rustc_hir::Term::Ty(ty) => {
+                        let ty_str = rustc_hir_pretty::ty_to_string(ann, ty);
+                        result.push(GA::Binding(
+                            constraint.ident.name.to_string(),
+                            ty_to_type_repr(&ty_str),
+                        ));
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+    }
+
+    result
+}
+
+/// Collect supertraits from the bounds on a trait definition.
+fn collect_supertraits<'tcx>(tcx: TyCtxt<'tcx>, bounds: &[rustc_hir::GenericBound<'tcx>]) -> Vec<TypeRepr> {
+    bounds
+        .iter()
+        .filter_map(|b| match b {
+            rustc_hir::GenericBound::Trait(poly) => {
+                let segments = &poly.trait_ref.path.segments;
+                let path: Vec<String> = segments
+                    .iter()
+                    .map(|s| s.ident.name.to_string())
+                    .collect();
+                if path.is_empty() {
+                    return None;
+                }
+                let args = if let Some(last_seg) = segments.last() {
+                    extract_generic_args_from_segment(tcx, last_seg)
+                } else {
+                    vec![]
+                };
+                Some(TypeRepr::with_args(path, args))
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

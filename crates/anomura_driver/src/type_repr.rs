@@ -11,6 +11,33 @@
 //! This module has **no** dependencies on `rustc_ast` or any other compiler
 //! crate — it is pure, stable Rust.
 
+/// A generic argument in a type path.
+///
+/// Represents the different kinds of arguments that can appear inside `<...>` on a path:
+/// `Vec<u32>`, `HashMap<'a, String, Item = i32>`, etc.
+#[derive(Debug, Clone, PartialEq)]
+pub enum GenericArg {
+    /// A positional type argument: `u32` in `Vec<u32>`
+    Type(TypeRepr),
+    /// A lifetime argument: `'a` in `Foo<'a>`
+    Lifetime(Lifetime),
+    /// An associated type binding: `Item = u32` in `Iterator<Item = u32>`
+    Binding(String, TypeRepr),
+    /// A const generic argument: `N` or `{expr}` in `Array<N>`
+    Const(String),
+}
+
+impl GenericArg {
+    pub fn to_source(&self) -> String {
+        match self {
+            GenericArg::Type(ty) => ty.to_source(),
+            GenericArg::Lifetime(lt) => lt.to_source(),
+            GenericArg::Binding(name, ty) => format!("{} = {}", name, ty.to_source()),
+            GenericArg::Const(expr) => expr.clone(),
+        }
+    }
+}
+
 /// A compiler-independent representation of a Rust type.
 ///
 /// Every variant is structured such that [`to_source`](TypeRepr::to_source)
@@ -25,7 +52,7 @@ pub enum TypeRepr {
     Path {
         first: String,
         rest: Vec<String>,
-        generics: Vec<TypeRepr>,
+        args: Vec<GenericArg>,
     },
 
     /// A reference type: `&'a mut T`.
@@ -147,18 +174,17 @@ impl TypeRepr {
     /// Convert this type representation to valid Rust source code.
     pub fn to_source(&self) -> String {
         match self {
-            TypeRepr::Path { first, rest, generics } => {
+            TypeRepr::Path { first, rest, args } => {
                 let mut path = first.clone();
                 for seg in rest {
                     path.push_str("::");
                     path.push_str(seg);
                 }
-                if generics.is_empty() {
+                if args.is_empty() {
                     path
                 } else {
-                    let generic_args: Vec<String> =
-                        generics.iter().map(|g| g.to_source()).collect();
-                    format!("{}<{}>", path, generic_args.join(", "))
+                    let arg_strs: Vec<String> = args.iter().map(|a| a.to_source()).collect();
+                    format!("{}<{}>", path, arg_strs.join(", "))
                 }
             }
 
@@ -270,13 +296,14 @@ impl TypeRepr {
         TypeRepr::Path {
             first: name.to_string(),
             rest: vec![],
-            generics: vec![],
+            args: vec![],
         }
     }
 
-    /// Convenience constructor for a path with generic parameters.
+    /// Convenience constructor for a path with generic type parameters.
     ///
     /// `segments` must be non-empty. Panics if empty.
+    /// The `generics` are wrapped as [`GenericArg::Type`] for backward compatibility.
     pub fn with_generics(segments: Vec<String>, generics: Vec<TypeRepr>) -> Self {
         assert!(!segments.is_empty(), "path segments must not be empty");
         let mut iter = segments.into_iter();
@@ -285,7 +312,20 @@ impl TypeRepr {
         TypeRepr::Path {
             first,
             rest: iter.collect(),
-            generics,
+            args: generics.into_iter().map(GenericArg::Type).collect(),
+        }
+    }
+
+    /// Constructor for a path with full generic arguments (types, lifetimes, bindings).
+    pub fn with_args(segments: Vec<String>, args: Vec<GenericArg>) -> Self {
+        assert!(!segments.is_empty(), "path segments must not be empty");
+        let mut iter = segments.into_iter();
+        let first = iter.next().unwrap();
+        assert!(!first.is_empty(), "first path segment must not be empty");
+        TypeRepr::Path {
+            first,
+            rest: iter.collect(),
+            args,
         }
     }
 
@@ -302,6 +342,33 @@ impl TypeRepr {
     }
 }
 
+/// A raw generic argument used during AST collection, before full resolution.
+///
+/// Unlike [`GenericArg`], this includes an `Inferred` variant for `_` arguments.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RawGenericArg {
+    Type(RawTypeRepr),
+    Lifetime(Lifetime),
+    Binding(String, RawTypeRepr),
+    Const(String),
+    /// An inferred generic argument
+    Inferred,
+}
+
+impl RawGenericArg {
+    pub fn resolve(self) -> Result<GenericArg, UnresolvedTypeError> {
+        match self {
+            RawGenericArg::Type(ty) => Ok(GenericArg::Type(ty.resolve()?)),
+            RawGenericArg::Lifetime(lt) => Ok(GenericArg::Lifetime(lt)),
+            RawGenericArg::Binding(name, ty) => Ok(GenericArg::Binding(name, ty.resolve()?)),
+            RawGenericArg::Const(expr) => Ok(GenericArg::Const(expr)),
+            RawGenericArg::Inferred => Err(UnresolvedTypeError {
+                message: "encountered inferred generic argument".to_string(),
+            }),
+        }
+    }
+}
+
 /// A type representation used during AST collection, before full resolution.
 ///
 /// Unlike [`TypeRepr`], this includes an `Inferred` variant for `_` types that
@@ -312,7 +379,7 @@ pub enum RawTypeRepr {
     Path {
         first: String,
         rest: Vec<String>,
-        generics: Vec<RawTypeRepr>,
+        args: Vec<RawGenericArg>,
     },
     Reference {
         lifetime: Option<Lifetime>,
@@ -369,15 +436,15 @@ impl RawTypeRepr {
     /// Returns `Err` if any `Inferred` variant is found in the type tree.
     pub fn resolve(self) -> Result<TypeRepr, UnresolvedTypeError> {
         match self {
-            RawTypeRepr::Path { first, rest, generics } => {
-                let resolved_generics = generics
+            RawTypeRepr::Path { first, rest, args } => {
+                let resolved_args = args
                     .into_iter()
-                    .map(|g| g.resolve())
+                    .map(|a| a.resolve())
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(TypeRepr::Path {
                     first,
                     rest,
-                    generics: resolved_generics,
+                    args: resolved_args,
                 })
             }
             RawTypeRepr::Reference { lifetime, mutable, inner } => {
@@ -679,6 +746,30 @@ mod tests {
         assert_eq!(TypeRepr::Never.path_segments(), None);
     }
 
+    // --- GenericArg tests ---
+
+    #[test]
+    fn path_with_binding() {
+        let ty = TypeRepr::with_args(
+            vec!["Iterator".into()],
+            vec![GenericArg::Binding("Item".into(), TypeRepr::simple("u32"))],
+        );
+        assert_eq!(ty.to_source(), "Iterator<Item = u32>");
+    }
+
+    #[test]
+    fn path_with_mixed_args() {
+        let ty = TypeRepr::with_args(
+            vec!["Foo".into()],
+            vec![
+                GenericArg::Lifetime(Lifetime::new("a")),
+                GenericArg::Type(TypeRepr::simple("T")),
+                GenericArg::Binding("Output".into(), TypeRepr::simple("bool")),
+            ],
+        );
+        assert_eq!(ty.to_source(), "Foo<'a, T, Output = bool>");
+    }
+
     // --- Newtype validation tests ---
 
     #[test]
@@ -724,7 +815,7 @@ mod tests {
         let raw = RawTypeRepr::Path {
             first: "u32".into(),
             rest: vec![],
-            generics: vec![],
+            args: vec![],
         };
         let resolved = raw.resolve().unwrap();
         assert_eq!(resolved.to_source(), "u32");
@@ -750,12 +841,12 @@ mod tests {
     fn raw_resolve_complex() {
         let raw = RawTypeRepr::FnPointer {
             params: vec![
-                RawTypeRepr::Path { first: "u32".into(), rest: vec![], generics: vec![] },
+                RawTypeRepr::Path { first: "u32".into(), rest: vec![], args: vec![] },
             ],
             return_type: Box::new(RawTypeRepr::Path {
                 first: "bool".into(),
                 rest: vec![],
-                generics: vec![],
+                args: vec![],
             }),
             is_unsafe: false,
             abi: None,
