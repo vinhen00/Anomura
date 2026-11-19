@@ -96,6 +96,7 @@ pub fn gen_mock_method_body(
     method: &MethodData,
     trackable: bool,
     is_trait_impl: bool,
+    struct_type_path: &str,
 ) -> String {
     let adt_path = format!("{}_{}", crate_name, struct_name);
     let mock_id = format!("{}_{}", adt_path, method_name);
@@ -119,17 +120,17 @@ pub fn gen_mock_method_body(
     let (receiver_str, self_type_prefix, self_value_prefix) = match &method.receiver {
         Receiver::Ref | Receiver::RefLifetime(_) => (
             format!("{}, ", method.receiver.to_source()),
-            format!("&{}, ", struct_name),
+            format!("&{}, ", struct_type_path),
             "self, ".to_string(),
         ),
         Receiver::RefMut | Receiver::RefMutLifetime(_) => (
             format!("{}, ", method.receiver.to_source()),
-            format!("&mut {}, ", struct_name),
+            format!("&mut {}, ", struct_type_path),
             "self, ".to_string(),
         ),
         Receiver::Owned => (
             "self, ".to_string(),
-            format!("{}, ", struct_name),
+            format!("{}, ", struct_type_path),
             "self, ".to_string(),
         ),
         Receiver::Arbitrary(ty) => (
@@ -235,6 +236,10 @@ pub fn gen_mock_method_body(
 fn gen_fn_wrappers(crate_name: &str, fn_name: &str, func: &FunctionData) -> String {
     let fn_cap = capitalize(fn_name);
     let mock_id = format!("{}_{}", crate_name, fn_name);
+    let fn_generics = func.generics.to_source();
+    let fn_where = func.generics.where_clause_to_source();
+    let fn_where_str = if fn_where.is_empty() { String::new() } else { format!(" {fn_where}") };
+    let is_generic = !func.generics.is_empty();
 
     let input_types_str = func
         .params
@@ -332,8 +337,12 @@ fn gen_fn_wrappers(crate_name: &str, fn_name: &str, func: &FunctionData) -> Stri
         .collect::<Vec<_>>()
         .join(", ");
 
-    format!(
-        r#"pub struct Predicate{fn_cap}(pub context::Predicate);
+    // Predicate/Return wrapper structs — only for non-generic functions
+    let wrapper_structs = if is_generic {
+        String::new()
+    } else {
+        format!(
+            r#"pub struct Predicate{fn_cap}(pub context::Predicate);
 pub struct Return{fn_cap}(pub context::ReturnValDoublePointer);
 
 impl Return{fn_cap} {{
@@ -353,8 +362,22 @@ impl Predicate{fn_cap} {{
         Self(context::Predicate::create_single::<({type_tuple})>(&mock_id, cond))
     }}
 }}
+"#,
+            fn_cap = fn_cap,
+            mock_id = mock_id,
+            closure_type_params = closure_type_params,
+            closure_type_params_ref = closure_type_params_ref,
+            closure_args = closure_args,
+            ret_type_str = ret_type_str,
+            type_tuple = type_tuple,
+            destructure_pattern = destructure_pattern,
+            input_access_ref = input_access_ref,
+        )
+    };
 
-pub fn on_call_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> bool + 'static, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static) {{
+    format!(
+        r#"{wrapper_structs}
+pub fn on_call_{fn_name}{fn_generics}(condition: impl Fn({closure_type_params_ref}) -> bool + 'static, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static){fn_where_str} {{
     let mock_id = context::MockId::new_fn("{mock_id}");
     let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
         Box::new(move |input: &({type_tuple})| {{
@@ -376,7 +399,7 @@ pub fn on_call_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> bool +
     ).unwrap();
 }}
 
-pub fn expect_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> context::errors::PredicateResult<()> + 'static, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static, modifier: context::TimesModifier, checkpoint: Option<&str>) {{
+pub fn expect_{fn_name}{fn_generics}(condition: impl Fn({closure_type_params_ref}) -> context::errors::PredicateResult<()> + 'static, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static, modifier: context::TimesModifier, checkpoint: Option<&str>){fn_where_str} {{
     let mock_id = context::MockId::new_fn("{mock_id}");
     let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
         Box::new(move |input: &({type_tuple})| condition({input_access_ref}))
@@ -391,7 +414,7 @@ pub fn expect_{fn_name}(condition: impl Fn({closure_type_params_ref}) -> context
     ).unwrap();
 }}
 
-pub fn sequence_{fn_name}(seq_name: &str, index: usize, condition: impl Fn({closure_type_params_ref}) -> context::errors::PredicateResult<()> + 'static, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static) {{
+pub fn sequence_{fn_name}{fn_generics}(seq_name: &str, index: usize, condition: impl Fn({closure_type_params_ref}) -> context::errors::PredicateResult<()> + 'static, ret: impl Fn({closure_type_params}) -> {ret_type_str} + 'static){fn_where_str} {{
     let mock_id = context::MockId::new_fn("{mock_id}");
     let _ = context::register_mock(&mock_id);
     let cond = context::ConditionDoublePointer::from_fn::<({type_tuple})>(
@@ -403,8 +426,10 @@ pub fn sequence_{fn_name}(seq_name: &str, index: usize, condition: impl Fn({clos
     ).unwrap();
 }}
 "#,
-        fn_cap = fn_cap,
+        wrapper_structs = wrapper_structs,
         fn_name = fn_name,
+        fn_generics = fn_generics,
+        fn_where_str = fn_where_str,
         mock_id = mock_id,
         closure_type_params = closure_type_params,
         closure_type_params_ref = closure_type_params_ref,
@@ -621,7 +646,11 @@ fn gen_method_wrappers(
 
     let impl_gen_source = impl_generics.to_source();
     let impl_where = impl_generics.where_clause_to_source();
-    let is_generic = !impl_generics.is_empty();
+    let is_generic = !impl_generics.is_empty() || !method.generics.is_empty();
+
+    let method_gen_source = method.generics.to_source();
+    let method_where = method.generics.where_clause_to_source();
+    let method_where_str = if method_where.is_empty() { String::new() } else { format!(" {method_where}") };
 
     // For generic types, Predicate*/Return* wrapper structs can't carry the type params
     // at root level. Only generate them for non-generic types.
@@ -668,7 +697,7 @@ impl Predicate{suffix} {{
     format!(
         r#"{wrapper_structs}
 impl{impl_gen_source} {struct_type_path}{impl_where_str} {{
-    pub fn on_call_{method_name}({on_call_self_param}condition: impl Fn({closure_type_params_ref_str}) -> bool + 'static, ret: impl Fn({closure_type_params_str}) -> {ret_type_str} + 'static) {{
+    pub fn on_call_{method_name}{method_gen_source}({on_call_self_param}condition: impl Fn({closure_type_params_ref_str}) -> bool + 'static, ret: impl Fn({closure_type_params_str}) -> {ret_type_str} + 'static){method_where_str} {{
         let mock_id = {on_call_mock_id_expr};
         let object_mock_id = {on_call_object_mock_id_expr};
         let cond = context::ConditionDoublePointer::from_fn::<({full_type_tuple})>(
@@ -699,6 +728,8 @@ impl{impl_gen_source} {struct_type_path}{impl_where_str} {{
         struct_type_path = struct_type_path,
         impl_where_str = impl_where_str,
         method_name = method_name,
+        method_gen_source = method_gen_source,
+        method_where_str = method_where_str,
         closure_type_params_str = closure_type_params_str,
         closure_type_params_ref_str = closure_type_params_ref_str,
         closure_args_str = closure_args_str,
@@ -939,7 +970,8 @@ pub fn gen_constructor_body(
 
     let mock_registrations_str = mock_registrations.join("\n");
 
-    let public_struct_name = format!("crate::{}", public_struct_name(path, struct_name));
+    let struct_generics = struct_data.generics.to_source();
+    let public_struct_name = format!("crate::{}{}", public_struct_name(path, struct_name), struct_generics);
 
     // Constructor mock_id
     let ctor_mock_id = format!("{}_{}", path.mock_prefix(struct_name), ctor_name);
@@ -1076,6 +1108,10 @@ pub fn gen_public_struct(
     struct_data: &StructData,
     items: &ItemStore,
 ) -> String {
+    let generics = struct_data.generics.to_source();
+    let where_clause = struct_data.generics.where_clause_to_source();
+    let where_str = if where_clause.is_empty() { String::new() } else { format!(" {where_clause}") };
+
     let pub_fields: Vec<String> = struct_data.fields.iter().filter_map(|&fid| {
         let fi = items.get(fid);
         if !fi.is_pub() { return None; }
@@ -1102,11 +1138,11 @@ pub fn gen_public_struct(
     let field_mappings_str = field_mappings.join("\n");
 
     format!(
-        r#"pub struct {public_name} {{
+        r#"pub struct {public_name}{generics}{where_str} {{
 {pub_fields_str}
 }}
 
-impl Into<{struct_type_path}> for {public_name} {{
+impl{generics} Into<{struct_type_path}> for {public_name}{generics}{where_str} {{
     fn into(self) -> {struct_type_path} {{
         {struct_type_path} {{
 {field_mappings_str}
@@ -1115,6 +1151,8 @@ impl Into<{struct_type_path}> for {public_name} {{
 }}
 "#,
         public_name = public_name,
+        generics = generics,
+        where_str = where_str,
         struct_type_path = struct_type_path,
         pub_fields_str = pub_fields_str,
         field_mappings_str = field_mappings_str,
@@ -1223,7 +1261,8 @@ fn gen_module_items(
                     let method_item = items.get(method_id);
                     let ItemKind::Method(ref method_data) = method_item.kind else { continue };
                     let ret_override = if is_constructor(&method_item.name, method_data, struct_name) {
-                        Some(public_struct_name(path, struct_name))
+                        let gen_source = imp.generics.to_source();
+                        Some(format!("{}{}", public_struct_name(path, struct_name), gen_source))
                     } else {
                         None
                     };
@@ -1266,12 +1305,18 @@ fn gen_struct_def(name: &str, s: &StructData, items: &ItemStore) -> String {
     }
 
     if s.kind == StructKind::Tuple {
-        let field_types: Vec<String> = s.fields.iter().map(|&fid| {
+        let mut field_types: Vec<String> = s.fields.iter().map(|&fid| {
             let fi = items.get(fid);
-            let vis = if fi.is_pub() { "pub " } else { "" };
             let ty = match &fi.kind { ItemKind::Field(fd) => fd.ty.to_source(), _ => "()".to_string() };
-            format!("{}{}", vis, ty)
+            if fi.is_pub() {
+                format!("pub {ty}")
+            } else {
+                format!("std::marker::PhantomData<{ty}>")
+            }
         }).collect();
+        if s.trackable {
+            field_types.push("pub context::AdtMockId".to_string());
+        }
         return if where_clause.is_empty() {
             format!("pub struct {}{}({});", name, generics, field_types.join(", "))
         } else {
@@ -1362,14 +1407,17 @@ fn gen_trait_def(name: &str, t: &TraitData, items: &ItemStore) -> String {
     let assoc_types: Vec<String> = t.associated_types.iter().map(|&aid| {
         let ai = items.get(aid);
         let ad = match &ai.kind { ItemKind::AssociatedType(ad) => ad, _ => return String::new() };
+        let at_generics = ad.generics.to_source();
+        let at_where = ad.generics.where_clause_to_source();
+        let at_where_str = if at_where.is_empty() { String::new() } else { format!(" {at_where}") };
         let bounds = if ad.bounds.is_empty() { String::new() } else {
             let b: Vec<String> = ad.bounds.iter().map(|b| b.to_source()).collect();
             format!(": {}", b.join(" + "))
         };
         if let Some(ref default) = ad.ty {
-            format!("    type {}{}= {};\n", ai.name, bounds, default.to_source())
+            format!("    type {}{}{} = {}{at_where_str};\n", ai.name, at_generics, bounds, default.to_source())
         } else {
-            format!("    type {}{};\n", ai.name, bounds)
+            format!("    type {}{}{}{at_where_str};\n", ai.name, at_generics, bounds)
         }
     }).collect();
     if where_clause.is_empty() {
@@ -1403,7 +1451,10 @@ fn gen_impl_block(imp: &ImplData, items: &ItemStore, struct_data: Option<&Struct
         let ai = items.get(aid);
         if let ItemKind::AssociatedType(ref ad) = ai.kind {
             if let Some(ref ty) = ad.ty {
-                methods_source.push_str(&format!("    type {} = {};\n", ai.name, ty.to_source()));
+                let at_generics = ad.generics.to_source();
+                let at_where = ad.generics.where_clause_to_source();
+                let at_where_str = if at_where.is_empty() { String::new() } else { format!(" {at_where}") };
+                methods_source.push_str(&format!("    type {}{} = {}{at_where_str};\n", ai.name, at_generics, ty.to_source()));
             }
         }
     }
@@ -1415,10 +1466,10 @@ fn gen_impl_block(imp: &ImplData, items: &ItemStore, struct_data: Option<&Struct
             if let Some(sd) = struct_data {
                 gen_constructor_body(path, struct_name, &mi.name, md, &imp.methods, items, all_public, sd)
             } else {
-                gen_mock_method_body(&path.mock_prefix(""), struct_name, &mi.name, md, trackable, is_trait_impl)
+                gen_mock_method_body(&path.mock_prefix(""), struct_name, &mi.name, md, trackable, is_trait_impl, &self_type_with_generics)
             }
         } else {
-            gen_mock_method_body(&path.mock_prefix(""), struct_name, &mi.name, md, trackable, is_trait_impl)
+            gen_mock_method_body(&path.mock_prefix(""), struct_name, &mi.name, md, trackable, is_trait_impl, &self_type_with_generics)
         };
         methods_source.push_str("    ");
         methods_source.push_str(&method_source);

@@ -265,6 +265,8 @@ pub struct MethodData {
 /// Data for `ItemKind::AssociatedType`.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct AssociatedTypeData {
+    /// Generic parameters (for GATs), e.g., `type Item<'a>` or `type Output<T: Clone>`.
+    pub generics: GenericParams,
     /// Trait bounds (for declarations in traits), e.g., `type Item: Display`.
     pub bounds: Vec<Bound>,
     /// Concrete type (for bindings in impls), e.g., `type Item = u32`.

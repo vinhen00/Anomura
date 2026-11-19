@@ -298,9 +298,11 @@ fn collect_trait<'tcx>(
             }
             rustc_hir::TraitItemKind::Type(type_bounds, default_ty) => {
                 let tname = ti.ident.name.to_string();
+                let atid = ti.owner_id.def_id.to_def_id();
+                let at_generics = collect_generics(tcx, atid);
                 let bounds: Vec<Bound> = type_bounds.iter().filter_map(|b| hir_bound_to_bound(tcx, b)).collect();
                 let default = default_ty.map(|ty| ty_to_type_repr(&rustc_hir_pretty::ty_to_string(ann, ty)));
-                assoc_type_ids.push(items.alloc(&tname, Visibility::Public, ItemKind::AssociatedType(AssociatedTypeData { bounds, ty: default })));
+                assoc_type_ids.push(items.alloc(&tname, Visibility::Public, ItemKind::AssociatedType(AssociatedTypeData { generics: at_generics, bounds, ty: default })));
             }
             _ => {}
         }
@@ -356,9 +358,11 @@ fn collect_impl_item<'tcx>(
             }
             rustc_hir::ImplItemKind::Type(ty) => {
                 let tname = ii.ident.name.to_string();
+                let atid = ii.owner_id.def_id.to_def_id();
+                let at_generics = collect_generics(tcx, atid);
                 let ty_str = rustc_hir_pretty::ty_to_string(ann, ty);
                 assoc_type_ids.push(items.alloc(&tname, Visibility::Public,
-                    ItemKind::AssociatedType(AssociatedTypeData { bounds: Vec::new(), ty: Some(ty_to_type_repr(&ty_str)) })));
+                    ItemKind::AssociatedType(AssociatedTypeData { generics: at_generics, bounds: Vec::new(), ty: Some(ty_to_type_repr(&ty_str)) })));
             }
             _ => {}
         }

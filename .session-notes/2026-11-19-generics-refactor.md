@@ -130,6 +130,30 @@ ImplicitSelfKind::None + !self → Receiver::None
 3. External trait impl support (from previous session — still commented out test)
 4. Phase 6 cleanup items if any remain (old dead code)
 
+## Part 3: Codegen Generics Review + Fixes
+
+### Issues found and fixed
+
+| ID | Issue | Fix |
+|----|-------|-----|
+| C1 | `gen_mock_method_body` self type missing generics in type tuple | Added `struct_type_path` param, uses `Wrapper<T>` not bare `Wrapper` |
+| M3 | Missing space before `=` in assoc type defaults | Format string fix: `type Foo = bar` not `type Foo= bar` |
+| M1 | Tuple struct private fields not PhantomData-wrapped | Applied same PhantomData wrapping as named structs |
+| M2 | Trackable tuple structs missing `adt_mock_id` | Appended `pub context::AdtMockId` as final tuple field |
+| C2 | `gen_fn_wrappers` ignores function generics | Reads `func.generics`, skips Predicate/Return for generic fns, adds generics to on_call/expect/sequence |
+| C3 | `gen_method_wrappers` ignores method-level generics | `is_generic` now checks both impl + method generics, on_call_ gets method generics |
+| C4 | `gen_public_struct` + `gen_constructor_body` missing generics | `PublicFoo<T>` with generics on struct, Into impl, and run_mock turbofish |
+| C5 | GATs not supported (AssociatedTypeData lacks generics) | Added `generics: GenericParams` field, collection from HIR, rendering with generics + where clauses |
+
+### Known remaining issues
+| ID | Issue | Severity |
+|----|-------|----------|
+| M4 | PhantomData fails for unsized private fields (dyn Trait) | MEDIUM (very rare) |
+| L1 | `#[repr(...)]` attributes not emitted on regenerated structs/enums | LOW |
+| L2 | Double-underscore in submodule mock IDs | LOW (works but fragile) |
+| L3 | Submodule functions lack `expect_`/`sequence_` convenience functions | LOW |
+| — | Tuple struct `adt_mock_id` not accessible by name (`self.N`) | Pre-existing limitation |
+
 ### Compilation status
 - `cargo check -p anomura_driver` ✅ (warnings only)
 - `cargo check -p anomura_plugins` ✅ (clean)
