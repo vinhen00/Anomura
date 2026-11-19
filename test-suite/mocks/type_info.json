@@ -1,0 +1,2623 @@
+{
+  "crate_name": "fns",
+  "items": {
+    "items": [
+      {
+        "id": 0,
+        "name": "fns",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Module": {
+            "children": [
+              1,
+              2,
+              3,
+              4,
+              7,
+              8,
+              10,
+              12,
+              13,
+              14,
+              24,
+              27,
+              29,
+              30,
+              31,
+              33,
+              34,
+              35,
+              37,
+              38,
+              39,
+              43,
+              52,
+              65,
+              70,
+              78,
+              80,
+              82
+            ]
+          }
+        }
+      },
+      {
+        "id": 1,
+        "name": "ref_param",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [
+              {
+                "name": "x",
+                "ty": {
+                  "Path": {
+                    "first": "&u32",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Tuple": []
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 2,
+        "name": "cons_param",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [
+              {
+                "name": "x",
+                "ty": {
+                  "Path": {
+                    "first": "std::boxed::Box<u32>",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Tuple": []
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 3,
+        "name": "ConsSelfStruct",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Struct": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "kind": "Unit",
+            "fields": [],
+            "trackable": false,
+            "trait_impls": [
+              {
+                "trait_path": "Debug",
+                "is_auto": false,
+                "is_blanket": false,
+                "is_derived": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": 4,
+        "name": "foreign",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [],
+            "return_type": {
+              "Tuple": []
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 5,
+        "name": "pubfield",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Field": {
+            "ty": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "name": "privfield",
+        "visibility": "Private",
+        "attrs": [],
+        "kind": {
+          "Field": {
+            "ty": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "name": "MockStruct",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Struct": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "kind": "Plain",
+            "fields": [
+              5,
+              6
+            ],
+            "trackable": true,
+            "trait_impls": [
+              {
+                "trait_path": "Debug",
+                "is_auto": false,
+                "is_blanket": false,
+                "is_derived": false
+              },
+              {
+                "trait_path": "Default",
+                "is_auto": false,
+                "is_blanket": false,
+                "is_derived": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": 8,
+        "name": "ret_call_w_args",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [
+              {
+                "name": "x",
+                "ty": {
+                  "Path": {
+                    "first": "i16",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "i16",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 9,
+        "name": "x",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Field": {
+            "ty": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "name": "Foo",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Struct": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "kind": "Plain",
+            "fields": [
+              9
+            ],
+            "trackable": false,
+            "trait_impls": [
+              {
+                "trait_path": "StructuralPartialEq",
+                "is_auto": false,
+                "is_blanket": false,
+                "is_derived": false
+              },
+              {
+                "trait_path": "PartialEq",
+                "is_auto": false,
+                "is_blanket": false,
+                "is_derived": false
+              },
+              {
+                "trait_path": "Debug",
+                "is_auto": false,
+                "is_blanket": false,
+                "is_derived": false
+              },
+              {
+                "trait_path": "Default",
+                "is_auto": false,
+                "is_blanket": false,
+                "is_derived": false
+              },
+              {
+                "trait_path": "InternalBehavior",
+                "is_auto": false,
+                "is_blanket": false,
+                "is_derived": false
+              },
+              {
+                "trait_path": "Computable",
+                "is_auto": false,
+                "is_blanket": false,
+                "is_derived": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": 11,
+        "name": "value",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Field": {
+            "ty": {
+              "Path": {
+                "first": "std::string::String",
+                "rest": [],
+                "args": []
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 12,
+        "name": "NoDefaultStruct",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Struct": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "kind": "Plain",
+            "fields": [
+              11
+            ],
+            "trackable": false,
+            "trait_impls": [
+              {
+                "trait_path": "Debug",
+                "is_auto": false,
+                "is_blanket": false,
+                "is_derived": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": 13,
+        "name": "ret_param",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [
+              {
+                "name": "x",
+                "ty": {
+                  "Path": {
+                    "first": "&mut u32",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Tuple": []
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 14,
+        "name": "a",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Module": {
+            "children": [
+              15,
+              16
+            ]
+          }
+        }
+      },
+      {
+        "id": 15,
+        "name": "modules",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 16,
+        "name": "nested",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Module": {
+            "children": [
+              18,
+              19,
+              23
+            ]
+          }
+        }
+      },
+      {
+        "id": 17,
+        "name": "value",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Field": {
+            "ty": {
+              "Path": {
+                "first": "i32",
+                "rest": [],
+                "args": []
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 18,
+        "name": "Inner",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Struct": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "kind": "Plain",
+            "fields": [
+              17
+            ],
+            "trackable": false,
+            "trait_impls": []
+          }
+        }
+      },
+      {
+        "id": 19,
+        "name": "deep_fn",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "&'static str",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 20,
+        "name": "new",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "None",
+            "params": [
+              {
+                "name": "value",
+                "ty": {
+                  "Path": {
+                    "first": "i32",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "Inner",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 21,
+        "name": "double",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "i32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 22,
+        "name": "tripple",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "i32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 23,
+        "name": "impl_Inner",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "Inner",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "Inner",
+            "trait_ref": null,
+            "trait_name": null,
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              20,
+              21,
+              22
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 24,
+        "name": "return_panic",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [],
+            "return_type": {
+              "Tuple": []
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 25,
+        "name": "Okay",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Variant": {
+            "fields": []
+          }
+        }
+      },
+      {
+        "id": 26,
+        "name": "NotOkay",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Variant": {
+            "fields": []
+          }
+        }
+      },
+      {
+        "id": 27,
+        "name": "Pattern",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Enum": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "variants": [
+              25,
+              26
+            ],
+            "trait_impls": [
+              {
+                "trait_path": "Debug",
+                "is_auto": false,
+                "is_blanket": false,
+                "is_derived": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": 28,
+        "name": "0",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Field": {
+            "ty": {
+              "Path": {
+                "first": "std::boxed::Box<(dyn std::ops::Fn(u32) -> u32 + 'static)>",
+                "rest": [],
+                "args": []
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 29,
+        "name": "ClosureWrapper",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Struct": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "kind": "Tuple",
+            "fields": [
+              28
+            ],
+            "trackable": false,
+            "trait_impls": [
+              {
+                "trait_path": "Debug",
+                "is_auto": false,
+                "is_blanket": false,
+                "is_derived": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": 30,
+        "name": "closure_param",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [
+              {
+                "name": "f",
+                "ty": {
+                  "Path": {
+                    "first": "ClosureWrapper",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 31,
+        "name": "match_combination",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [
+              {
+                "name": "key",
+                "ty": {
+                  "Path": {
+                    "first": "i32",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Tuple": []
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 32,
+        "name": "compute",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 33,
+        "name": "Computable",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Trait": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "supertraits": [],
+            "methods": [
+              32
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 34,
+        "name": "macro_generated_add",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 35,
+        "name": "macro_generated_greeting",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "&'static str",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 36,
+        "name": "label",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Field": {
+            "ty": {
+              "Path": {
+                "first": "std::string::String",
+                "rest": [],
+                "args": []
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 37,
+        "name": "Describable",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Struct": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "kind": "Plain",
+            "fields": [
+              36
+            ],
+            "trackable": false,
+            "trait_impls": []
+          }
+        }
+      },
+      {
+        "id": 38,
+        "name": "magic_number",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 39,
+        "name": "magic_number_doubled",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Function": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false,
+            "abi": null
+          }
+        }
+      },
+      {
+        "id": 40,
+        "name": "fmt",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [
+              {
+                "name": "f",
+                "ty": {
+                  "Path": {
+                    "first": "&mut std::fmt::Formatter<'_>",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "std::result::Result<(), std::fmt::Error>",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 41,
+        "name": "impl_ConsSelfStruct",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "ConsSelfStruct",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "ConsSelfStruct",
+            "trait_ref": {
+              "Path": {
+                "first": "std::fmt::Debug",
+                "rest": [],
+                "args": []
+              }
+            },
+            "trait_name": "Debug",
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              40
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 42,
+        "name": "consume_self",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Owned",
+            "params": [],
+            "return_type": {
+              "Tuple": []
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 43,
+        "name": "impl_ConsSelfStruct",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "ConsSelfStruct",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "ConsSelfStruct",
+            "trait_ref": null,
+            "trait_name": null,
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              42
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 44,
+        "name": "fmt",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [
+              {
+                "name": "f",
+                "ty": {
+                  "Path": {
+                    "first": "&mut std::fmt::Formatter<'_>",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "std::result::Result<(), std::fmt::Error>",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 45,
+        "name": "impl_MockStruct",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "MockStruct",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "MockStruct",
+            "trait_ref": {
+              "Path": {
+                "first": "std::fmt::Debug",
+                "rest": [],
+                "args": []
+              }
+            },
+            "trait_name": "Debug",
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              44
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 46,
+        "name": "default",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "None",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "MockStruct",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 47,
+        "name": "impl_MockStruct",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "MockStruct",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "MockStruct",
+            "trait_ref": {
+              "Path": {
+                "first": "std::default::Default",
+                "rest": [],
+                "args": []
+              }
+            },
+            "trait_name": "Default",
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              46
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 48,
+        "name": "new",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "None",
+            "params": [
+              {
+                "name": "name",
+                "ty": {
+                  "Path": {
+                    "first": "u32",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "MockStruct",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 49,
+        "name": "foo",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "None",
+            "params": [],
+            "return_type": {
+              "Tuple": []
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 50,
+        "name": "get_value",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 51,
+        "name": "private_helper",
+        "visibility": "Private",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 52,
+        "name": "impl_MockStruct",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "MockStruct",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "MockStruct",
+            "trait_ref": null,
+            "trait_name": null,
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              48,
+              49,
+              50,
+              51
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 53,
+        "name": "impl_Foo",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "Foo",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "Foo",
+            "trait_ref": {
+              "Path": {
+                "first": "std::marker::StructuralPartialEq",
+                "rest": [],
+                "args": []
+              }
+            },
+            "trait_name": "StructuralPartialEq",
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 54,
+        "name": "eq",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [
+              {
+                "name": "other",
+                "ty": {
+                  "Path": {
+                    "first": "&Foo",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "bool",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 55,
+        "name": "impl_Foo",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "Foo",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "Foo",
+            "trait_ref": {
+              "Path": {
+                "first": "std",
+                "rest": [
+                  "cmp",
+                  "PartialEq"
+                ],
+                "args": [
+                  {
+                    "Type": {
+                      "Path": {
+                        "first": "Foo",
+                        "rest": [],
+                        "args": []
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "trait_name": "PartialEq",
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              54
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 56,
+        "name": "fmt",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [
+              {
+                "name": "f",
+                "ty": {
+                  "Path": {
+                    "first": "&mut std::fmt::Formatter<'_>",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "std::result::Result<(), std::fmt::Error>",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 57,
+        "name": "impl_Foo",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "Foo",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "Foo",
+            "trait_ref": {
+              "Path": {
+                "first": "std::fmt::Debug",
+                "rest": [],
+                "args": []
+              }
+            },
+            "trait_name": "Debug",
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              56
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 58,
+        "name": "default",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "None",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "Foo",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 59,
+        "name": "impl_Foo",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "Foo",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "Foo",
+            "trait_ref": {
+              "Path": {
+                "first": "std::default::Default",
+                "rest": [],
+                "args": []
+              }
+            },
+            "trait_name": "Default",
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              58
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 60,
+        "name": "ret_ref",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "&u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 61,
+        "name": "ret_mut_ref",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "RefMut",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "&mut u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 62,
+        "name": "ret_owned",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "None",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "Foo",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 63,
+        "name": "static_method",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "None",
+            "params": [],
+            "return_type": {
+              "Tuple": []
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 64,
+        "name": "fallback",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 65,
+        "name": "impl_Foo",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "Foo",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "Foo",
+            "trait_ref": null,
+            "trait_name": null,
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              60,
+              61,
+              62,
+              63,
+              64
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 66,
+        "name": "fmt",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [
+              {
+                "name": "f",
+                "ty": {
+                  "Path": {
+                    "first": "&mut std::fmt::Formatter<'_>",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "std::result::Result<(), std::fmt::Error>",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 67,
+        "name": "impl_NoDefaultStruct",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "NoDefaultStruct",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "NoDefaultStruct",
+            "trait_ref": {
+              "Path": {
+                "first": "std::fmt::Debug",
+                "rest": [],
+                "args": []
+              }
+            },
+            "trait_name": "Debug",
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              66
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 68,
+        "name": "new",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "None",
+            "params": [
+              {
+                "name": "value",
+                "ty": {
+                  "Path": {
+                    "first": "std::string::String",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "NoDefaultStruct",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 69,
+        "name": "get_value",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "&str",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 70,
+        "name": "impl_NoDefaultStruct",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "NoDefaultStruct",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "NoDefaultStruct",
+            "trait_ref": null,
+            "trait_name": null,
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              68,
+              69
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 71,
+        "name": "fmt",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [
+              {
+                "name": "f",
+                "ty": {
+                  "Path": {
+                    "first": "&mut std::fmt::Formatter<'_>",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "std::result::Result<(), std::fmt::Error>",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 72,
+        "name": "impl_Pattern",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "Pattern",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "Pattern",
+            "trait_ref": {
+              "Path": {
+                "first": "std::fmt::Debug",
+                "rest": [],
+                "args": []
+              }
+            },
+            "trait_name": "Debug",
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              71
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 73,
+        "name": "fmt",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                },
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [
+              {
+                "name": "f",
+                "ty": {
+                  "Path": {
+                    "first": "&mut std::fmt::Formatter<'_>",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "std::result::Result<(), std::fmt::Error>",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 74,
+        "name": "impl_ClosureWrapper",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "ClosureWrapper",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "ClosureWrapper",
+            "trait_ref": {
+              "Path": {
+                "first": "std::fmt::Debug",
+                "rest": [],
+                "args": []
+              }
+            },
+            "trait_name": "Debug",
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              73
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 75,
+        "name": "secret",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 76,
+        "name": "impl_Foo",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "Foo",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "Foo",
+            "trait_ref": {
+              "Path": {
+                "first": "InternalBehavior",
+                "rest": [],
+                "args": []
+              }
+            },
+            "trait_name": "InternalBehavior",
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              75
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 77,
+        "name": "compute",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "u32",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 78,
+        "name": "impl_Foo",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "Foo",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "Foo",
+            "trait_ref": {
+              "Path": {
+                "first": "Computable",
+                "rest": [],
+                "args": []
+              }
+            },
+            "trait_name": "Computable",
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              77
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 79,
+        "name": "describe",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [
+                {
+                  "name": "'_",
+                  "bounds": []
+                }
+              ],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "Ref",
+            "params": [],
+            "return_type": {
+              "Path": {
+                "first": "&'static str",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 80,
+        "name": "impl_Describable",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "Describable",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "Describable",
+            "trait_ref": null,
+            "trait_name": null,
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              79
+            ],
+            "associated_types": []
+          }
+        }
+      },
+      {
+        "id": 81,
+        "name": "new",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Method": {
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "receiver": "None",
+            "params": [
+              {
+                "name": "label",
+                "ty": {
+                  "Path": {
+                    "first": "std::string::String",
+                    "rest": [],
+                    "args": []
+                  }
+                }
+              }
+            ],
+            "return_type": {
+              "Path": {
+                "first": "Describable",
+                "rest": [],
+                "args": []
+              }
+            },
+            "is_async": false,
+            "is_unsafe": false
+          }
+        }
+      },
+      {
+        "id": 82,
+        "name": "impl_Describable",
+        "visibility": "Public",
+        "attrs": [],
+        "kind": {
+          "Impl": {
+            "self_type": {
+              "Path": {
+                "first": "Describable",
+                "rest": [],
+                "args": []
+              }
+            },
+            "self_type_name": "Describable",
+            "trait_ref": null,
+            "trait_name": null,
+            "generics": {
+              "lifetimes": [],
+              "type_params": [],
+              "const_params": [],
+              "where_clauses": []
+            },
+            "methods": [
+              81
+            ],
+            "associated_types": []
+          }
+        }
+      }
+    ]
+  },
+  "root": 0
+}

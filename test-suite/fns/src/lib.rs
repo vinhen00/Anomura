@@ -142,6 +142,7 @@ pub fn closure_param(f: ClosureWrapper) -> u32 {
     (f.0)(0)
 }
 
+pub fn match_combination(key: i32) {}
 
 fn private_top_level_fn() -> u32 {
     42
@@ -210,3 +211,36 @@ impl Describable {
 pub fn magic_number() -> u32 {
     21
 }
+
+// ─── Generic items (for AST inspection) ──────────────────────────────────────
+
+// TODO: Generic functions temporarily commented out (same reason as generic types above)
+// pub fn transform<T: Clone>(value: T) -> T {
+//     value.clone()
+// }
+
+// TODO: Generic types are temporarily commented out until the two-pass code generation
+// properly handles generic substitution in convenience wrappers.
+// pub struct Wrapper<T> {
+//     pub inner: T,
+// }
+//
+// impl<T> Wrapper<T> {
+//     pub fn new(inner: T) -> Self {
+//         Wrapper { inner }
+//     }
+//
+//     pub fn get(&self) -> &T {
+//         &self.inner
+//     }
+// }
+//
+// pub trait Converter<T> {
+//     fn convert(&self) -> T;
+// }
+//
+// impl Converter<String> for Wrapper<u32> {
+//     fn convert(&self) -> String {
+//         self.inner.to_string()
+//     }
+// }

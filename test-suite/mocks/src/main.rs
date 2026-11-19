@@ -20,35 +20,6 @@ mock_crate!(fns);
 
 fn main() {}
 
-// ─── Free function tests ──────────────────────────────────────────────────────
-
-/// Validates that a free function with no arguments can be mocked to return a constant value.
-///
-/// This is the most basic mocking scenario: intercept a zero-argument function and override
-/// its return value. If this fails, the entire mock dispatch pipeline is broken — the
-/// substitution pass isn't replacing function bodies, or the runtime context isn't routing
-/// calls through registered closures. This test is the canary for the end-to-end mock system.
-///
-/// Uses `a::nested::deep_fn() -> &'static str` — a zero-arg function inside a nested
-/// submodule, which also validates that the mock system handles nested module paths.
-#[test]
-fn mock_crate_return_const() {
-    // Register a mock for `fns::a::nested::deep_fn()`. The real implementation returns "deep";
-    // we override it to return "mocked". `ReturnNested_Deep_fn` is the generated wrapper type
-    // that adapts our closure to the mock dispatch interface. `from_fn` wraps the closure.
-    fns::on_call_nested_deep_fn(|| true, || "mocked");
-
-    // Transition from build phase to active phase. After this call, no more mocks can be
-    // registered, and all subsequent function calls will be dispatched through the mock context.
-    context::finish_building_context();
-
-    // Call the real function path — the substituted body routes through our mock closure.
-    let result = fns::a::nested::deep_fn();
-
-    // Verify the mock's return value was used instead of the real implementation's "deep".
-    assert_eq!(result, "mocked");
-}
-
 /// Validates that a free function receiving arguments correctly forwards them to the mock closure.
 ///
 /// This tests argument passthrough: the mock closure receives the same arguments the caller

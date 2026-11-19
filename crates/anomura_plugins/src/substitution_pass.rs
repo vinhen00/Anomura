@@ -80,11 +80,15 @@ impl RustcPlugin for SubstitutePlugin {
         args.iter()
             .for_each(|a| log::debug!("discover arg: {:?}", a));
 
-        //Hashset to skip duplicates
-        let crate_filters = self.crate_list.clone();
-        //only execute driver on crates containing mocks
+        // Merge mock_fn/mock_method targets with mock_crate targets so the
+        // custom driver runs for all crates that need substitution.
+        let mut crate_filters = self.crate_list.clone();
+        for target in &self.mock_crate_targets {
+            if !crate_filters.contains(target) {
+                crate_filters.push(target.clone());
+            }
+        }
         log::debug!("crate filters: {:?}", crate_filters);
-        log::debug!("here we are");
         let filter = CrateFilter::RunOnCrates(crate_filters);
         if let CrateFilter::RunOnCrates(filt) = &filter {
             log::debug!("{:#?}", filt);
@@ -150,11 +154,32 @@ impl RustcPlugin for SubstitutePlugin {
             crate::rustc_run(&compiler_args, &mut analysis);
             let model = analysis.into_model();
 
-            log::debug!("AnalysisPass complete — collected {} functions, {} structs, {} impls",
-                model.root.functions.len(),
-                model.root.structs.len(),
-                model.root.impls.len(),
-            );
+            let (structs, enums, functions, traits, impls) = model.count_by_kind();
+            log::debug!("AnalysisPass complete — collected {} functions, {} structs, {} enums, {} traits, {} impls, {} total items",
+                functions, structs, enums, traits, impls, model.items.len());
+
+            // Write the analysis model to JSON if TYPE_INFO_WRITE is set.
+            // Done before the generative pass so debug info is available even on failing builds.
+            if let Ok(path) = std::env::var("TYPE_INFO_WRITE") {
+                let resolved = if std::path::Path::new(&path).is_absolute() {
+                    std::path::PathBuf::from(&path)
+                } else {
+                    std::env::var("ANOMURA_CWD")
+                        .map(std::path::PathBuf::from)
+                        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default())
+                        .join(&path)
+                };
+                match serde_json::to_string_pretty(&model) {
+                    Ok(json) => {
+                        if let Err(e) = std::fs::write(&resolved, &json) {
+                            log::error!("TYPE_INFO_WRITE: failed to write to {}: {}", resolved.display(), e);
+                        } else {
+                            log::debug!("TYPE_INFO_WRITE: wrote analysis model to {}", resolved.display());
+                        }
+                    }
+                    Err(e) => log::error!("TYPE_INFO_WRITE: serialization failed: {}", e),
+                }
+            }
 
             // Pass 2: Substitution (generative, uses the model)
             log::debug!("Pass 2: CrateIntercept for {crate_name}");
@@ -218,6 +243,9 @@ impl RustcPlugin for SubstitutePlugin {
         }
         if let Ok(v) = std::env::var("AST_WRITE") {
             cargo.env("AST_WRITE", v);
+        }
+        if let Ok(v) = std::env::var("TYPE_INFO_WRITE") {
+            cargo.env("TYPE_INFO_WRITE", v);
         }
         // Propagate the user's working directory so the driver can resolve relative paths
         if let Ok(cwd) = std::env::current_dir() {

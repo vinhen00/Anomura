@@ -75,13 +75,10 @@ impl rustc_driver::Callbacks for CrateIntercept {
     ) -> Compilation {
         log::debug!("CrateIntercept: regenerating crate '{}' from analysis model", self.crate_name);
 
+        let (structs, enums, functions, traits, impls) = self.api.count_by_kind();
         log::debug!("CrateIntercept: API from AnalysisPass:");
-        log::debug!("  {} structs", self.api.root.structs.len());
-        log::debug!("  {} enums", self.api.root.enums.len());
-        log::debug!("  {} traits", self.api.root.traits.len());
-        log::debug!("  {} functions", self.api.root.functions.len());
-        log::debug!("  {} impls", self.api.root.impls.len());
-        log::debug!("  {} submodules", self.api.root.children.len());
+        log::debug!("  {} structs, {} enums, {} traits, {} functions, {} impls, {} total items",
+            structs, enums, traits, functions, impls, self.api.items.len());
 
         let dump_ast = std::env::var("DUMP_AST").is_ok();
         let ast_write = std::env::var("AST_WRITE").ok();
@@ -103,6 +100,19 @@ impl rustc_driver::Callbacks for CrateIntercept {
         // Step 2: Generate all items from the model (definitions + mock dispatch + convenience API)
         let source = crate_mock_gen::gen_crate_from_model(&self.api);
         if !source.is_empty() {
+            // Dump raw generated source before parsing (includes items that may fail to parse)
+            if let Some(ref base_path) = ast_write {
+                let raw_path = format!("{}.raw", base_path);
+                let resolved = if std::path::Path::new(&raw_path).is_absolute() {
+                    std::path::PathBuf::from(&raw_path)
+                } else {
+                    let base = std::env::var("ANOMURA_CWD")
+                        .map(std::path::PathBuf::from)
+                        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default());
+                    base.join(&raw_path)
+                };
+                let _ = std::fs::write(&resolved, &source);
+            }
             self.inject_source_items(compiler, krate, &source);
         }
 

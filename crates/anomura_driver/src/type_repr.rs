@@ -15,7 +15,7 @@
 ///
 /// Represents the different kinds of arguments that can appear inside `<...>` on a path:
 /// `Vec<u32>`, `HashMap<'a, String, Item = i32>`, etc.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum GenericArg {
     /// A positional type argument: `u32` in `Vec<u32>`
     Type(TypeRepr),
@@ -23,6 +23,8 @@ pub enum GenericArg {
     Lifetime(Lifetime),
     /// An associated type binding: `Item = u32` in `Iterator<Item = u32>`
     Binding(String, TypeRepr),
+    /// An associated type bound constraint: `Item: Display + Debug` in `Iterator<Item: Display + Debug>`
+    BoundConstraint(String, String),
     /// A const generic argument: `N` or `{expr}` in `Array<N>`
     Const(String),
 }
@@ -32,7 +34,8 @@ impl GenericArg {
         match self {
             GenericArg::Type(ty) => ty.to_source(),
             GenericArg::Lifetime(lt) => lt.to_source(),
-            GenericArg::Binding(name, ty) => format!("{} = {}", name, ty.to_source()),
+            GenericArg::Binding(name, ty) => format!("{name} = {}", ty.to_source()),
+            GenericArg::BoundConstraint(name, bounds) => format!("{name}: {bounds}"),
             GenericArg::Const(expr) => expr.clone(),
         }
     }
@@ -43,7 +46,7 @@ impl GenericArg {
 /// Every variant is structured such that [`to_source`](TypeRepr::to_source)
 /// always produces valid Rust syntax. Invalid states (empty paths, empty bounds,
 /// etc.) are unrepresentable by construction.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum TypeRepr {
     /// A named type path, e.g. `std::vec::Vec<T>`.
     ///
@@ -53,6 +56,9 @@ pub enum TypeRepr {
         first: String,
         rest: Vec<String>,
         args: Vec<GenericArg>,
+        /// If this path refers to a known item definition, its `ItemId`.
+        /// `None` for unresolved or external types not yet collected.
+        resolved: Option<crate::item_id::ItemId>,
     },
 
     /// A reference type: `&'a mut T`.
@@ -114,7 +120,7 @@ pub enum TypeRepr {
 
 /// A non-empty lifetime name (e.g., `"a"` for `'a`, `"static"` for `'static`).
 /// Stored without the leading `'`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Lifetime(String);
 
 impl Lifetime {
@@ -137,7 +143,7 @@ impl Lifetime {
 }
 
 /// A non-empty array length expression.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ArrayLength(String);
 
 impl ArrayLength {
@@ -154,7 +160,7 @@ impl ArrayLength {
 }
 
 /// A non-empty ABI string (e.g., `"C"`, `"system"`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Abi(String);
 
 impl Abi {
@@ -174,7 +180,7 @@ impl TypeRepr {
     /// Convert this type representation to valid Rust source code.
     pub fn to_source(&self) -> String {
         match self {
-            TypeRepr::Path { first, rest, args } => {
+            TypeRepr::Path { first, rest, args, .. } => {
                 let mut path = first.clone();
                 for seg in rest {
                     path.push_str("::");
@@ -297,6 +303,7 @@ impl TypeRepr {
             first: name.to_string(),
             rest: vec![],
             args: vec![],
+            resolved: None,
         }
     }
 
@@ -313,6 +320,7 @@ impl TypeRepr {
             first,
             rest: iter.collect(),
             args: generics.into_iter().map(GenericArg::Type).collect(),
+            resolved: None,
         }
     }
 
@@ -326,6 +334,7 @@ impl TypeRepr {
             first,
             rest: iter.collect(),
             args,
+            resolved: None,
         }
     }
 
@@ -345,11 +354,12 @@ impl TypeRepr {
 /// A raw generic argument used during AST collection, before full resolution.
 ///
 /// Unlike [`GenericArg`], this includes an `Inferred` variant for `_` arguments.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum RawGenericArg {
     Type(RawTypeRepr),
     Lifetime(Lifetime),
     Binding(String, RawTypeRepr),
+    BoundConstraint(String, String),
     Const(String),
     /// An inferred generic argument
     Inferred,
@@ -361,6 +371,7 @@ impl RawGenericArg {
             RawGenericArg::Type(ty) => Ok(GenericArg::Type(ty.resolve()?)),
             RawGenericArg::Lifetime(lt) => Ok(GenericArg::Lifetime(lt)),
             RawGenericArg::Binding(name, ty) => Ok(GenericArg::Binding(name, ty.resolve()?)),
+            RawGenericArg::BoundConstraint(name, bounds) => Ok(GenericArg::BoundConstraint(name, bounds)),
             RawGenericArg::Const(expr) => Ok(GenericArg::Const(expr)),
             RawGenericArg::Inferred => Err(UnresolvedTypeError {
                 message: "encountered inferred generic argument".to_string(),
@@ -374,7 +385,7 @@ impl RawGenericArg {
 /// Unlike [`TypeRepr`], this includes an `Inferred` variant for `_` types that
 /// haven't been resolved yet. Call [`resolve()`](RawTypeRepr::resolve) to convert
 /// to a [`TypeRepr`], which will fail if any `Inferred` types remain.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum RawTypeRepr {
     Path {
         first: String,
@@ -445,6 +456,7 @@ impl RawTypeRepr {
                     first,
                     rest,
                     args: resolved_args,
+                    resolved: None,
                 })
             }
             RawTypeRepr::Reference { lifetime, mutable, inner } => {
